@@ -23,7 +23,7 @@
     respawn="false" output="screen" />
 
   <!-- Load the controller parameters onto the parameter server -->
-  <rosparam file="$(find New Folder)/config/gazebo_controllers.yaml" />
+  <rosparam file="$(find spot_moveit_config)/config/gazebo_controllers.yaml" />
   <include file="$(dirname)/ros_controllers.launch"/>
 
   <!-- Spawn the Gazebo ROS controllers -->
