@@ -9,11 +9,13 @@ services:
 
       - NVIDIA_VISIBLE_DEVICES=all # Ensure that the container can access all NVIDIA devices
       - NVIDIA_DRIVER_CAPABILITIES=all # Enable all NVIDIA driver capabilities for container
-      - __NV_PRIME_RENDER_OFFLOAD=1 # Offload graphics applications to the NVIDIA GPU
-      - __GLX_VENDOR_LIBRARY_NAME=nvidia # Specify to use the NVIDIA driver for GLX graphics
+
+      # Modern Docker Compose or NVIDIA documentation doesn't really mention these three:
+      # - __NV_PRIME_RENDER_OFFLOAD=1 # Offload graphics applications to the NVIDIA GPU
+      # - __GLX_VENDOR_LIBRARY_NAME=nvidia # Specify to use the NVIDIA driver for GLX graphics
 
       # Run `drm-info` to view your machine's DRM device info
-      - DRI_NAME=card1 # Set the DRI (Direct Rendering Infrastructure) device to the GPU
+      #- DRI_NAME=card1 # Set the DRI (Direct Rendering Infrastructure) device to the GPU
     network_mode: host # Share the host's network
     devices:
       - "/dev/dri:/dev/dri"
