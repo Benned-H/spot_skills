@@ -121,7 +121,7 @@
         <axis xyz="0 1 0" />
         <parent link="front_left_upper_leg" />
         <child link="front_left_lower_leg" />
-        <limit effort="1000" lower="-2.7929" upper="-0.254801" velocity="1000.00" />
+        <limit effort="1000" lower="-2.79253" upper="-0.261799" velocity="1000.00" />
     </joint>
     <link name="front_right_hip">
         <visual>
@@ -193,7 +193,7 @@
         <axis xyz="0 1 0" />
         <parent link="front_right_upper_leg" />
         <child link="front_right_lower_leg" />
-        <limit effort="1000" lower="-2.7929" upper="-0.247563" velocity="1000.00" />
+        <limit effort="1000" lower="-2.79253" upper="-0.261799" velocity="1000.00" />
     </joint>
     <link name="rear_left_hip">
         <visual>
@@ -265,7 +265,7 @@
         <axis xyz="0 1 0" />
         <parent link="rear_left_upper_leg" />
         <child link="rear_left_lower_leg" />
-        <limit effort="1000" lower="-2.7929" upper="-0.267153" velocity="1000.00" />
+        <limit effort="1000" lower="-2.79253" upper="-0.261799" velocity="1000.00" />
     </joint>
     <link name="rear_right_hip">
         <visual>
@@ -337,7 +337,7 @@
         <axis xyz="0 1 0" />
         <parent link="rear_right_upper_leg" />
         <child link="rear_right_lower_leg" />
-        <limit effort="1000" lower="-2.7929" upper="-0.257725" velocity="1000.00" />
+        <limit effort="1000" lower="-2.79253" upper="-0.261799" velocity="1000.00" />
     </joint>
     <material name="silver">
         <color rgba="0.700 0.700 0.700 1.000" />
