@@ -13,20 +13,15 @@
         <chain base_link="base_arm_link" tip_link="gripper"/>
     </group>
     <group name="spot_body">
-        <joint name="base_link_joint"/>
         <joint name="front_left_hip_x"/>
         <joint name="front_left_hip_y"/>
         <joint name="front_left_knee"/>
-        <joint name="front_rail_joint"/>
         <joint name="front_right_hip_x"/>
         <joint name="front_right_hip_y"/>
         <joint name="front_right_knee"/>
-        <joint name="real_front_rail_joint"/>
-        <joint name="real_rear_rail_joint"/>
         <joint name="rear_left_hip_x"/>
         <joint name="rear_left_hip_y"/>
         <joint name="rear_left_knee"/>
-        <joint name="rear_rail_joint"/>
         <joint name="rear_right_hip_x"/>
         <joint name="rear_right_hip_y"/>
         <joint name="rear_right_knee"/>
@@ -36,18 +31,21 @@
     </group>
     <!--GROUP STATES: Purpose: Define a named state for a particular group, in terms of joint values. This is useful to define states like 'folded arms'-->
     <group_state name="default_standing" group="spot_body">
-        <joint name="front_left_hip_x" value="-0.093"/>
-        <joint name="front_left_hip_y" value="0.7717"/>
-        <joint name="front_left_knee" value="-1.7994"/>
+        <joint name="front_left_hip_x" value="0"/>
+        <joint name="front_left_hip_y" value="0.872665"/>
+        <joint name="front_left_knee" value="-1.44862"/>
+
         <joint name="front_right_hip_x" value="0"/>
-        <joint name="front_right_hip_y" value="0.6036"/>
-        <joint name="front_right_knee" value="-1.6877"/>
+        <joint name="front_right_hip_y" value="0.872665"/>
+        <joint name="front_right_knee" value="-1.44862"/>
+
         <joint name="rear_left_hip_x" value="0"/>
-        <joint name="rear_left_hip_y" value="0.6561"/>
-        <joint name="rear_left_knee" value="-1.6546"/>
+        <joint name="rear_left_hip_y" value="0.872665"/>
+        <joint name="rear_left_knee" value="-1.44862"/>
+
         <joint name="rear_right_hip_x" value="0"/>
-        <joint name="rear_right_hip_y" value="0.8452"/>
-        <joint name="rear_right_knee" value="-1.7505"/>
+        <joint name="rear_right_hip_y" value="0.872665"/>
+        <joint name="rear_right_knee" value="-1.44862"/>
     </group_state>
     <group_state name="arm_stowed" group="spot_arm">
         <joint name="arm_joint1" value="1.5878"/>
