@@ -1,15 +1,17 @@
 services:
 
-  # This service creates a container running Ubuntu 20.04 with ROS 1 Noetic installed
+  # This service creates a container running Ubuntu 20.04 with ROS 1 Noetic
   noetic-no-gpu:
     extends: # Extend a service providing the config needed to run GUIs from the container
       file: ./docker/gui-compose.yaml
       service: base-gui
-    # TODO: Modify the base image, somehow!
-    build: .
+    build:
+      context: .
+      args:
+        BASE_IMAGE: ubuntu:20.04 # Use a CUDA-less base image for the GPU-less service
   
   # This service adds NVIDIA GPU support to our Ubuntu 20.04 and ROS 1 Noetic setup
-  noetic-nvidia: # This NVIDIA GPU support
+  noetic-nvidia:
     extends: # Extend a service providing the config needed to run GUIs from the container
       file: ./docker/gui-compose.yaml
       service: base-gui
