@@ -3,7 +3,7 @@
 #   To find which CUDA toolkit versions your driver supports, see Table 2:
 #       https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
 #
-#   For reference, Benned's driver version (535.183.01) supports CUDA toolkit 12.2.2
+# For reference, Benned's driver version (535.183.01) supports CUDA toolkit 12.2.2
 ARG CUDA_VERSION=12.2.2
 
 # Enable overriding the base image for non-GPU machines (default uses GPU)

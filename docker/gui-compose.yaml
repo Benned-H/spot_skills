@@ -1,4 +1,5 @@
 services:
+
   # This base service defines the configuration needed to support GUIs from the container
   base-gui:
     environment:
