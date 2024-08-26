@@ -19,6 +19,11 @@ xhost +local:docker
 docker compose attach noetic-nvidia
 ```
 
+To enter the running container in another terminal, run the command:
+```bash
+docker compose exec noetic-nvidia bash
+```
+
 ### GPU-less Container
 
 The Docker Compose configuration for this repository also supports a container for machines without an NVIDIA GPU. To build and start the GPU-less container, run the command:
