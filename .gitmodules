@@ -1,3 +1,0 @@
-[submodule "src/spot_ros"]
-	path = src/spot_ros
-	url = git@github.com:heuristicus/spot_ros.git
