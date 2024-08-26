@@ -1,0 +1,7 @@
+set(spot_driver_SETUP_PY_SETUP_MODULE "setuptools")
+set(spot_driver_SETUP_PY_VERSION "1.1.0")
+set(spot_driver_SETUP_PY_SCRIPTS "scripts/spot_ros;test/ros_helpers_test.py;test/spot_ros_test.py")
+set(spot_driver_SETUP_PY_PACKAGES "spot_driver")
+set(spot_driver_SETUP_PY_PACKAGE_DIRS "src/spot_driver")
+set(spot_driver_SETUP_PY_MODULES "")
+set(spot_driver_SETUP_PY_MODULE_DIRS "")

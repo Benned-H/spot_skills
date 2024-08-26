@@ -1,0 +1,8 @@
+prefix=/spot_skills/install
+
+Name: spot_viz
+Description: Description of spot_viz
+Version: 1.1.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

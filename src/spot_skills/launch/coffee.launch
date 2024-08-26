@@ -1,0 +1,32 @@
+<!-- Load the URDF, SRDF, joint and Cartesian limits, and kinematic config for Spot -->
+<!-- Based on: https://github.com/moveit/panda_moveit_config/blob/noetic-devel/launch/planning_context.launch -->
+<launch>
+
+    <!-- Load Spot's URDF and SRDF (semantic description) into ROS parameters -->
+    <param name="robot_description" command="cat $(find spot_skills)/urdf/spot_with_arm.urdf"/>
+    <param name="robot_description_semantic" 
+
+    <!-- Load Spot's joint limits and Cartesian limits from YAML -->
+    <group ns=
+
+    <!-- Load Spot's kinematic configuration from YAML -->
+
+</launch>
+
+
+
+
+<launch>
+
+    <!-- Load updated joint limits (overrides URDF) -->
+    <group ns="robot_description_planning">
+        <rosparam command="load" file="$(find spot_moveit_config)/config/joint_limits.yaml" subst_value="true"/>
+        <rosparam command="load" file="$(find spot_moveit_config)/config/cartesian_limits.yaml" subst_value="true"/>
+    </group>
+
+    <!-- Load default kinematic settings for Spot -->
+    <group ns="robot_description_kinematics">
+        <rosparam command="load" file="$(find spot_moveit_config)/config/kinematics.yaml" subst_value="true"/>
+    </group>
+
+</launch>

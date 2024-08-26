@@ -1,0 +1,8 @@
+prefix=/spot_skills/install
+
+Name: spot_skills
+Description: Description of spot_skills
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

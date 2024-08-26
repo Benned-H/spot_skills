@@ -1,0 +1,6 @@
+devel_space: /spot_skills/devel
+install: false
+install_space: /spot_skills/install
+profile: default
+source_space: /spot_skills/src
+workspace: /spot_skills

@@ -1,0 +1,12 @@
+(cl:in-package spot_msgs-srv)
+(cl:export '(UPLOAD_PATH-VAL
+          UPLOAD_PATH
+          INITIAL_LOCALIZATION_FIDUCIAL-VAL
+          INITIAL_LOCALIZATION_FIDUCIAL
+          INITIAL_LOCALIZATION_WAYPOINT-VAL
+          INITIAL_LOCALIZATION_WAYPOINT
+          SUCCESS-VAL
+          SUCCESS
+          MESSAGE-VAL
+          MESSAGE
+))

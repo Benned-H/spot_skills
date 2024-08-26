@@ -1,0 +1,5 @@
+spot_ros/spot_description
+/spot_skills/devel/.private/spot_description/cmake.lock /spot_skills/devel/./cmake.lock
+/spot_skills/devel/.private/spot_description/share/spot_description/cmake/spot_descriptionConfig.cmake /spot_skills/devel/share/spot_description/cmake/spot_descriptionConfig.cmake
+/spot_skills/devel/.private/spot_description/share/spot_description/cmake/spot_descriptionConfig-version.cmake /spot_skills/devel/share/spot_description/cmake/spot_descriptionConfig-version.cmake
+/spot_skills/devel/.private/spot_description/lib/pkgconfig/spot_description.pc /spot_skills/devel/lib/pkgconfig/spot_description.pc

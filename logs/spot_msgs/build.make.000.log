@@ -1,0 +1,692 @@
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_Dock[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_DownloadGraph[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_DockState[0m
+[35m[1mScanning dependencies of target std_msgs_generate_messages_eus[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_PowerState[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_PoseBodyActionGoal[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_SetObstacleParams[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_MobilityParams[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_WiFiState[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_WorldObject[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateToGoal[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_LeaseOwner[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_PoseBodyAction[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_TrajectoryActionFeedback[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_SetVelocity[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateRouteResult[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_BehaviorFaultState[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_ImageProperties[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_Lease[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_DockAction[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_TrajectoryGoal[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_PoseBodyActionFeedback[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_DockResult[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateToFeedback[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_AprilTagProperties[0m
+[35m[1mScanning dependencies of target geometry_msgs_generate_messages_eus[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_TerrainState[0m
+[35m[1mScanning dependencies of target sensor_msgs_generate_messages_eus[0m
+[  0%] Built target std_msgs_generate_messages_eus
+[  0%] Built target geometry_msgs_generate_messages_eus
+[  0%] Built target sensor_msgs_generate_messages_eus
+[35m[1mScanning dependencies of target actionlib_msgs_generate_messages_eus[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_ArmJointMovement[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateRouteActionFeedback[0m
+[  0%] Built target actionlib_msgs_generate_messages_eus
+[  0%] Built target _spot_msgs_generate_messages_check_deps_DockState
+[  0%] Built target _spot_msgs_generate_messages_check_deps_DownloadGraph
+[  0%] Built target _spot_msgs_generate_messages_check_deps_PowerState
+[  0%] Built target _spot_msgs_generate_messages_check_deps_LeaseOwner
+[  0%] Built target _spot_msgs_generate_messages_check_deps_Dock
+[  0%] Built target _spot_msgs_generate_messages_check_deps_WiFiState
+[  0%] Built target _spot_msgs_generate_messages_check_deps_PoseBodyAction
+[  0%] Built target _spot_msgs_generate_messages_check_deps_TrajectoryGoal
+[  0%] Built target _spot_msgs_generate_messages_check_deps_AprilTagProperties
+[  0%] Built target _spot_msgs_generate_messages_check_deps_PoseBodyActionGoal
+[  0%] Built target _spot_msgs_generate_messages_check_deps_MobilityParams
+[  0%] Built target _spot_msgs_generate_messages_check_deps_DockAction
+[  0%] Built target _spot_msgs_generate_messages_check_deps_SetObstacleParams
+[  0%] Built target _spot_msgs_generate_messages_check_deps_DockResult
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateRouteResult
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_PoseBodyResult[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_Lease
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateToGoal
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_TrajectoryFeedback[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_WorldObject
+[  0%] Built target _spot_msgs_generate_messages_check_deps_TrajectoryActionFeedback
+[  0%] Built target _spot_msgs_generate_messages_check_deps_BehaviorFaultState
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_FootStateArray[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_TerrainState
+[  0%] Built target _spot_msgs_generate_messages_check_deps_ImageProperties
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateToFeedback
+[  0%] Built target _spot_msgs_generate_messages_check_deps_SetVelocity
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_WorldObjectArray[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateToResult[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_PoseBodyActionFeedback
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_SpotCheckHipROM[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_Feedback[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_SetTerrainParams[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_FootState[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_LeaseArray[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_SystemFault[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_GetDockState[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_LeaseResource[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_BatteryState[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_GraphCloseLoops[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateRouteAction[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_SpotCheckPayload[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_BatteryStateArray[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_ObstacleParams[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_SystemFaultState[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_SpotCheckKinematic[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_SpotCheckLoadCell[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_TrajectoryActionResult[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_SpotCheckDepth[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_TrajectoryAction[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_ParentEdge[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_ArmJointMovement
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateRouteActionFeedback
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateToActionFeedback[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_ImageCapture[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_WorldObjectArray
+[  0%] Built target _spot_msgs_generate_messages_check_deps_PoseBodyResult
+[  0%] Built target _spot_msgs_generate_messages_check_deps_TrajectoryFeedback
+[  0%] Built target _spot_msgs_generate_messages_check_deps_SpotCheckHipROM
+[  0%] Built target _spot_msgs_generate_messages_check_deps_LeaseResource
+[  0%] Built target _spot_msgs_generate_messages_check_deps_ObstacleParams
+[  0%] Built target _spot_msgs_generate_messages_check_deps_FootStateArray
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_ImageSource[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_FootState
+[  0%] Built target _spot_msgs_generate_messages_check_deps_Feedback
+[  0%] Built target _spot_msgs_generate_messages_check_deps_SpotCheckPayload
+[  0%] Built target _spot_msgs_generate_messages_check_deps_BatteryState
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateToResult
+[  0%] Built target _spot_msgs_generate_messages_check_deps_SetTerrainParams
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_DockActionGoal[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateRouteAction
+[  0%] Built target _spot_msgs_generate_messages_check_deps_SystemFault
+[  0%] Built target _spot_msgs_generate_messages_check_deps_SystemFaultState
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateToActionResult[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_LeaseArray
+[  0%] Built target _spot_msgs_generate_messages_check_deps_GetDockState
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_DockActionFeedback[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_SetSwingHeight[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_GraphCloseLoops
+[  0%] Built target _spot_msgs_generate_messages_check_deps_SpotCheckKinematic
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_DockGoal[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_SpotCheckDepth
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_ClearBehaviorFault[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_BatteryStateArray
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateRouteActionGoal[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_HandPose[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateToAction[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_DockActionResult[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateToActionGoal[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateRouteActionResult[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_SetLocomotion[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateRouteFeedback[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_DockFeedback[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_ParentEdge
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_PoseBodyActionResult[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_Metrics[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_PoseBodyGoal[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateRouteGoal[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_SpotCheckLoadCell
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_PoseBodyFeedback[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_TrajectoryAction
+[  0%] Built target _spot_msgs_generate_messages_check_deps_TrajectoryActionResult
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_TrajectoryActionGoal[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_ListGraph[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_ImageCapture
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_FrameTreeSnapshot[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_GripperAngleMove[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_ConstrainedArmJointMovement[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateToActionFeedback
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_NavigateInit[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_SpotCheck[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_ImageSource
+[  0%] Built target _spot_msgs_generate_messages_check_deps_DockActionGoal
+[  0%] Built target _spot_msgs_generate_messages_check_deps_SetSwingHeight
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateToActionResult
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateRouteActionResult
+[  0%] Built target _spot_msgs_generate_messages_check_deps_DockGoal
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_PosedStand[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_DockActionFeedback
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateRouteActionGoal
+[  0%] Built target _spot_msgs_generate_messages_check_deps_DockFeedback
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_ArmForceTrajectory[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_ClearBehaviorFault
+[  0%] Built target _spot_msgs_generate_messages_check_deps_PoseBodyFeedback
+[  0%] Built target _spot_msgs_generate_messages_check_deps_HandPose
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_Grasp3d[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateRouteGoal
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_EStopState[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateToAction
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_BehaviorFault[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateRouteFeedback
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateToActionGoal
+[  0%] Built target _spot_msgs_generate_messages_check_deps_DockActionResult
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_TrajectoryResult[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_ListGraph
+[35m[1mScanning dependencies of target sensor_msgs_generate_messages_py[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_FrameTreeSnapshot
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_EStopStateArray[0m
+[35m[1mScanning dependencies of target _spot_msgs_generate_messages_check_deps_TerrainParams[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_GripperAngleMove
+[35m[1mScanning dependencies of target actionlib_msgs_generate_messages_cpp[0m
+[35m[1mScanning dependencies of target std_msgs_generate_messages_py[0m
+[35m[1mScanning dependencies of target geometry_msgs_generate_messages_py[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_SetLocomotion
+[35m[1mScanning dependencies of target actionlib_msgs_generate_messages_py[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_ConstrainedArmJointMovement
+[  0%] Built target _spot_msgs_generate_messages_check_deps_Metrics
+[35m[1mScanning dependencies of target geometry_msgs_generate_messages_cpp[0m
+[35m[1mScanning dependencies of target std_msgs_generate_messages_cpp[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_PoseBodyActionResult
+[35m[1mScanning dependencies of target sensor_msgs_generate_messages_cpp[0m
+[35m[1mScanning dependencies of target actionlib_msgs_generate_messages_nodejs[0m
+[35m[1mScanning dependencies of target geometry_msgs_generate_messages_nodejs[0m
+[  0%] Built target sensor_msgs_generate_messages_py
+[  0%] Built target _spot_msgs_generate_messages_check_deps_TrajectoryActionGoal
+[35m[1mScanning dependencies of target std_msgs_generate_messages_lisp[0m
+[35m[1mScanning dependencies of target std_msgs_generate_messages_nodejs[0m
+[  0%] Built target actionlib_msgs_generate_messages_cpp
+[  0%] Built target _spot_msgs_generate_messages_check_deps_PoseBodyGoal
+[35m[1mScanning dependencies of target sensor_msgs_generate_messages_nodejs[0m
+[  0%] Built target _spot_msgs_generate_messages_check_deps_NavigateInit
+[  0%] Built target std_msgs_generate_messages_py
+[  0%] Built target geometry_msgs_generate_messages_py
+[  0%] Built target actionlib_msgs_generate_messages_py
+[35m[1mScanning dependencies of target actionlib_msgs_generate_messages_lisp[0m
+[  0%] Built target geometry_msgs_generate_messages_cpp
+[  0%] Built target std_msgs_generate_messages_cpp
+[35m[1mScanning dependencies of target geometry_msgs_generate_messages_lisp[0m
+[  0%] Built target actionlib_msgs_generate_messages_nodejs
+[  0%] Built target _spot_msgs_generate_messages_check_deps_SpotCheck
+[35m[1mScanning dependencies of target sensor_msgs_generate_messages_lisp[0m
+[  0%] Built target sensor_msgs_generate_messages_cpp
+[  0%] Built target geometry_msgs_generate_messages_nodejs
+[  0%] Built target std_msgs_generate_messages_nodejs
+[  0%] Built target sensor_msgs_generate_messages_nodejs
+[  0%] Built target actionlib_msgs_generate_messages_lisp
+[  0%] Built target std_msgs_generate_messages_lisp
+[  0%] Built target geometry_msgs_generate_messages_lisp
+[  0%] Built target sensor_msgs_generate_messages_lisp
+[  0%] Built target _spot_msgs_generate_messages_check_deps_PosedStand
+[  0%] Built target _spot_msgs_generate_messages_check_deps_ArmForceTrajectory
+[  0%] Built target _spot_msgs_generate_messages_check_deps_EStopState
+[  0%] Built target _spot_msgs_generate_messages_check_deps_BehaviorFault
+[  0%] Built target _spot_msgs_generate_messages_check_deps_TerrainParams
+[  0%] Built target _spot_msgs_generate_messages_check_deps_EStopStateArray
+[  0%] Built target _spot_msgs_generate_messages_check_deps_Grasp3d
+[  0%] Built target _spot_msgs_generate_messages_check_deps_TrajectoryResult
+[35m[1mScanning dependencies of target spot_msgs_generate_messages_nodejs[0m
+[35m[1mScanning dependencies of target spot_msgs_generate_messages_eus[0m
+[35m[1mScanning dependencies of target spot_msgs_generate_messages_py[0m
+[35m[1mScanning dependencies of target spot_msgs_generate_messages_cpp[0m
+[35m[1mScanning dependencies of target spot_msgs_generate_messages_lisp[0m
+[  0%] [34m[1mGenerating Javascript code from spot_msgs/FootStateArray.msg[0m
+[  1%] [34m[1mGenerating Javascript code from spot_msgs/Metrics.msg[0m
+[  1%] [34m[1mGenerating EusLisp code from spot_msgs/EStopStateArray.msg[0m
+[  1%] [34m[1mGenerating EusLisp code from spot_msgs/BatteryStateArray.msg[0m
+[  1%] [34m[1mGenerating C++ code from spot_msgs/FootStateArray.msg[0m
+[  1%] [34m[1mGenerating EusLisp code from spot_msgs/LeaseOwner.msg[0m
+[  1%] [34m[1mGenerating Javascript code from spot_msgs/MobilityParams.msg[0m
+[  1%] [34m[1mGenerating Javascript code from spot_msgs/SystemFault.msg[0m
+[  1%] [34m[1mGenerating Javascript code from spot_msgs/BatteryStateArray.msg[0m
+[  1%] [34m[1mGenerating Javascript code from spot_msgs/BatteryState.msg[0m
+[  1%] [34m[1mGenerating Javascript code from spot_msgs/BehaviorFault.msg[0m
+[  3%] [34m[1mGenerating Javascript code from spot_msgs/EStopStateArray.msg[0m
+[  1%] [34m[1mGenerating Javascript code from spot_msgs/LeaseArray.msg[0m
+[  3%] [34m[1mGenerating C++ code from spot_msgs/BehaviorFault.msg[0m
+[  3%] [34m[1mGenerating C++ code from spot_msgs/LeaseArray.msg[0m
+[  3%] [34m[1mGenerating EusLisp code from spot_msgs/BehaviorFault.msg[0m
+[  3%] [34m[1mGenerating Javascript code from spot_msgs/LeaseOwner.msg[0m
+[  3%] [34m[1mGenerating Javascript code from spot_msgs/WiFiState.msg[0m
+[  4%] [34m[1mGenerating EusLisp code from spot_msgs/FootStateArray.msg[0m
+[  4%] [34m[1mGenerating C++ code from spot_msgs/BatteryStateArray.msg[0m
+[  5%] [34m[1mGenerating Javascript code from spot_msgs/BehaviorFaultState.msg[0m
+[  5%] [34m[1mGenerating EusLisp code from spot_msgs/Metrics.msg[0m
+[  5%] [34m[1mGenerating EusLisp code from spot_msgs/LeaseArray.msg[0m
+[  5%] [34m[1mGenerating C++ code from spot_msgs/EStopStateArray.msg[0m
+[  6%] [34m[1mGenerating EusLisp code from spot_msgs/SystemFault.msg[0m
+[  6%] [34m[1mGenerating Python from MSG spot_msgs/BatteryStateArray[0m
+[  7%] [34m[1mGenerating Lisp code from spot_msgs/BatteryStateArray.msg[0m
+[  7%] [34m[1mGenerating EusLisp code from spot_msgs/MobilityParams.msg[0m
+[  7%] [34m[1mGenerating Lisp code from spot_msgs/BehaviorFault.msg[0m
+[  7%] [34m[1mGenerating EusLisp code from spot_msgs/WiFiState.msg[0m
+[  7%] [34m[1mGenerating EusLisp code from spot_msgs/BatteryState.msg[0m
+[  7%] [34m[1mGenerating EusLisp code from spot_msgs/BehaviorFaultState.msg[0m
+[  7%] [34m[1mGenerating Python from MSG spot_msgs/EStopStateArray[0m
+[  7%] [34m[1mGenerating Python from MSG spot_msgs/BehaviorFault[0m
+[  7%] [34m[1mGenerating Lisp code from spot_msgs/EStopStateArray.msg[0m
+[  7%] [34m[1mGenerating Javascript code from spot_msgs/EStopState.msg[0m
+[  7%] [34m[1mGenerating Lisp code from spot_msgs/FootStateArray.msg[0m
+[  7%] [34m[1mGenerating EusLisp code from spot_msgs/Feedback.msg[0m
+[  8%] [34m[1mGenerating EusLisp code from spot_msgs/FootState.msg[0m
+[  8%] [34m[1mGenerating EusLisp code from spot_msgs/EStopState.msg[0m
+[  8%] [34m[1mGenerating Javascript code from spot_msgs/Feedback.msg[0m
+[  9%] [34m[1mGenerating Lisp code from spot_msgs/LeaseArray.msg[0m
+[  9%] [34m[1mGenerating Javascript code from spot_msgs/FootState.msg[0m
+[  9%] [34m[1mGenerating Lisp code from spot_msgs/LeaseOwner.msg[0m
+[ 10%] [34m[1mGenerating Lisp code from spot_msgs/Metrics.msg[0m
+[ 10%] [34m[1mGenerating C++ code from spot_msgs/LeaseOwner.msg[0m
+[ 10%] [34m[1mGenerating Python from MSG spot_msgs/FootStateArray[0m
+[ 10%] [34m[1mGenerating C++ code from spot_msgs/Metrics.msg[0m
+[ 11%] [34m[1mGenerating Javascript code from spot_msgs/LeaseResource.msg[0m
+[ 11%] [34m[1mGenerating Javascript code from spot_msgs/Lease.msg[0m
+[ 11%] [34m[1mGenerating C++ code from spot_msgs/MobilityParams.msg[0m
+[ 11%] [34m[1mGenerating Javascript code from spot_msgs/PowerState.msg[0m
+[ 11%] [34m[1mGenerating Javascript code from spot_msgs/SystemFaultState.msg[0m
+[ 11%] [34m[1mGenerating C++ code from spot_msgs/SystemFault.msg[0m
+[ 11%] [34m[1mGenerating C++ code from spot_msgs/WiFiState.msg[0m
+[ 11%] [34m[1mGenerating EusLisp code from spot_msgs/Lease.msg[0m
+[ 11%] [34m[1mGenerating EusLisp code from spot_msgs/LeaseResource.msg[0m
+[ 11%] [34m[1mGenerating Javascript code from spot_msgs/DockState.msg[0m
+[ 12%] [34m[1mGenerating Python from MSG spot_msgs/LeaseArray[0m
+[ 13%] [34m[1mGenerating Python from MSG spot_msgs/LeaseOwner[0m
+[ 13%] [34m[1mGenerating C++ code from spot_msgs/BatteryState.msg[0m
+[ 13%] [34m[1mGenerating C++ code from spot_msgs/BehaviorFaultState.msg[0m
+[ 13%] [34m[1mGenerating Python from MSG spot_msgs/Metrics[0m
+[ 13%] [34m[1mGenerating C++ code from spot_msgs/EStopState.msg[0m
+[ 13%] [34m[1mGenerating Lisp code from spot_msgs/MobilityParams.msg[0m
+[ 14%] [34m[1mGenerating Javascript code from spot_msgs/ObstacleParams.msg[0m
+[ 14%] [34m[1mGenerating C++ code from spot_msgs/Feedback.msg[0m
+[ 14%] [34m[1mGenerating C++ code from spot_msgs/FootState.msg[0m
+[ 14%] [34m[1mGenerating Javascript code from spot_msgs/TerrainState.msg[0m
+[ 14%] [34m[1mGenerating Python from MSG spot_msgs/MobilityParams[0m
+[ 14%] [34m[1mGenerating Javascript code from spot_msgs/TerrainParams.msg[0m
+[ 15%] [34m[1mGenerating C++ code from spot_msgs/Lease.msg[0m
+[ 15%] [34m[1mGenerating C++ code from spot_msgs/SystemFaultState.msg[0m
+[ 15%] [34m[1mGenerating C++ code from spot_msgs/LeaseResource.msg[0m
+[ 15%] [34m[1mGenerating C++ code from spot_msgs/PowerState.msg[0m
+[ 16%] [34m[1mGenerating C++ code from spot_msgs/DockState.msg[0m
+[ 16%] [34m[1mGenerating Python from MSG spot_msgs/SystemFault[0m
+[ 17%] [34m[1mGenerating Python from MSG spot_msgs/WiFiState[0m
+[ 17%] [34m[1mGenerating Lisp code from spot_msgs/SystemFault.msg[0m
+[ 18%] [34m[1mGenerating EusLisp code from spot_msgs/PowerState.msg[0m
+[ 18%] [34m[1mGenerating C++ code from spot_msgs/ObstacleParams.msg[0m
+[ 18%] [34m[1mGenerating Javascript code from spot_msgs/SpotCheckDepth.msg[0m
+[ 18%] [34m[1mGenerating EusLisp code from spot_msgs/SystemFaultState.msg[0m
+[ 18%] [34m[1mGenerating EusLisp code from spot_msgs/DockState.msg[0m
+[ 18%] [34m[1mGenerating Python from MSG spot_msgs/BatteryState[0m
+[ 18%] [34m[1mGenerating Javascript code from spot_msgs/SpotCheckHipROM.msg[0m
+[ 19%] [34m[1mGenerating Lisp code from spot_msgs/WiFiState.msg[0m
+[ 19%] [34m[1mGenerating EusLisp code from spot_msgs/ObstacleParams.msg[0m
+[ 19%] [34m[1mGenerating Lisp code from spot_msgs/BatteryState.msg[0m
+[ 20%] [34m[1mGenerating Javascript code from spot_msgs/SpotCheckKinematic.msg[0m
+[ 20%] [34m[1mGenerating EusLisp code from spot_msgs/TerrainParams.msg[0m
+[ 20%] [34m[1mGenerating Lisp code from spot_msgs/BehaviorFaultState.msg[0m
+[ 20%] [34m[1mGenerating Python from MSG spot_msgs/BehaviorFaultState[0m
+[ 21%] [34m[1mGenerating EusLisp code from spot_msgs/TerrainState.msg[0m
+[ 21%] [34m[1mGenerating Lisp code from spot_msgs/EStopState.msg[0m
+[ 21%] [34m[1mGenerating C++ code from spot_msgs/TerrainParams.msg[0m
+[ 21%] [34m[1mGenerating Lisp code from spot_msgs/Feedback.msg[0m
+[ 22%] [34m[1mGenerating Lisp code from spot_msgs/FootState.msg[0m
+[ 22%] [34m[1mGenerating EusLisp code from spot_msgs/SpotCheckDepth.msg[0m
+[ 22%] [34m[1mGenerating C++ code from spot_msgs/TerrainState.msg[0m
+[ 22%] [34m[1mGenerating EusLisp code from spot_msgs/SpotCheckHipROM.msg[0m
+[ 22%] [34m[1mGenerating C++ code from spot_msgs/SpotCheckDepth.msg[0m
+[ 22%] [34m[1mGenerating Javascript code from spot_msgs/SpotCheckLoadCell.msg[0m
+[ 22%] [34m[1mGenerating EusLisp code from spot_msgs/SpotCheckKinematic.msg[0m
+[ 22%] [34m[1mGenerating Javascript code from spot_msgs/SpotCheckPayload.msg[0m
+[ 22%] [34m[1mGenerating Javascript code from spot_msgs/AprilTagProperties.msg[0m
+[ 22%] [34m[1mGenerating Lisp code from spot_msgs/Lease.msg[0m
+[ 22%] [34m[1mGenerating Javascript code from spot_msgs/FrameTreeSnapshot.msg[0m
+[ 22%] [34m[1mGenerating Lisp code from spot_msgs/LeaseResource.msg[0m
+[ 23%] [34m[1mGenerating Javascript code from spot_msgs/ParentEdge.msg[0m
+[ 24%] [34m[1mGenerating Python from MSG spot_msgs/EStopState[0m
+[ 24%] [34m[1mGenerating C++ code from spot_msgs/SpotCheckHipROM.msg[0m
+[ 23%] [34m[1mGenerating Lisp code from spot_msgs/PowerState.msg[0m
+[ 24%] [34m[1mGenerating C++ code from spot_msgs/SpotCheckKinematic.msg[0m
+[ 25%] [34m[1mGenerating Python from MSG spot_msgs/Feedback[0m
+[ 25%] [34m[1mGenerating Python from MSG spot_msgs/FootState[0m
+[ 25%] [34m[1mGenerating C++ code from spot_msgs/SpotCheckLoadCell.msg[0m
+[ 26%] [34m[1mGenerating EusLisp code from spot_msgs/SpotCheckLoadCell.msg[0m
+[ 26%] [34m[1mGenerating Python from MSG spot_msgs/Lease[0m
+[ 26%] [34m[1mGenerating Javascript code from spot_msgs/ImageCapture.msg[0m
+[ 26%] [34m[1mGenerating C++ code from spot_msgs/SpotCheckPayload.msg[0m
+[ 26%] [34m[1mGenerating Javascript code from spot_msgs/ImageProperties.msg[0m
+[ 27%] [34m[1mGenerating Lisp code from spot_msgs/SystemFaultState.msg[0m
+[ 27%] [34m[1mGenerating Lisp code from spot_msgs/DockState.msg[0m
+[ 27%] [34m[1mGenerating Lisp code from spot_msgs/ObstacleParams.msg[0m
+[ 27%] [34m[1mGenerating EusLisp code from spot_msgs/SpotCheckPayload.msg[0m
+[ 27%] [34m[1mGenerating Python from MSG spot_msgs/LeaseResource[0m
+[ 27%] [34m[1mGenerating Python from MSG spot_msgs/PowerState[0m
+[ 28%] [34m[1mGenerating Python from MSG spot_msgs/SystemFaultState[0m
+[ 28%] [34m[1mGenerating EusLisp code from spot_msgs/AprilTagProperties.msg[0m
+[ 28%] [34m[1mGenerating C++ code from spot_msgs/AprilTagProperties.msg[0m
+[ 28%] [34m[1mGenerating Javascript code from spot_msgs/ImageSource.msg[0m
+[ 29%] [34m[1mGenerating C++ code from spot_msgs/FrameTreeSnapshot.msg[0m
+[ 29%] [34m[1mGenerating Python from MSG spot_msgs/DockState[0m
+[ 29%] [34m[1mGenerating Lisp code from spot_msgs/TerrainParams.msg[0m
+[ 29%] [34m[1mGenerating Python from MSG spot_msgs/ObstacleParams[0m
+[ 29%] [34m[1mGenerating Lisp code from spot_msgs/TerrainState.msg[0m
+[ 30%] [34m[1mGenerating Lisp code from spot_msgs/SpotCheckDepth.msg[0m
+[ 30%] [34m[1mGenerating C++ code from spot_msgs/ParentEdge.msg[0m
+[ 30%] [34m[1mGenerating Python from MSG spot_msgs/TerrainParams[0m
+[ 30%] [34m[1mGenerating EusLisp code from spot_msgs/FrameTreeSnapshot.msg[0m
+[ 30%] [34m[1mGenerating EusLisp code from spot_msgs/ParentEdge.msg[0m
+[ 30%] [34m[1mGenerating Python from MSG spot_msgs/TerrainState[0m
+[ 31%] [34m[1mGenerating Python from MSG spot_msgs/SpotCheckDepth[0m
+[ 32%] [34m[1mGenerating Javascript code from spot_msgs/WorldObject.msg[0m
+[ 32%] [34m[1mGenerating Python from MSG spot_msgs/SpotCheckHipROM[0m
+[ 32%] [34m[1mGenerating Javascript code from spot_msgs/WorldObjectArray.msg[0m
+[ 32%] [34m[1mGenerating Javascript code from spot_msgs/DockAction.msg[0m
+[ 32%] [34m[1mGenerating Python from MSG spot_msgs/SpotCheckLoadCell[0m
+[ 32%] [34m[1mGenerating Python from MSG spot_msgs/SpotCheckKinematic[0m
+[ 32%] [34m[1mGenerating Javascript code from spot_msgs/DockActionGoal.msg[0m
+[ 33%] [34m[1mGenerating Python from MSG spot_msgs/SpotCheckPayload[0m
+[ 33%] [34m[1mGenerating C++ code from spot_msgs/ImageCapture.msg[0m
+[ 33%] [34m[1mGenerating Javascript code from spot_msgs/DockActionResult.msg[0m
+[ 34%] [34m[1mGenerating Javascript code from spot_msgs/DockActionFeedback.msg[0m
+[ 34%] [34m[1mGenerating Lisp code from spot_msgs/SpotCheckHipROM.msg[0m
+[ 35%] [34m[1mGenerating Python from MSG spot_msgs/AprilTagProperties[0m
+[ 35%] [34m[1mGenerating EusLisp code from spot_msgs/ImageCapture.msg[0m
+[ 35%] [34m[1mGenerating Python from MSG spot_msgs/FrameTreeSnapshot[0m
+[ 35%] [34m[1mGenerating C++ code from spot_msgs/ImageProperties.msg[0m
+[ 35%] [34m[1mGenerating Python from MSG spot_msgs/ParentEdge[0m
+[ 35%] [34m[1mGenerating Lisp code from spot_msgs/SpotCheckKinematic.msg[0m
+[ 35%] [34m[1mGenerating Python from MSG spot_msgs/ImageCapture[0m
+[ 35%] [34m[1mGenerating Javascript code from spot_msgs/DockGoal.msg[0m
+[ 36%] [34m[1mGenerating C++ code from spot_msgs/ImageSource.msg[0m
+[ 36%] [34m[1mGenerating Javascript code from spot_msgs/DockResult.msg[0m
+[ 36%] [34m[1mGenerating C++ code from spot_msgs/WorldObject.msg[0m
+[ 36%] [34m[1mGenerating Python from MSG spot_msgs/ImageSource[0m
+[ 36%] [34m[1mGenerating C++ code from spot_msgs/WorldObjectArray.msg[0m
+[ 37%] [34m[1mGenerating Python from MSG spot_msgs/ImageProperties[0m
+[ 37%] [34m[1mGenerating Javascript code from spot_msgs/NavigateToAction.msg[0m
+[ 37%] [34m[1mGenerating Javascript code from spot_msgs/DockFeedback.msg[0m
+[ 38%] [34m[1mGenerating Javascript code from spot_msgs/NavigateToActionGoal.msg[0m
+[ 38%] [34m[1mGenerating EusLisp code from spot_msgs/ImageProperties.msg[0m
+[ 38%] [34m[1mGenerating C++ code from spot_msgs/DockAction.msg[0m
+[ 38%] [34m[1mGenerating Python from MSG spot_msgs/WorldObject[0m
+[ 38%] [34m[1mGenerating Lisp code from spot_msgs/SpotCheckLoadCell.msg[0m
+[ 38%] [34m[1mGenerating Lisp code from spot_msgs/SpotCheckPayload.msg[0m
+[ 38%] [34m[1mGenerating Lisp code from spot_msgs/FrameTreeSnapshot.msg[0m
+[ 39%] [34m[1mGenerating Lisp code from spot_msgs/AprilTagProperties.msg[0m
+[ 39%] [34m[1mGenerating Lisp code from spot_msgs/ParentEdge.msg[0m
+[ 39%] [34m[1mGenerating EusLisp code from spot_msgs/ImageSource.msg[0m
+[ 39%] [34m[1mGenerating C++ code from spot_msgs/DockActionGoal.msg[0m
+[ 39%] [34m[1mGenerating Python from MSG spot_msgs/WorldObjectArray[0m
+[ 39%] [34m[1mGenerating Javascript code from spot_msgs/NavigateToActionResult.msg[0m
+[ 39%] [34m[1mGenerating Lisp code from spot_msgs/ImageCapture.msg[0m
+[ 39%] [34m[1mGenerating Python from MSG spot_msgs/DockAction[0m
+[ 40%] [34m[1mGenerating Python from MSG spot_msgs/DockActionGoal[0m
+[ 41%] [34m[1mGenerating C++ code from spot_msgs/DockActionResult.msg[0m
+[ 41%] [34m[1mGenerating C++ code from spot_msgs/DockActionFeedback.msg[0m
+[ 41%] [34m[1mGenerating Javascript code from spot_msgs/NavigateToActionFeedback.msg[0m
+[ 41%] [34m[1mGenerating Python from MSG spot_msgs/DockActionResult[0m
+[ 41%] [34m[1mGenerating C++ code from spot_msgs/DockGoal.msg[0m
+[ 41%] [34m[1mGenerating EusLisp code from spot_msgs/WorldObject.msg[0m
+[ 41%] [34m[1mGenerating EusLisp code from spot_msgs/WorldObjectArray.msg[0m
+[ 41%] [34m[1mGenerating Python from MSG spot_msgs/DockActionFeedback[0m
+[ 42%] [34m[1mGenerating EusLisp code from spot_msgs/DockAction.msg[0m
+[ 42%] [34m[1mGenerating Javascript code from spot_msgs/NavigateToGoal.msg[0m
+[ 42%] [34m[1mGenerating Python from MSG spot_msgs/DockGoal[0m
+[ 43%] [34m[1mGenerating Python from MSG spot_msgs/DockResult[0m
+[ 44%] [34m[1mGenerating Javascript code from spot_msgs/NavigateToResult.msg[0m
+[ 44%] [34m[1mGenerating C++ code from spot_msgs/DockResult.msg[0m
+[ 45%] [34m[1mGenerating Lisp code from spot_msgs/ImageProperties.msg[0m
+[ 45%] [34m[1mGenerating C++ code from spot_msgs/DockFeedback.msg[0m
+[ 46%] [34m[1mGenerating C++ code from spot_msgs/NavigateToAction.msg[0m
+[ 46%] [34m[1mGenerating C++ code from spot_msgs/NavigateToActionGoal.msg[0m
+[ 46%] [34m[1mGenerating Lisp code from spot_msgs/ImageSource.msg[0m
+[ 46%] [34m[1mGenerating EusLisp code from spot_msgs/DockActionGoal.msg[0m
+[ 46%] [34m[1mGenerating Javascript code from spot_msgs/NavigateToFeedback.msg[0m
+[ 46%] [34m[1mGenerating Lisp code from spot_msgs/WorldObject.msg[0m
+[ 46%] [34m[1mGenerating Lisp code from spot_msgs/WorldObjectArray.msg[0m
+[ 46%] [34m[1mGenerating C++ code from spot_msgs/NavigateToActionResult.msg[0m
+[ 46%] [34m[1mGenerating Python from MSG spot_msgs/DockFeedback[0m
+[ 46%] [34m[1mGenerating EusLisp code from spot_msgs/DockActionResult.msg[0m
+[ 46%] [34m[1mGenerating Javascript code from spot_msgs/NavigateRouteAction.msg[0m
+[ 46%] [34m[1mGenerating Lisp code from spot_msgs/DockAction.msg[0m
+[ 46%] [34m[1mGenerating Javascript code from spot_msgs/NavigateRouteActionGoal.msg[0m
+[ 46%] [34m[1mGenerating Javascript code from spot_msgs/NavigateRouteActionResult.msg[0m
+[ 47%] [34m[1mGenerating Lisp code from spot_msgs/DockActionGoal.msg[0m
+[ 47%] [34m[1mGenerating C++ code from spot_msgs/NavigateToActionFeedback.msg[0m
+[ 47%] [34m[1mGenerating Python from MSG spot_msgs/NavigateToAction[0m
+[ 47%] [34m[1mGenerating Python from MSG spot_msgs/NavigateToActionGoal[0m
+[ 47%] [34m[1mGenerating Python from MSG spot_msgs/NavigateToActionResult[0m
+[ 47%] [34m[1mGenerating EusLisp code from spot_msgs/DockActionFeedback.msg[0m
+[ 48%] [34m[1mGenerating C++ code from spot_msgs/NavigateToGoal.msg[0m
+[ 49%] [34m[1mGenerating Javascript code from spot_msgs/NavigateRouteActionFeedback.msg[0m
+[ 50%] [34m[1mGenerating Python from MSG spot_msgs/NavigateToActionFeedback[0m
+[ 50%] [34m[1mGenerating Python from MSG spot_msgs/NavigateToGoal[0m
+[ 50%] [34m[1mGenerating Python from MSG spot_msgs/NavigateToResult[0m
+[ 50%] [34m[1mGenerating Python from MSG spot_msgs/NavigateToFeedback[0m
+[ 50%] [34m[1mGenerating Lisp code from spot_msgs/DockActionResult.msg[0m
+[ 50%] [34m[1mGenerating Javascript code from spot_msgs/NavigateRouteGoal.msg[0m
+[ 51%] [34m[1mGenerating EusLisp code from spot_msgs/DockGoal.msg[0m
+[ 51%] [34m[1mGenerating Python from MSG spot_msgs/NavigateRouteAction[0m
+[ 52%] [34m[1mGenerating EusLisp code from spot_msgs/DockResult.msg[0m
+[ 52%] [34m[1mGenerating Python from MSG spot_msgs/NavigateRouteActionGoal[0m
+[ 52%] [34m[1mGenerating Javascript code from spot_msgs/NavigateRouteResult.msg[0m
+[ 52%] [34m[1mGenerating EusLisp code from spot_msgs/DockFeedback.msg[0m
+[ 52%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateToAction.msg[0m
+[ 52%] [34m[1mGenerating Python from MSG spot_msgs/NavigateRouteActionResult[0m
+[ 52%] [34m[1mGenerating Javascript code from spot_msgs/NavigateRouteFeedback.msg[0m
+[ 52%] [34m[1mGenerating Lisp code from spot_msgs/DockActionFeedback.msg[0m
+[ 52%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateToActionGoal.msg[0m
+[ 52%] [34m[1mGenerating C++ code from spot_msgs/NavigateToResult.msg[0m
+[ 53%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateToActionResult.msg[0m
+[ 53%] [34m[1mGenerating Python from MSG spot_msgs/NavigateRouteActionFeedback[0m
+[ 53%] [34m[1mGenerating C++ code from spot_msgs/NavigateToFeedback.msg[0m
+[ 54%] [34m[1mGenerating Lisp code from spot_msgs/DockResult.msg[0m
+[ 54%] [34m[1mGenerating Lisp code from spot_msgs/DockGoal.msg[0m
+[ 54%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateToActionFeedback.msg[0m
+[ 54%] [34m[1mGenerating Lisp code from spot_msgs/DockFeedback.msg[0m
+[ 54%] [34m[1mGenerating C++ code from spot_msgs/NavigateRouteAction.msg[0m
+[ 54%] [34m[1mGenerating C++ code from spot_msgs/NavigateRouteActionGoal.msg[0m
+[ 54%] [34m[1mGenerating Python from MSG spot_msgs/NavigateRouteGoal[0m
+[ 54%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateToGoal.msg[0m
+[ 54%] [34m[1mGenerating Javascript code from spot_msgs/PoseBodyAction.msg[0m
+[ 55%] [34m[1mGenerating C++ code from spot_msgs/NavigateRouteActionResult.msg[0m
+[ 56%] [34m[1mGenerating Javascript code from spot_msgs/PoseBodyActionGoal.msg[0m
+[ 57%] [34m[1mGenerating Python from MSG spot_msgs/NavigateRouteResult[0m
+[ 57%] [34m[1mGenerating Javascript code from spot_msgs/PoseBodyActionResult.msg[0m
+[ 57%] [34m[1mGenerating Javascript code from spot_msgs/PoseBodyActionFeedback.msg[0m
+[ 57%] [34m[1mGenerating Lisp code from spot_msgs/NavigateToAction.msg[0m
+[ 57%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateToResult.msg[0m
+[ 57%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateToFeedback.msg[0m
+[ 57%] [34m[1mGenerating C++ code from spot_msgs/NavigateRouteActionFeedback.msg[0m
+[ 57%] [34m[1mGenerating C++ code from spot_msgs/NavigateRouteGoal.msg[0m
+[ 57%] [34m[1mGenerating Python from MSG spot_msgs/NavigateRouteFeedback[0m
+[ 57%] [34m[1mGenerating Lisp code from spot_msgs/NavigateToActionGoal.msg[0m
+[ 57%] [34m[1mGenerating Python from MSG spot_msgs/PoseBodyAction[0m
+[ 57%] [34m[1mGenerating Lisp code from spot_msgs/NavigateToActionResult.msg[0m
+[ 57%] [34m[1mGenerating Javascript code from spot_msgs/PoseBodyGoal.msg[0m
+[ 58%] [34m[1mGenerating Lisp code from spot_msgs/NavigateToActionFeedback.msg[0m
+[ 58%] [34m[1mGenerating Lisp code from spot_msgs/NavigateToGoal.msg[0m
+[ 58%] [34m[1mGenerating Lisp code from spot_msgs/NavigateToFeedback.msg[0m
+[ 58%] [34m[1mGenerating Lisp code from spot_msgs/NavigateToResult.msg[0m
+[ 58%] [34m[1mGenerating Lisp code from spot_msgs/NavigateRouteAction.msg[0m
+[ 59%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateRouteAction.msg[0m
+[ 60%] [34m[1mGenerating Lisp code from spot_msgs/NavigateRouteActionGoal.msg[0m
+[ 61%] [34m[1mGenerating Javascript code from spot_msgs/PoseBodyResult.msg[0m
+[ 61%] [34m[1mGenerating Python from MSG spot_msgs/PoseBodyActionResult[0m
+[ 61%] [34m[1mGenerating Python from MSG spot_msgs/PoseBodyActionGoal[0m
+[ 61%] [34m[1mGenerating Javascript code from spot_msgs/PoseBodyFeedback.msg[0m
+[ 61%] [34m[1mGenerating Javascript code from spot_msgs/TrajectoryAction.msg[0m
+[ 61%] [34m[1mGenerating Javascript code from spot_msgs/TrajectoryActionGoal.msg[0m
+[ 61%] [34m[1mGenerating Lisp code from spot_msgs/NavigateRouteActionResult.msg[0m
+[ 61%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateRouteActionGoal.msg[0m
+[ 61%] [34m[1mGenerating Javascript code from spot_msgs/TrajectoryActionResult.msg[0m
+[ 61%] [34m[1mGenerating Lisp code from spot_msgs/NavigateRouteActionFeedback.msg[0m
+[ 61%] [34m[1mGenerating C++ code from spot_msgs/NavigateRouteResult.msg[0m
+[ 62%] [34m[1mGenerating Python from MSG spot_msgs/PoseBodyActionFeedback[0m
+[ 62%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateRouteActionResult.msg[0m
+[ 63%] [34m[1mGenerating Javascript code from spot_msgs/TrajectoryActionFeedback.msg[0m
+[ 63%] [34m[1mGenerating Python from MSG spot_msgs/PoseBodyGoal[0m
+[ 63%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateRouteActionFeedback.msg[0m
+[ 64%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateRouteGoal.msg[0m
+[ 64%] [34m[1mGenerating Python from MSG spot_msgs/PoseBodyResult[0m
+[ 64%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateRouteResult.msg[0m
+[ 64%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateRouteFeedback.msg[0m
+[ 64%] [34m[1mGenerating Python from MSG spot_msgs/PoseBodyFeedback[0m
+[ 64%] [34m[1mGenerating EusLisp code from spot_msgs/PoseBodyAction.msg[0m
+[ 64%] [34m[1mGenerating EusLisp code from spot_msgs/PoseBodyActionGoal.msg[0m
+[ 64%] [34m[1mGenerating C++ code from spot_msgs/NavigateRouteFeedback.msg[0m
+[ 64%] [34m[1mGenerating Lisp code from spot_msgs/NavigateRouteGoal.msg[0m
+[ 65%] [34m[1mGenerating C++ code from spot_msgs/PoseBodyAction.msg[0m
+[ 65%] [34m[1mGenerating C++ code from spot_msgs/PoseBodyActionGoal.msg[0m
+[ 65%] [34m[1mGenerating Python from MSG spot_msgs/TrajectoryAction[0m
+[ 66%] [34m[1mGenerating Lisp code from spot_msgs/NavigateRouteResult.msg[0m
+[ 67%] [34m[1mGenerating EusLisp code from spot_msgs/PoseBodyActionResult.msg[0m
+[ 67%] [34m[1mGenerating C++ code from spot_msgs/PoseBodyActionResult.msg[0m
+[ 68%] [34m[1mGenerating Python from MSG spot_msgs/TrajectoryActionGoal[0m
+[ 67%] [34m[1mGenerating Javascript code from spot_msgs/TrajectoryGoal.msg[0m
+[ 68%] [34m[1mGenerating EusLisp code from spot_msgs/PoseBodyActionFeedback.msg[0m
+[ 68%] [34m[1mGenerating Python from MSG spot_msgs/TrajectoryActionResult[0m
+[ 68%] [34m[1mGenerating EusLisp code from spot_msgs/PoseBodyGoal.msg[0m
+[ 68%] [34m[1mGenerating C++ code from spot_msgs/PoseBodyActionFeedback.msg[0m
+[ 68%] [34m[1mGenerating Javascript code from spot_msgs/TrajectoryResult.msg[0m
+[ 68%] [34m[1mGenerating Lisp code from spot_msgs/NavigateRouteFeedback.msg[0m
+[ 68%] [34m[1mGenerating Javascript code from spot_msgs/TrajectoryFeedback.msg[0m
+[ 68%] [34m[1mGenerating Lisp code from spot_msgs/PoseBodyAction.msg[0m
+[ 68%] [34m[1mGenerating Lisp code from spot_msgs/PoseBodyActionGoal.msg[0m
+[ 68%] [34m[1mGenerating Lisp code from spot_msgs/PoseBodyActionResult.msg[0m
+[ 69%] [34m[1mGenerating C++ code from spot_msgs/PoseBodyGoal.msg[0m
+[ 69%] [34m[1mGenerating Javascript code from spot_msgs/DownloadGraph.srv[0m
+[ 70%] [34m[1mGenerating Lisp code from spot_msgs/PoseBodyActionFeedback.msg[0m
+[ 70%] [34m[1mGenerating C++ code from spot_msgs/PoseBodyResult.msg[0m
+[ 70%] [34m[1mGenerating Lisp code from spot_msgs/PoseBodyGoal.msg[0m
+[ 70%] [34m[1mGenerating Lisp code from spot_msgs/PoseBodyFeedback.msg[0m
+[ 70%] [34m[1mGenerating Lisp code from spot_msgs/PoseBodyResult.msg[0m
+[ 70%] [34m[1mGenerating C++ code from spot_msgs/PoseBodyFeedback.msg[0m
+[ 71%] [34m[1mGenerating Javascript code from spot_msgs/ListGraph.srv[0m
+[ 71%] [34m[1mGenerating EusLisp code from spot_msgs/PoseBodyResult.msg[0m
+[ 71%] [34m[1mGenerating Javascript code from spot_msgs/SetLocomotion.srv[0m
+[ 71%] [34m[1mGenerating Javascript code from spot_msgs/GraphCloseLoops.srv[0m
+[ 71%] [34m[1mGenerating Python from MSG spot_msgs/TrajectoryActionFeedback[0m
+[ 71%] [34m[1mGenerating Javascript code from spot_msgs/SetSwingHeight.srv[0m
+[ 71%] [34m[1mGenerating C++ code from spot_msgs/TrajectoryActionGoal.msg[0m
+[ 71%] [34m[1mGenerating Python from MSG spot_msgs/TrajectoryGoal[0m
+[ 71%] [34m[1mGenerating C++ code from spot_msgs/TrajectoryAction.msg[0m
+[ 72%] [34m[1mGenerating Python from MSG spot_msgs/TrajectoryResult[0m
+[ 72%] [34m[1mGenerating Python from MSG spot_msgs/TrajectoryFeedback[0m
+[ 73%] [34m[1mGenerating Javascript code from spot_msgs/SetVelocity.srv[0m
+[ 74%] [34m[1mGenerating C++ code from spot_msgs/TrajectoryActionResult.msg[0m
+[ 74%] [34m[1mGenerating Python code from SRV spot_msgs/DownloadGraph[0m
+[ 74%] [34m[1mGenerating EusLisp code from spot_msgs/PoseBodyFeedback.msg[0m
+[ 75%] [34m[1mGenerating Javascript code from spot_msgs/ClearBehaviorFault.srv[0m
+[ 75%] [34m[1mGenerating EusLisp code from spot_msgs/TrajectoryAction.msg[0m
+[ 75%] [34m[1mGenerating Javascript code from spot_msgs/ArmJointMovement.srv[0m
+[ 75%] [34m[1mGenerating Python code from SRV spot_msgs/ListGraph[0m
+[ 75%] [34m[1mGenerating Lisp code from spot_msgs/TrajectoryAction.msg[0m
+[ 76%] [34m[1mGenerating Lisp code from spot_msgs/TrajectoryActionGoal.msg[0m
+[ 76%] [34m[1mGenerating Javascript code from spot_msgs/ConstrainedArmJointMovement.srv[0m
+[ 76%] [34m[1mGenerating Lisp code from spot_msgs/TrajectoryActionResult.msg[0m
+[ 76%] [34m[1mGenerating Javascript code from spot_msgs/GripperAngleMove.srv[0m
+[ 76%] [34m[1mGenerating C++ code from spot_msgs/TrajectoryActionFeedback.msg[0m
+[ 76%] [34m[1mGenerating EusLisp code from spot_msgs/TrajectoryActionGoal.msg[0m
+[ 77%] [34m[1mGenerating Javascript code from spot_msgs/ArmForceTrajectory.srv[0m
+[ 77%] [34m[1mGenerating Javascript code from spot_msgs/HandPose.srv[0m
+[ 77%] [34m[1mGenerating Lisp code from spot_msgs/TrajectoryActionFeedback.msg[0m
+[ 77%] [34m[1mGenerating C++ code from spot_msgs/TrajectoryGoal.msg[0m
+[ 77%] [34m[1mGenerating C++ code from spot_msgs/TrajectoryResult.msg[0m
+[ 77%] [34m[1mGenerating Javascript code from spot_msgs/SetObstacleParams.srv[0m
+[ 77%] [34m[1mGenerating C++ code from spot_msgs/TrajectoryFeedback.msg[0m
+[ 77%] [34m[1mGenerating Python code from SRV spot_msgs/GraphCloseLoops[0m
+[ 79%] [34m[1mGenerating Python code from SRV spot_msgs/SetLocomotion[0m
+[ 79%] [34m[1mGenerating C++ code from spot_msgs/DownloadGraph.srv[0m
+[ 79%] [34m[1mGenerating EusLisp code from spot_msgs/TrajectoryActionResult.msg[0m
+[ 79%] [34m[1mGenerating Lisp code from spot_msgs/TrajectoryGoal.msg[0m
+[ 80%] [34m[1mGenerating Lisp code from spot_msgs/TrajectoryResult.msg[0m
+[ 80%] [34m[1mGenerating Python code from SRV spot_msgs/SetSwingHeight[0m
+[ 80%] [34m[1mGenerating C++ code from spot_msgs/ListGraph.srv[0m
+[ 80%] [34m[1mGenerating EusLisp code from spot_msgs/TrajectoryActionFeedback.msg[0m
+[ 80%] [34m[1mGenerating Python code from SRV spot_msgs/SetVelocity[0m
+[ 80%] [34m[1mGenerating Lisp code from spot_msgs/TrajectoryFeedback.msg[0m
+[ 80%] [34m[1mGenerating Python code from SRV spot_msgs/ClearBehaviorFault[0m
+[ 80%] [34m[1mGenerating Javascript code from spot_msgs/SetTerrainParams.srv[0m
+[ 80%] [34m[1mGenerating C++ code from spot_msgs/GraphCloseLoops.srv[0m
+[ 80%] [34m[1mGenerating C++ code from spot_msgs/SetLocomotion.srv[0m
+[ 80%] [34m[1mGenerating Lisp code from spot_msgs/DownloadGraph.srv[0m
+[ 80%] [34m[1mGenerating Python code from SRV spot_msgs/ArmJointMovement[0m
+[ 81%] [34m[1mGenerating Python code from SRV spot_msgs/ConstrainedArmJointMovement[0m
+[ 81%] [34m[1mGenerating Python code from SRV spot_msgs/GripperAngleMove[0m
+[ 81%] [34m[1mGenerating Javascript code from spot_msgs/PosedStand.srv[0m
+[ 81%] [34m[1mGenerating Lisp code from spot_msgs/ListGraph.srv[0m
+[ 82%] [34m[1mGenerating EusLisp code from spot_msgs/TrajectoryGoal.msg[0m
+[ 82%] [34m[1mGenerating EusLisp code from spot_msgs/TrajectoryResult.msg[0m
+[ 83%] [34m[1mGenerating Javascript code from spot_msgs/Dock.srv[0m
+[ 83%] [34m[1mGenerating Lisp code from spot_msgs/GraphCloseLoops.srv[0m
+[ 83%] [34m[1mGenerating Python code from SRV spot_msgs/ArmForceTrajectory[0m
+[ 84%] [34m[1mGenerating Lisp code from spot_msgs/SetLocomotion.srv[0m
+[ 84%] [34m[1mGenerating Lisp code from spot_msgs/SetSwingHeight.srv[0m
+[ 84%] [34m[1mGenerating Javascript code from spot_msgs/GetDockState.srv[0m
+[ 84%] [34m[1mGenerating Python code from SRV spot_msgs/HandPose[0m
+[ 85%] [34m[1mGenerating C++ code from spot_msgs/SetSwingHeight.srv[0m
+[ 85%] [34m[1mGenerating C++ code from spot_msgs/SetVelocity.srv[0m
+[ 85%] [34m[1mGenerating Lisp code from spot_msgs/SetVelocity.srv[0m
+[ 85%] [34m[1mGenerating Javascript code from spot_msgs/SpotCheck.srv[0m
+[ 85%] [34m[1mGenerating EusLisp code from spot_msgs/TrajectoryFeedback.msg[0m
+[ 85%] [34m[1mGenerating Lisp code from spot_msgs/ClearBehaviorFault.srv[0m
+[ 85%] [34m[1mGenerating C++ code from spot_msgs/ClearBehaviorFault.srv[0m
+[ 85%] [34m[1mGenerating Lisp code from spot_msgs/ArmJointMovement.srv[0m
+[ 86%] [34m[1mGenerating Javascript code from spot_msgs/Grasp3d.srv[0m
+[ 86%] [34m[1mGenerating Lisp code from spot_msgs/ConstrainedArmJointMovement.srv[0m
+[ 87%] [34m[1mGenerating C++ code from spot_msgs/ArmJointMovement.srv[0m
+[ 87%] [34m[1mGenerating Javascript code from spot_msgs/NavigateInit.srv[0m
+[ 87%] [34m[1mGenerating C++ code from spot_msgs/ConstrainedArmJointMovement.srv[0m
+[ 87%] [34m[1mGenerating Lisp code from spot_msgs/GripperAngleMove.srv[0m
+[ 87%] [34m[1mGenerating EusLisp code from spot_msgs/DownloadGraph.srv[0m
+[ 87%] [34m[1mGenerating Lisp code from spot_msgs/ArmForceTrajectory.srv[0m
+[ 88%] [34m[1mGenerating Python code from SRV spot_msgs/SetObstacleParams[0m
+[ 88%] [34m[1mGenerating C++ code from spot_msgs/ArmForceTrajectory.srv[0m
+[ 88%] [34m[1mGenerating Lisp code from spot_msgs/HandPose.srv[0m
+[ 89%] [34m[1mGenerating C++ code from spot_msgs/GripperAngleMove.srv[0m
+[ 89%] [34m[1mGenerating Python code from SRV spot_msgs/SetTerrainParams[0m
+[ 89%] [34m[1mGenerating Python code from SRV spot_msgs/PosedStand[0m
+[ 89%] [34m[1mGenerating Python code from SRV spot_msgs/Dock[0m
+[ 89%] [34m[1mGenerating Lisp code from spot_msgs/SetTerrainParams.srv[0m
+[ 90%] [34m[1mGenerating Lisp code from spot_msgs/SetObstacleParams.srv[0m
+[ 90%] [34m[1mGenerating C++ code from spot_msgs/HandPose.srv[0m
+[ 90%] [34m[1mGenerating C++ code from spot_msgs/SetObstacleParams.srv[0m
+[ 90%] Built target spot_msgs_generate_messages_nodejs
+[ 90%] [34m[1mGenerating Lisp code from spot_msgs/PosedStand.srv[0m
+[ 90%] [34m[1mGenerating Python code from SRV spot_msgs/GetDockState[0m
+[ 90%] [34m[1mGenerating EusLisp code from spot_msgs/ListGraph.srv[0m
+[ 91%] [34m[1mGenerating EusLisp code from spot_msgs/GraphCloseLoops.srv[0m
+[ 91%] [34m[1mGenerating C++ code from spot_msgs/SetTerrainParams.srv[0m
+[ 92%] [34m[1mGenerating Python code from SRV spot_msgs/Grasp3d[0m
+[ 92%] [34m[1mGenerating Python code from SRV spot_msgs/SpotCheck[0m
+[ 92%] [34m[1mGenerating EusLisp code from spot_msgs/SetLocomotion.srv[0m
+[ 92%] [34m[1mGenerating Python code from SRV spot_msgs/NavigateInit[0m
+[ 92%] [34m[1mGenerating EusLisp code from spot_msgs/SetSwingHeight.srv[0m
+[ 93%] [34m[1mGenerating C++ code from spot_msgs/PosedStand.srv[0m
+[ 93%] [34m[1mGenerating Lisp code from spot_msgs/Dock.srv[0m
+[ 94%] [34m[1mGenerating EusLisp code from spot_msgs/SetVelocity.srv[0m
+[ 94%] [34m[1mGenerating Lisp code from spot_msgs/SpotCheck.srv[0m
+[ 94%] [34m[1mGenerating Lisp code from spot_msgs/GetDockState.srv[0m
+[ 94%] [34m[1mGenerating EusLisp code from spot_msgs/ClearBehaviorFault.srv[0m
+[ 94%] [34m[1mGenerating C++ code from spot_msgs/Dock.srv[0m
+[ 94%] [34m[1mGenerating C++ code from spot_msgs/GetDockState.srv[0m
+[ 94%] [34m[1mGenerating Lisp code from spot_msgs/Grasp3d.srv[0m
+[ 94%] [34m[1mGenerating C++ code from spot_msgs/SpotCheck.srv[0m
+[ 94%] [34m[1mGenerating Lisp code from spot_msgs/NavigateInit.srv[0m
+[ 95%] [34m[1mGenerating C++ code from spot_msgs/NavigateInit.srv[0m
+[ 95%] [34m[1mGenerating C++ code from spot_msgs/Grasp3d.srv[0m
+[ 96%] [34m[1mGenerating EusLisp code from spot_msgs/ArmJointMovement.srv[0m
+[ 96%] [34m[1mGenerating EusLisp code from spot_msgs/ConstrainedArmJointMovement.srv[0m
+[ 96%] [34m[1mGenerating EusLisp code from spot_msgs/GripperAngleMove.srv[0m
+[ 96%] [34m[1mGenerating EusLisp code from spot_msgs/ArmForceTrajectory.srv[0m
+[ 97%] [34m[1mGenerating EusLisp code from spot_msgs/HandPose.srv[0m
+[ 97%] [34m[1mGenerating EusLisp code from spot_msgs/SetObstacleParams.srv[0m
+[ 97%] [34m[1mGenerating EusLisp code from spot_msgs/Dock.srv[0m
+[ 97%] [34m[1mGenerating EusLisp code from spot_msgs/SetTerrainParams.srv[0m
+[ 97%] [34m[1mGenerating EusLisp code from spot_msgs/PosedStand.srv[0m
+[ 98%] [34m[1mGenerating EusLisp code from spot_msgs/GetDockState.srv[0m
+[ 98%] [34m[1mGenerating EusLisp code from spot_msgs/SpotCheck.srv[0m
+[ 98%] [34m[1mGenerating EusLisp code from spot_msgs/Grasp3d.srv[0m
+[ 98%] Built target spot_msgs_generate_messages_lisp
+[ 98%] [34m[1mGenerating EusLisp code from spot_msgs/NavigateInit.srv[0m
+[ 98%] [34m[1mGenerating EusLisp manifest code for spot_msgs[0m
+[ 98%] [34m[1mGenerating Python msg __init__.py for spot_msgs[0m
+[100%] [34m[1mGenerating Python srv __init__.py for spot_msgs[0m
+[100%] Built target spot_msgs_generate_messages_cpp
+[100%] Built target spot_msgs_generate_messages_py
+[100%] Built target spot_msgs_generate_messages_eus
+[35m[1mScanning dependencies of target spot_msgs_generate_messages[0m
+[100%] Built target spot_msgs_generate_messages

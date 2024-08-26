@@ -1,0 +1,8 @@
+prefix=/spot_skills/devel/.private/spot_description
+
+Name: spot_description
+Description: Description of spot_description
+Version: 1.1.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

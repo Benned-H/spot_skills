@@ -1,0 +1,1 @@
+/spot_skills/devel/.private/spot_msgs/share/roseus/ros/spot_msgs/msg/NavigateToAction.l

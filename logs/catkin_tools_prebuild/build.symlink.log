@@ -1,0 +1,12 @@
+Symlinking /spot_skills/devel/./local_setup.bash
+Symlinking /spot_skills/devel/./setup.zsh
+Symlinking /spot_skills/devel/./setup.sh
+Symlinking /spot_skills/devel/./cmake.lock
+Symlinking /spot_skills/devel/./env.sh
+Symlinking /spot_skills/devel/./_setup_util.py
+Symlinking /spot_skills/devel/./local_setup.zsh
+Symlinking /spot_skills/devel/./setup.bash
+Symlinking /spot_skills/devel/./local_setup.sh
+Symlinking /spot_skills/devel/share/catkin_tools_prebuild/cmake/catkin_tools_prebuildConfig-version.cmake
+Symlinking /spot_skills/devel/share/catkin_tools_prebuild/cmake/catkin_tools_prebuildConfig.cmake
+Symlinking /spot_skills/devel/lib/pkgconfig/catkin_tools_prebuild.pc

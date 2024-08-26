@@ -1,0 +1,7 @@
+set(spot_cam_SETUP_PY_SETUP_MODULE "setuptools")
+set(spot_cam_SETUP_PY_VERSION "1.1.0")
+set(spot_cam_SETUP_PY_SCRIPTS "scripts/spot_cam")
+set(spot_cam_SETUP_PY_PACKAGES "spot_cam")
+set(spot_cam_SETUP_PY_PACKAGE_DIRS "src/spot_cam")
+set(spot_cam_SETUP_PY_MODULES "")
+set(spot_cam_SETUP_PY_MODULE_DIRS "")

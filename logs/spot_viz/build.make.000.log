@@ -1,0 +1,9 @@
+[35m[1mScanning dependencies of target spot_viz_autogen[0m
+[ 20%] [34m[1mAutomatic MOC for target spot_viz[0m
+[ 20%] Built target spot_viz_autogen
+[35m[1mScanning dependencies of target spot_viz[0m
+[ 40%] [32mBuilding CXX object CMakeFiles/spot_viz.dir/src/spot_panel.cpp.o[0m
+[ 60%] [32mBuilding CXX object CMakeFiles/spot_viz.dir/src/look_at_point_tool.cpp.o[0m
+[ 80%] [32mBuilding CXX object CMakeFiles/spot_viz.dir/spot_viz_autogen/mocs_compilation.cpp.o[0m
+[100%] [32m[1mLinking CXX shared library /spot_skills/devel/.private/spot_viz/lib/libspot_viz.so[0m
+[100%] Built target spot_viz

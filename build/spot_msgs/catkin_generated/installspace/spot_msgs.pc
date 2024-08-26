@@ -1,0 +1,8 @@
+prefix=/spot_skills/install
+
+Name: spot_msgs
+Description: Description of spot_msgs
+Version: 1.1.0
+Cflags: -I${prefix}/include
+Libs: -L${prefix}/lib 
+Requires: message_runtime actionlib std_msgs sensor_msgs geometry_msgs

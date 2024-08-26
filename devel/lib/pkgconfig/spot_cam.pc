@@ -1,0 +1,1 @@
+/spot_skills/devel/.private/spot_cam/lib/pkgconfig/spot_cam.pc

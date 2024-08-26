@@ -1,0 +1,1 @@
+/spot_skills/devel/.private/spot_skills/lib/pkgconfig/spot_skills.pc

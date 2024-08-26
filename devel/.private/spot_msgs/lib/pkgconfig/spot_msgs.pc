@@ -1,0 +1,8 @@
+prefix=/spot_skills/devel/.private/spot_msgs
+
+Name: spot_msgs
+Description: Description of spot_msgs
+Version: 1.1.0
+Cflags: -I/spot_skills/devel/.private/spot_msgs/include
+Libs: -L${prefix}/lib 
+Requires: message_runtime actionlib std_msgs sensor_msgs geometry_msgs

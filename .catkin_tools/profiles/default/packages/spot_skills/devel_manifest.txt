@@ -1,0 +1,5 @@
+spot_skills
+/spot_skills/devel/.private/spot_skills/cmake.lock /spot_skills/devel/./cmake.lock
+/spot_skills/devel/.private/spot_skills/share/spot_skills/cmake/spot_skillsConfig-version.cmake /spot_skills/devel/share/spot_skills/cmake/spot_skillsConfig-version.cmake
+/spot_skills/devel/.private/spot_skills/share/spot_skills/cmake/spot_skillsConfig.cmake /spot_skills/devel/share/spot_skills/cmake/spot_skillsConfig.cmake
+/spot_skills/devel/.private/spot_skills/lib/pkgconfig/spot_skills.pc /spot_skills/devel/lib/pkgconfig/spot_skills.pc

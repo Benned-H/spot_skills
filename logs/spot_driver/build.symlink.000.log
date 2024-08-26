@@ -1,0 +1,12 @@
+Symlinking /spot_skills/devel/share/spot_driver/cmake/spot_driverConfig.cmake
+Symlinking /spot_skills/devel/share/spot_driver/cmake/spot_driverConfig-version.cmake
+Symlinking /spot_skills/devel/lib/spot_driver/spot_ros
+Symlinking /spot_skills/devel/lib/spot_driver/ros_helpers_test.py
+Symlinking /spot_skills/devel/lib/spot_driver/cmake.lock
+Symlinking /spot_skills/devel/lib/spot_driver/spot_ros_test.py
+Symlinking /spot_skills/devel/lib/python3/dist-packages/spot_driver/__init__.py
+Symlinking /spot_skills/devel/lib/pkgconfig/spot_driver.pc
+Symlinking /spot_skills/devel/bin/spot_ros
+Symlinking /spot_skills/devel/bin/ros_helpers_test.py
+Symlinking /spot_skills/devel/bin/cmake.lock
+Symlinking /spot_skills/devel/bin/spot_ros_test.py

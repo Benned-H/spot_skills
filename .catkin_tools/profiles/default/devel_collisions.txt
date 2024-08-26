@@ -1,0 +1,2 @@
+/spot_skills/devel/./cmake.lock 23
+/spot_skills/devel/bin/cmake.lock 4

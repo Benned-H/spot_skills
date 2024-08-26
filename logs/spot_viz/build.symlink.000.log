@@ -1,0 +1,4 @@
+Symlinking /spot_skills/devel/share/spot_viz/cmake/spot_vizConfig-version.cmake
+Symlinking /spot_skills/devel/share/spot_viz/cmake/spot_vizConfig.cmake
+Symlinking /spot_skills/devel/lib/libspot_viz.so
+Symlinking /spot_skills/devel/lib/pkgconfig/spot_viz.pc

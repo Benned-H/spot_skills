@@ -1,0 +1,3 @@
+Symlinking /spot_skills/devel/share/spot_description/cmake/spot_descriptionConfig.cmake
+Symlinking /spot_skills/devel/share/spot_description/cmake/spot_descriptionConfig-version.cmake
+Symlinking /spot_skills/devel/lib/pkgconfig/spot_description.pc

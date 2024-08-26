@@ -1,0 +1,8 @@
+prefix=/spot_skills/devel/.private/spot_driver
+
+Name: spot_driver
+Description: Description of spot_driver
+Version: 1.1.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

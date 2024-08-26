@@ -1,0 +1,8 @@
+prefix=/spot_skills/install
+
+Name: spot_cam
+Description: Description of spot_cam
+Version: 1.1.0
+Cflags: -I${prefix}/include
+Libs: -L${prefix}/lib 
+Requires: message_runtime std_msgs spot_msgs geometry_msgs
