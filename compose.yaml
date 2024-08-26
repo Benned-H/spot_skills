@@ -26,7 +26,7 @@ services:
 
     volumes:
       - .:/spot_skills # Mount the repository (a ROS workspace) to the container
-      - spot_driver_ws:/spot_ros2_ws # Mount the Spot driver's workspace into the container
+      - spot_driver_ws:/spot_driver_ws # Mount the Spot driver's workspace into the container
 
   # This service runs the ROS 2 driver for Spot with NVIDIA GPU support
   spot-ros2:

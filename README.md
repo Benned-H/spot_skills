@@ -34,13 +34,12 @@ docker compose exec $SERVICE_NAME bash
 
 ## One-Off Commands
 
-To re-generate Spot's URDF, first enter the `spot-ros2` container. Then, run the following command:
+To re-generate Spot's URDF, enter the `spot-ros2` container and move to its `/ros_ws` directory. Then, run the command:
 ```bash
-cd 
 xacro src/spot_description/urdf/spot.urdf.xacro arm:=true > spot_with_arm.urdf
 ```
 
 Then, in the `noetic-nvidia` container, run the following command:
 ```bash
-cp /spot_ros2_ws/spot_with_arm.urdf /spot_skills/src/spot_skills/urdf/
+cp /spot_driver_ws/spot_with_arm.urdf /spot_skills/src/spot_skills/urdf/
 ```
