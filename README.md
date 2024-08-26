@@ -4,43 +4,43 @@ Motion-planning-based skills for Boston Dynamics' Spot robot
 
 ## Docker Commands
 
-This repository uses Docker to manage dependencies. Docker Compose is used to configure the necessary images and containers, supporting both a GPU-enabled and GPU-less container.
+This repository uses Docker to standardize its workspace setup and dependencies across machines. The Docker Compose file `compose.yaml` specifies services for various use cases in the project, including:
+ - GPU-enabled container (ROS 1 Noetic) - Service name `noetic-nvidia`
+ - GPU-less container (ROS 1 Noetic) - Service name `noetic-no-gpu`
+ - Spot driver from BDAI (ROS 2 Humble) - Service name `spot-ros2`
 
-### GPU-enabled Container
-
-The Docker Compose configuration for this repository supports a container for machines with an NVIDIA GPU. To build and start the GPU-enabled container, run the command:
+To select a service, set the `SERVICE_NAME` environment variable accordingly:
 ```bash
-docker compose up --build --detach noetic-nvidia
+export SERVICE_NAME=noetic-nvidia   # Noetic container with NVIDIA GPU support
+export SERVICE_NAME=noetic-no-gpu   # Noetic container without GPU support
+export SERVICE_NAME=spot-ros2       # ROS 2 driver for the Spot robot
+```
+
+To build and start the selected container, run the command:
+```bash
+docker compose up --build --detach $SERVICE_NAME
 ```
 
 Then, to enter the container, run the following commands:
 ```bash
 xhost +local:docker
-docker compose attach noetic-nvidia
+docker compose attach $SERVICE_NAME
 ```
 
-To enter the running container in another terminal, run the command:
+To enter the running container in another terminal, set the `SERVICE_NAME` variable and then run the command:
 ```bash
-docker compose exec noetic-nvidia bash
-```
-
-### GPU-less Container
-
-The Docker Compose configuration for this repository also supports a container for machines without an NVIDIA GPU. To build and start the GPU-less container, run the command:
-```bash
-docker compose up --build --detach noetic-no-gpu
-```
-
-Then, to enter the container, run the following commands:
-```bash
-xhost +local:docker
-docker compose attach noetic-no-gpu
+docker compose exec $SERVICE_NAME bash
 ```
 
 ## One-Off Commands
 
-To re-generate Spot's URDF, run the following commands from the repo-level `spot_skills` directory:
+To re-generate Spot's URDF, first enter the `spot-ros2` container. Then, run the following command:
 ```bash
-export SPOT_ARM=1       # Include Spot's arm in the generated URDF
-xacro src/spot_ros/spot_description/urdf/spot.urdf.xacro > src/spot_skills/urdf/spot_with_arm.urdf
+cd 
+xacro src/spot_description/urdf/spot.urdf.xacro arm:=true > spot_with_arm.urdf
+```
+
+Then, in the `noetic-nvidia` container, run the following command:
+```bash
+cp /spot_ros2_ws/spot_with_arm.urdf /spot_skills/src/spot_skills/urdf/
 ```

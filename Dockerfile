@@ -42,14 +42,17 @@ RUN apt-get -y install ros-noetic-moveit ros-noetic-catkin python3-catkin-tools 
 
 # Clone and build the MoveIt tutorials in a dedicated workspace
 # Reference: https://moveit.github.io/moveit_tutorials/doc/getting_started/getting_started.html
-RUN mkdir -p /ws_moveit/src && \
-    cd /ws_moveit/src && \
-    git clone https://github.com/moveit/moveit_tutorials.git -b master --depth 1 && \
+WORKDIR /moveit_ws/src
+RUN git clone https://github.com/moveit/moveit_tutorials.git -b master --depth 1 && \
     git clone https://github.com/moveit/panda_moveit_config.git -b noetic-devel --depth 1 && \
     rosdep -y install --from-paths . --ignore-src --rosdistro noetic
-RUN cd /ws_moveit && \
-    catkin config --extend /opt/ros/${ROS_DISTRO} --cmake-args -DCMAKE_BUILD_TYPE=Release && \
-    catkin build && \
-    echo "source /ws_moveit/devel/setup.bash" >> ~/.bashrc
 
-VOLUME /ws_moveit
+WORKDIR /moveit_ws
+RUN catkin config --extend /opt/ros/${ROS_DISTRO} --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    catkin build && \
+    echo "source /moveit_ws/devel/setup.bash" >> ~/.bashrc
+
+VOLUME /moveit_ws
+
+# Finalize the intended working directory for the image
+WORKDIR /spot_skills

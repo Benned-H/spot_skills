@@ -1,0 +1,51 @@
+services:
+
+  # This base service defines the configuration needed to support GUIs from the container
+  base-gui:
+    environment:
+
+      # Environment variables to support in-container GUIs
+      - DISPLAY # Pass the DISPLAY environment variable for X11 forwarding
+      - QT_X11_NO_MITSHM=1 # Prevent Qt apps in the container from using X11's MIT-SHM extension
+
+      # Nice-to-have environment variables for other useful settings
+      - TERM # Pass the TERM environment variable specifying the terminal type
+      - color_prompt=yes # Provide a colored prompt in the container
+    
+    devices:
+      - "/dev/dri:/dev/dri" # Map the host's Direct Rendering Infrastructure (DRI) into the container
+
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix # Mount the X11 Unix socket to support GUIs
+      - /etc/localtime:/etc/localtime:ro # Sync the container's timezone with the host (read-only)
+    
+    stdin_open: true    # docker run -i
+    tty: true           # docker run -t
+  
+  # This base service defines the configuration to support GUIs and NVIDIA GPU(s) in the container
+  nvidia-gpu:
+    
+    extends: # Extend the above service providing the config needed to run GUIs from the container
+      service: base-gui
+    
+    environment: # Additional NVIDIA-required environment variables
+      - NVIDIA_VISIBLE_DEVICES=all # Ensure that the container can access all NVIDIA devices
+      - NVIDIA_DRIVER_CAPABILITIES=all # Enable all NVIDIA driver capabilities for container
+
+      # Modern Docker Compose or NVIDIA documentation doesn't really mention these three:
+      # - __NV_PRIME_RENDER_OFFLOAD=1 # Offload graphics applications to the NVIDIA GPU
+      # - __GLX_VENDOR_LIBRARY_NAME=nvidia # Specify to use the NVIDIA driver for GLX graphics
+
+      # Run `drm-info` to view your machine's DRM device info
+      # - DRI_NAME=card1 # Set the DRI (Direct Rendering Infrastructure) device to the GPU
+
+    deploy:
+      resources:
+        reservations:   # Host machine must guarantee the container these resources
+          devices:
+            - driver: nvidia      # NVIDIA-provided driver
+              count: all          # Reserve all GPU devices on the host machine
+              capabilities: [gpu]
+    
+    runtime: nvidia       # Use the NVIDIA Container Runtime
+    network_mode: host    # Share the host's network
