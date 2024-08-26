@@ -4,13 +4,30 @@ Motion-planning-based skills for Boston Dynamics' Spot robot
 
 ## Docker Commands
 
-This repository uses Docker to manage dependencies. To build and start the GPU-enabled container, run the command:
+This repository uses Docker to manage dependencies. Docker Compose is used to configure the necessary images and containers, supporting both a GPU-enabled and GPU-less container.
+
+### GPU-enabled Container
+
+The Docker Compose configuration for this repository supports a container for machines with an NVIDIA GPU. To build and start the GPU-enabled container, run the command:
 ```bash
-docker compose up --build --detach
+docker compose up --build --detach noetic-nvidia
 ```
 
 Then, to enter the container, run the following commands:
 ```bash
 xhost +local:docker
 docker compose attach noetic-nvidia
+```
+
+### GPU-less Container
+
+The Docker Compose configuration for this repository also supports a container for machines without an NVIDIA GPU. To build and start the GPU-less container, run the command:
+```bash
+docker compose up --build --detach noetic-no-gpu
+```
+
+Then, to enter the container, run the following commands:
+```bash
+xhost +local:docker
+docker compose attach noetic-no-gpu
 ```
