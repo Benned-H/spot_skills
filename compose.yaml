@@ -2,29 +2,46 @@ services:
 
   # This service creates a container running Ubuntu 20.04 with ROS 1 Noetic
   noetic-no-gpu:
+
     extends: # Extend a service providing the config needed to run GUIs from the container
-      file: ./docker/gui-compose.yaml
+      file: ./docker/core-compose.yaml
       service: base-gui
+
     build:
       context: .
       args:
         BASE_IMAGE: ubuntu:20.04 # Use a CUDA-less base image for the GPU-less service
-  
+    
+    volumes:
+      - .:/spot_skills # Mount the repository (a ROS workspace) to the container
+
   # This service adds NVIDIA GPU support to our Ubuntu 20.04 and ROS 1 Noetic setup
   noetic-nvidia:
-    extends: # Extend a service providing the config needed to run GUIs from the container
-      file: ./docker/gui-compose.yaml
-      service: base-gui
+
+    extends: # Extend a service providing the config needed to support GUIs and NVIDIA GPU(s)
+      file: ./docker/core-compose.yaml
+      service: nvidia-gpu
+
     build: .
-    environment: # Additional NVIDIA-required environment variables
-      - NVIDIA_VISIBLE_DEVICES=all # Ensure that the container can access all NVIDIA devices
-      - NVIDIA_DRIVER_CAPABILITIES=all # Enable all NVIDIA driver capabilities for container
-    network_mode: host # Share the host's network
-    deploy:
-      resources:
-        reservations:   # Host machine must guarantee the container these resources
-          devices:
-            - driver: nvidia      # NVIDIA-provided driver
-              count: all          # Reserve all GPU devices on the host machine
-              capabilities: [gpu]
-    runtime: nvidia               # Use the NVIDIA Container Runtime
+
+    volumes:
+      - .:/spot_skills # Mount the repository (a ROS workspace) to the container
+      - spot_driver_ws:/spot_driver_ws # Mount the Spot driver's workspace into the container
+
+  # This service runs the ROS 2 driver for Spot with NVIDIA GPU support
+  spot-ros2:
+
+    extends: # Extend a service providing the config needed to support GUIs and NVIDIA GPU(s)
+      file: ./docker/core-compose.yaml
+      service: nvidia-gpu
+    
+    build: # Use BDAI's Dockerfile to build their Spot driver container
+      context: ./src/spot_ros2
+    
+    volumes: # Mount this container's workspace so other containers can access it
+      - type: volume
+        source: spot_driver_ws
+        target: /ros_ws
+
+volumes: # Declare named volumes so they can be reused across multiple services
+  spot_driver_ws:
