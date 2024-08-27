@@ -164,7 +164,7 @@ planner_configs:
     stop_on_each_solution_improvement: 0  # stop the planner each time a solution improvement is found. Useful for debugging. Default: 0
     use_strict_queue_ordering: 0  # sort edges in the queue at the end of the batch (0) or after each rewiring (1). Default: 0
     find_approximate_solutions: 0  # track approximate solutions (1) or not (0). Default: 0
-spot_arm:
+body:
   planner_configs:
     - AnytimePathShortening
     - SBL
@@ -193,38 +193,38 @@ spot_arm:
     - AITstar
     - ABITstar
     - BITstar
-  projection_evaluator: joints(arm_joint1,arm_joint2)
+arm:
+  planner_configs:
+    - AnytimePathShortening
+    - SBL
+    - EST
+    - LBKPIECE
+    - BKPIECE
+    - KPIECE
+    - RRT
+    - RRTConnect
+    - RRTstar
+    - TRRT
+    - PRM
+    - PRMstar
+    - FMT
+    - BFMT
+    - PDST
+    - STRIDE
+    - BiTRRT
+    - LBTRRT
+    - BiEST
+    - ProjEST
+    - LazyPRM
+    - LazyPRMstar
+    - SPARS
+    - SPARStwo
+    - AITstar
+    - ABITstar
+    - BITstar
+  projection_evaluator: joints(arm_sh0,arm_sh1)
   longest_valid_segment_fraction: 0.005
-spot_body:
-  planner_configs:
-    - AnytimePathShortening
-    - SBL
-    - EST
-    - LBKPIECE
-    - BKPIECE
-    - KPIECE
-    - RRT
-    - RRTConnect
-    - RRTstar
-    - TRRT
-    - PRM
-    - PRMstar
-    - FMT
-    - BFMT
-    - PDST
-    - STRIDE
-    - BiTRRT
-    - LBTRRT
-    - BiEST
-    - ProjEST
-    - LazyPRM
-    - LazyPRMstar
-    - SPARS
-    - SPARStwo
-    - AITstar
-    - ABITstar
-    - BITstar
-gripper:
+end_effector:
   planner_configs:
     - AnytimePathShortening
     - SBL

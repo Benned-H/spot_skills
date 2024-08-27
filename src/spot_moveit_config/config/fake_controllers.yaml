@@ -1,14 +1,5 @@
 controller_list:
-  - name: fake_spot_arm_controller
-    type: $(arg fake_execution_type)
-    joints:
-      - arm_joint1
-      - arm_joint2
-      - arm_joint3
-      - arm_joint4
-      - arm_joint5
-      - arm_joint6
-  - name: fake_spot_body_controller
+  - name: fake_body_controller
     type: $(arg fake_execution_type)
     joints:
       - front_left_hip_x
@@ -23,12 +14,21 @@ controller_list:
       - rear_right_hip_x
       - rear_right_hip_y
       - rear_right_knee
-  - name: fake_gripper_controller
+  - name: fake_arm_controller
     type: $(arg fake_execution_type)
     joints:
-      - arm_gripper
+      - arm_sh0
+      - arm_sh1
+      - arm_el0
+      - arm_el1
+      - arm_wr0
+      - arm_wr1
+  - name: fake_end_effector_controller
+    type: $(arg fake_execution_type)
+    joints:
+      - arm_f1x
 initial:  # Define initial robot poses per group
-  - group: spot_arm
+  - group: body
+    pose: standing
+  - group: arm
     pose: arm_stowed
-  - group: spot_body
-    pose: default_standing
