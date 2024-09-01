@@ -9,13 +9,13 @@ ARG CUDA_VERSION=12.2.2
 # Enable overriding the base image for non-GPU machines (default uses GPU)
 ARG BASE_IMAGE=nvidia/cuda:${CUDA_VERSION}-base-ubuntu20.04
 
-# Stage 1: Up-to-date Ubuntu 20.04 (possibly with CUDA support)
+## Stage 1: Up-to-date Ubuntu 20.04 (possibly with CUDA support)
 FROM ${BASE_IMAGE} AS ubuntu20.04
 
 # Update and upgrade all packages (and their dependencies)
 RUN apt-get update && apt-get -y dist-upgrade && apt-get clean
 
-# Stage 2: Install ROS 1 Noetic (Desktop-Full) onto Ubuntu 20.04
+## Stage 2: Install ROS 1 Noetic (Desktop-Full) onto Ubuntu 20.04
 FROM ubuntu20.04 AS noetic
 ENV ROS_DISTRO=noetic
 
@@ -33,24 +33,27 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     rosdep init && \
     rosdep update
 
-# Stage 3: Add MoveIt and its tutorials into the image
+# Source ROS in all terminals
+RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
+
+## Stage 3: Install MoveIt 1 for ROS Noetic from source (includes moveit_tutorials and panda_moveit_config)
+# Reference: http://moveit.ros.org/install/source/
 FROM noetic AS noetic-moveit
 
-# Install MoveIt 1 for ROS Noetic, alongside other tools, then source ROS
-RUN apt-get -y install ros-noetic-moveit ros-noetic-catkin python3-catkin-tools python3-wstool git && \
-    echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
+# Install required catkin build tools and Git
+RUN apt-get -y install ros-noetic-catkin python3-catkin-tools git
 
-# Clone and build the MoveIt tutorials in a dedicated workspace
-# Reference: https://moveit.github.io/moveit_tutorials/doc/getting_started/getting_started.html
-WORKDIR /moveit_ws/src
-RUN git clone https://github.com/moveit/moveit_tutorials.git -b master --depth 1 && \
-    git clone https://github.com/moveit/panda_moveit_config.git -b noetic-devel --depth 1 && \
-    rosdep -y install --from-paths . --ignore-src --rosdistro noetic
-
+# Download MoveIt's source code into a new workspace, install its dependencies, and build
 WORKDIR /moveit_ws
-RUN catkin config --extend /opt/ros/${ROS_DISTRO} --cmake-args -DCMAKE_BUILD_TYPE=Release && \
-    catkin build && \
-    echo "source /moveit_ws/devel/setup.bash" >> ~/.bashrc
+RUN wstool init src && \
+    wstool merge -t src https://raw.githubusercontent.com/moveit/moveit/master/moveit.rosinstall && \
+    wstool update -t src
+RUN rosdep install -y --from-paths src --ignore-src --rosdistro ${ROS_DISTRO}
+RUN catkin config --extend /opt/ros/${ROS_DISTRO} --cmake-args -DCMAKE_BUILD_TYPE=Release
+RUN catkin build
+
+# Source MoveIt in all terminals
+RUN echo "source /moveit_ws/devel/setup.bash" >> ~/.bashrc
 
 VOLUME /moveit_ws
 
