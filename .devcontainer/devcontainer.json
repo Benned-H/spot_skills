@@ -1,0 +1,45 @@
+{
+  "name": "${SERVICE_NAME} Dev Container",
+  "dockerComposeFile": ["../compose.yaml"],
+  "service": "${SERVICE_NAME}",
+  "workspaceFolder": "/spot_skills",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor": {
+          "rulers": 88,
+          "insertSpaces": true,
+          "tabSize": 4,
+          "stickyTabStops": true,
+          "formatOnSave": true
+        },
+
+        "[python]": {
+          "editor": {
+            "defaultFormatter": "charliermarsh.ruff",
+            "codeActionsOnSave": {
+              "source.fixAll": "explicit",
+              "source.organizeImports": "explicit"
+            }
+          }
+        },
+
+        "[jsonc]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+
+        "[yaml]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+
+        "git.autofetch": true
+      },
+
+      "extensions": [
+        "charliermarsh.ruff", // Python linter/formatter
+        "matangover.mypy", // Python type checker
+        "esbenp.prettier-vscode" // JSON and YAML formatter
+      ]
+    }
+  }
+}
