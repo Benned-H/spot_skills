@@ -52,10 +52,20 @@ RUN rosdep install -y --from-paths src --ignore-src --rosdistro ${ROS_DISTRO}
 RUN catkin config --extend /opt/ros/${ROS_DISTRO} --cmake-args -DCMAKE_BUILD_TYPE=Release
 RUN catkin build
 
+VOLUME /moveit_ws
+
 # Source MoveIt in all terminals
 RUN echo "source /moveit_ws/devel/setup.bash" >> ~/.bashrc
 
-VOLUME /moveit_ws
+# Last-minute catch-all development tool installs
+RUN apt-get -y install python3-pip && \
+    pip install mypy
 
 # Finalize the intended working directory for the image
 WORKDIR /spot_skills
+
+## Stage 4: Install dependencies for the Spot ROS 1 driver
+FROM noetic-moveit AS noetic-moveit-spot-driver
+
+# Install the Boston Dynamics SDK
+RUN pip install bosdyn-client bosdyn-mission bosdyn-api bosdyn-core
