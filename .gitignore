@@ -6,3 +6,4 @@ logs/
 
 # Ignore byte-compiled Python files
 __pycache__/
+*.pyc

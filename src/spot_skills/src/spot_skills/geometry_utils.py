@@ -3,6 +3,8 @@
 from math import pi
 
 import geometry_msgs.msg
+import rospy
+from std_msgs.msg import Header
 from tf.transformations import quaternion_from_euler
 
 DEG_TO_RAD = pi / 180  # Constant multiplier to convert degrees into radians
@@ -62,3 +64,20 @@ def create_pose(
     pose.orientation.w = quaternion[3]
 
     return pose
+
+
+def stamp_pose(
+    pose: geometry_msgs.msg.Pose, frame_id: str
+) -> geometry_msgs.msg.PoseStamped:
+    """Convert the given Pose message into a PoseStamped message.
+
+    :param      pose        Message representing a pose in 3D space
+    :param      frame_id    Frame the pose is to be associated with
+
+    :returns    PoseStamped message with a header specifying the given frame
+    """
+    header = Header()
+    header.stamp = rospy.Time.now()
+    header.frame_id = frame_id
+
+    return geometry_msgs.msg.PoseStamped(header, pose)

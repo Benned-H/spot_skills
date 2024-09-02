@@ -4,17 +4,23 @@
 
 import sys
 
+import geometry_msgs.msg
 import moveit_commander
 import moveit_msgs.msg
 import rospy
 
-from spot_skills.geometry_utils import create_pose
+from spot_skills.geometry_utils import create_pose, stamp_pose
 
 
 def main():
     """Stream joint angles from MoveIt to control Spot's arm using the ROS 1 driver."""
     moveit_commander.roscpp_initialize(sys.argv)
     rospy.init_node("spot_moveit_controller")
+
+    # Create a publisher to display target poses in RViz
+    target_pose_publisher = rospy.Publisher(
+        "/spot_arm_target_pose", geometry_msgs.msg.PoseStamped, queue_size=1
+    )
 
     # MoveGroupCommander Reference: https://tinyurl.com/move-group-commander
     group_name = "arm"
@@ -24,65 +30,57 @@ def main():
     body_frame = "body"
 
     print(f"Move group's reference frame: {move_group.get_pose_reference_frame()}")
-    move_group.set_pose_reference_frame(body_frame)  # TODO: Check name
+    move_group.set_pose_reference_frame(body_frame)
     print(f"Updated reference frame: {move_group.get_pose_reference_frame()}")
-
-    # Create a publisher to display trajectories in RViz
-    display_trajectory_publisher = rospy.Publisher(
-        "/move_group/display_planned_path",
-        moveit_msgs.msg.DisplayTrajectory,
-        queue_size=20,
-    )
 
     # Describe the line we'll move Spot's end-effector back-and-forth along
     # Reference: Spot + Spot Arm Information for Use (v1.0) (pg. 17)
-    forward_m = 0.9  # Distance forward (meters) in Spot's body frame
-    sideways_m = 0.7  # Maximum sideways end-effector extent (meters)
-    height_m = 1.1  # Height from floor (meters)
-
-    # TODO: Verify that these parameters look reasonable in simulation
+    forward_m = 0.5  # Distance forward (meters) in Spot's body frame
+    sideways_m = 0.6  # Maximum sideways end-effector extent (meters)
+    height_m = 0.9  # Height from floor (meters)
 
     body_frame_height_m = 0.54  # TODO: Read from real-time robot!
     z_in_body_frame = height_m - body_frame_height_m  # Line's z in Spot's body frame
 
-    # Specify end-effector (ee) target poses in Spot's body frame, with the end-
-    #   effector facing 45º "out" once moved to either end of the line.
+    # Specify end-effector (ee) target poses in Spot's body frame
     # Assume: Spot may begin at an arbitrary (x,y) location in the global frame
-    left_ee_pose = create_pose(forward_m, sideways_m, z_in_body_frame, yaw_deg=45)
-    right_ee_pose = create_pose(forward_m, -sideways_m, z_in_body_frame, yaw_deg=-45)
+    left_ee_pose = create_pose(forward_m, sideways_m, z_in_body_frame)
+    center_ee_pose = create_pose(forward_m, 0, z_in_body_frame)
+    right_ee_pose = create_pose(forward_m, -sideways_m, z_in_body_frame)
 
-    print(f"Left target pose:\n{left_ee_pose}\nRight target pose:\n{right_ee_pose}")
+    target_poses = [center_ee_pose, left_ee_pose, center_ee_pose, right_ee_pose]
+    target_pose_idx = 0
 
-    # Begin alternating Spot's arm between the two target poses
-    while True:
-        move_group.set_pose_target(left_ee_pose)
-        success, trajectory, _, error_code = move_group.plan()
+    print(f"Left target pose:\n{left_ee_pose}")
+
+    # Begin alternating Spot's arm between the target poses
+    freq_hz = 0.2  # Switch sides every 5 seconds
+    rate = rospy.Rate(freq_hz)
+
+    while not rospy.is_shutdown():
+        # Loop to the beginning of the target poses, if necessary
+        if target_pose_idx >= len(target_poses):
+            target_pose_idx = 0
+
+        curr_target_pose = target_poses[target_pose_idx]
+        target_pose_publisher.publish(stamp_pose(curr_target_pose, body_frame))
+
+        # Plan and move Spot's arm to the current target pose
+        print(f"Planning to pose:\n{curr_target_pose}...")
+        move_group.set_pose_target(curr_target_pose)
+        success, trajectory, _, error = move_group.plan()
         move_group.clear_pose_targets()  # Clear pose targets after planning
 
         if not success:
-            print(f"Planning to pose {left_ee_pose} failed with error {error_code}!")
-            break
+            print(f"Planning failed with error {error}!")
 
         # If planning succeeded, execute the planned trajectory (blocks until done)
         move_group.execute(trajectory, wait=True)
         move_group.stop()  # Ensure there's no residual movement
-        rospy.sleep(5)
 
-        # Now, plan and move Spot's arm to the right side
-        move_group.set_pose_target(right_ee_pose)
-        success, trajectory, _, error_code = move_group.plan()
-        move_group.clear_pose_targets()  # Clear pose targets after planning
+        target_pose_idx += 1
 
-        if not success:
-            print(f"Planning to pose {right_ee_pose} failed with error {error_code}!")
-            break
-
-        # If planning succeeded, execute the planned trajectory (blocks until done)
-        move_group.execute(trajectory, wait=True)
-        move_group.stop()  # Ensure there's no residual movement
-        rospy.sleep(5)
-
-    rospy.spin()  # Don't exit until the node is stopped
+        rate.sleep()  # Slow change of target poses to specified rate
 
 
 if __name__ == "__main__":
