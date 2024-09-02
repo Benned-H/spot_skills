@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 
-"""Smoke test: Can Spot's ROS 1 driver handle MoveIt-streamed joint angles?"""
+"""Verify that Spot's ROS 1 driver can handle joint angles streamed by MoveIt."""
 
 import sys
 
 import moveit_commander
 import moveit_msgs.msg
-import numpy as np
 import rospy
 
-from .geometry_utils import create_pose
+from spot_skills.geometry_utils import create_pose
 
 
 def main():
@@ -22,7 +21,7 @@ def main():
     move_group = moveit_commander.MoveGroupCommander(group_name)
 
     # Ensure that the move group expects poses in Spot's body frame
-    body_frame = "spot_body"  # TODO: Check the name for Spot's body frame
+    body_frame = "body"
 
     print(f"Move group's reference frame: {move_group.get_pose_reference_frame()}")
     move_group.set_pose_reference_frame(body_frame)  # TODO: Check name

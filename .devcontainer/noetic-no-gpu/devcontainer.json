@@ -8,7 +8,7 @@
     "vscode": {
       "settings": {
         "editor": {
-          "rulers": 88,
+          "rulers": [88],
           "insertSpaces": true,
           "tabSize": 4,
           "stickyTabStops": true,
@@ -31,6 +31,12 @@
           "editor.autoIndent": "advanced",
           "editor.defaultFormatter": "esbenp.prettier-vscode"
         },
+        "[toml]": {
+          "editor.defaultFormatter": "tamasfe.even-better-toml"
+        },
+        "[xml]": {
+          "editor.defaultFormatter": "redhat.vscode-xml"
+        },
         "[yaml]": {
           "editor.defaultFormatter": "esbenp.prettier-vscode"
         },
@@ -39,7 +45,10 @@
       "extensions": [
         "charliermarsh.ruff", // Python linter/formatter
         "matangover.mypy", // Python type checker
-        "esbenp.prettier-vscode" // JSON and YAML formatter
+        "esbenp.prettier-vscode", // JSON and YAML formatter
+        "tamasfe.even-better-toml", // TOML syntax highlighting
+        "twxs.cmake", // CMake support
+        "redhat.vscode-xml" // XML
       ]
     }
   }

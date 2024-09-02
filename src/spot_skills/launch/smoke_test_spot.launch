@@ -1,0 +1,73 @@
+<launch>
+
+    <!-- Launch the node that publishes joint commands to Spot -->
+    <node name="spot_smoke_tester" pkg="spot_skills" type="spot_moveit_smoke_test.py" />
+
+    <!-- Specify default arguments for the move_group node -->
+    <arg name="pipeline" default="ompl" />
+    <arg name="debug" default="false" /> <!-- Default: not in debug mode -->
+
+    <!-- Load/override the robot description by default -->
+    <arg name="load_robot_description" default="true" />
+
+    <!-- Choose controller manager: fake, simple, or ros_control
+
+        fake - Provides fake trajectory execution, when we don't have a real robot
+
+        simple - Sufficient for most use cases, if your robot controllers already
+            provide ROS actions for FollowJointTrajectory
+        
+        ros_control - When the ROS controller doesn't support the FollowJointTrajectory
+            action, we can use a ROS Control Controller Manager, provided that we can
+            implement integration interfaces for the ControllerHandle API
+        
+        As our default, assume that we're running the smoke test in simulation -->
+    <arg name="moveit_controller_manager" default="fake" />
+    <!-- Set execution mode for fake execution controllers -->
+    <arg name="fake_execution_type" default="interpolate" />
+
+    <!-- By default, hide joint_state_publisher's GUI in 'fake' controller_manager mode -->
+    <arg name="use_gui" default="false" />
+    <arg name="use_rviz" default="true" />
+
+    <group if="$(eval arg('moveit_controller_manager') == 'fake')">
+
+        <!-- We don't have a real robot connected, so publish fake joint states. The `source_list`
+             parameter tells the joint_state_publisher where to listen for joint state messages -->
+        <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher"
+            unless="$(arg use_gui)">
+            <rosparam param="source_list">[move_group/fake_controller_joint_states]</rosparam>
+        </node>
+
+        <!-- If desired, a GUI can be used to move the simulated robot around manually
+             This corresponds to moving around the real robot without the use of MoveIt. -->
+        <node name="joint_state_publisher" pkg="joint_state_publisher_gui"
+            type="joint_state_publisher_gui" if="$(arg use_gui)">
+            <rosparam param="source_list">[move_group/fake_controller_joint_states]</rosparam>
+        </node>
+
+        <!-- Given the published joint states, publish tf for the robot links -->
+        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"
+            respawn="true" output="screen" />
+
+    </group>
+
+    <!-- Run the main MoveIt executable without trajectory execution -->
+    <!-- We do not have controllers configured by default -->
+    <include file="$(find spot_moveit_config)/launch/move_group.launch">
+        <arg name="allow_trajectory_execution" value="true" />
+        <arg name="moveit_controller_manager" value="$(arg moveit_controller_manager)" />
+        <arg name="fake_execution_type" value="$(arg fake_execution_type)" />
+        <arg name="info" value="true" />
+        <arg name="debug" value="$(arg debug)" />
+        <arg name="pipeline" value="$(arg pipeline)" />
+        <arg name="load_robot_description" value="$(arg load_robot_description)" />
+    </include>
+
+    <!-- Run Rviz and load the default config to see the state of the move_group node -->
+    <include file="$(find spot_moveit_config)/launch/moveit_rviz.launch" if="$(arg use_rviz)">
+        <arg name="rviz_config" value="$(find spot_moveit_config)/launch/moveit.rviz" />
+        <arg name="debug" value="$(arg debug)" />
+    </include>
+
+</launch>
