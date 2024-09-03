@@ -14,6 +14,21 @@ services:
     volumes:
       - .:/spot_skills # Mount the repository (a ROS workspace) to the container
 
+  # Install the dependencies for the Spot ROS 1 driver alongside ROS 1 Noetic
+  spot-ros1-no-gpu:
+    extends: # Extend a service providing the config needed to run GUIs from the container
+      file: ./docker/core-compose.yaml
+      service: base-gui
+
+    build:
+      context: .
+      target: noetic-moveit-spot-driver
+      args:
+        BASE_IMAGE: ubuntu:20.04 # Use a CUDA-less base image for the GPU-less service
+
+    volumes:
+      - .:/spot_skills # Mount the repository (a ROS workspace) to the container
+
   # Add NVIDIA GPU support to the Ubuntu 20.04 and ROS 1 Noetic container
   noetic-nvidia:
     extends: # Extend a service providing the config needed for GUIs and NVIDIA GPU(s)
@@ -36,6 +51,6 @@ services:
     build:
       context: .
       target: noetic-moveit-spot-driver
-      
+
     volumes:
       - .:/spot_skills # Mount the repository (a ROS workspace) to the container
