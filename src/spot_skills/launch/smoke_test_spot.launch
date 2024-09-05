@@ -1,4 +1,4 @@
-<!-- Launch all nodes required for the Spot-MoveIt smoke test. -->
+<!-- Launch all nodes required for the Spot-MoveIt smoke test -->
 <launch>
 
     <!-- Choose MoveIt's controller manager: fake, simple, or ros_control
@@ -12,24 +12,24 @@
     
      Reference: https://tinyurl.com/moveit-noetic-controllers
 
-     By default, assume we're running the smoke test in simulation. -->
+     By default, assume we're running the smoke test in simulation -->
     <arg name="moveit_controller_manager" default="fake" />
 
     <arg name="debug" default="false" /> <!-- Default not in debug mode -->
 
-    <!-- Launch the core nodes required to control a robot using MoveIt. -->
+    <!-- Launch the core nodes required to control a robot using MoveIt -->
     <include file="$(dirname)/moveit_core.launch" pass_all_args="true">
         <arg name="pipeline" default="ompl" /> <!-- Default planning pipeline -->
 
         <!-- Load/override the robot description by default -->
         <arg name="load_robot_description" default="true" />
 
-        <!-- Set execution mode for fake execution controllers.
-            Options: interpolate, via points, or last point.
+        <!-- Set execution mode for fake execution controllers
+            Options: interpolate, via points, or last point
             Reference: https://tinyurl.com/noetic-fake-controller-manager -->
         <arg name="fake_execution_type" default="interpolate" />
 
-        <!-- Default: Don't provide a GUI for manual control of the robot joint states. -->
+        <!-- Default: Don't provide a GUI for manual control of the robot joint states -->
         <arg name="joints_gui" default="false" />
     </include>
 
