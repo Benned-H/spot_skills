@@ -207,7 +207,7 @@ Visualization Manager:
         TextHeight: 0.07999999821186066
       Planning Request:
         Colliding Link Color: 255; 0; 0
-        Goal State Alpha: 1
+        Goal State Alpha: 0.7
         Goal State Color: 250; 128; 0
         Interactive Marker Size: 0
         Joint Violation Color: 255; 0; 255
@@ -215,7 +215,7 @@ Visualization Manager:
         Query Goal State: false
         Query Start State: false
         Show Workspace: false
-        Start State Alpha: 1
+        Start State Alpha: 0.7
         Start State Color: 0; 255; 0
       Planning Scene Topic: move_group/monitored_planning_scene
       Robot Description: robot_description
