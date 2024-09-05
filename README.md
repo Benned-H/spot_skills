@@ -2,6 +2,20 @@
 
 Motion-planning-based skills for Boston Dynamics' Spot robot
 
+## Cloning with Submodules
+
+This repository includes others, such as [`spot_ros`](https://github.com/heuristicus/spot_ros), as nested submodules. To ensure that all submodules are cloned alongside this repository, use the command:
+
+```bash
+git clone --recurse-submodules https://github.com/Benned-H/spot_skills.git
+```
+
+If you have already cloned the repository, run the following command to ensure that the submodules are initialized and updated:
+
+```bash
+git submodule update --init --recursive
+```
+
 ## Docker Commands
 
 This repository uses Docker to standardize its workspace setup and dependencies across machines. The Docker Compose file `compose.yaml` specifies services for various use cases in the project, including:

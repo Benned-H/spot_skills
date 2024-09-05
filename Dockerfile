@@ -67,6 +67,13 @@ WORKDIR /spot_skills
 ## Stage 4: Install dependencies for the Spot ROS 1 driver
 FROM noetic-moveit AS noetic-moveit-spot-driver
 
-# Install the Boston Dynamics SDK, and anything else needed to work with Spot
+# Install the Boston Dynamics SDK (needed to work with Spot)
 RUN pip install bosdyn-client bosdyn-mission bosdyn-api bosdyn-core && \
+    # Ensure that all submodules are updated, and their dependencies installed
+    git submodule update --init --recursive && \
+    rosdep install --from-paths src --ignore-src -r -y && \
+    # Install any additional tools needed to work with Spot
     apt-get -y install iputils-ping
+
+WORKDIR /spot_skills/src/spot_ros
+RUN pip install -e spot_wrapper
