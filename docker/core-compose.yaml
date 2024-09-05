@@ -12,6 +12,7 @@ services:
 
     devices:
       - "/dev/dri:/dev/dri" # Map the host's Direct Rendering Infrastructure (DRI) into the container
+      - "/dev/input/js0:/dev/input/js0" # Map the host's joystick controller into the container
 
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix # Mount the X11 Unix socket to support GUIs
