@@ -1,0 +1,37 @@
+# Dockerfile for creating a "Spot-only" container (mostly for API reference)
+# No GPU support, as this container is not meant for actual deployment
+
+# The Spot Python SDK supports Ubuntu 18.04 LTS and Python 3.8
+#   May try newer versions to align with the rest of this project...
+# Reference: https://dev.bostondynamics.com/docs/python/quickstart
+ARG UBUNTU_VERSION=24.04
+ARG PYTHON_VERSION=3.12
+
+# Can use this argument to override the base image
+ARG BASE_IMAGE=ubuntu:${UBUNTU_VERSION}
+
+## Stage 1: Ubuntu, Python, and pip
+FROM ${BASE_IMAGE} AS ubuntu-python
+ARG PYTHON_VERSION
+
+# Update and upgrade all packages (and their dependencies), then install Python and pip
+RUN apt-get update && apt-get -y dist-upgrade && apt-get clean
+RUN apt-get install -y python${PYTHON_VERSION} python3-pip
+
+## Stage 2: Install Spot Python packages and the Spot SDK
+FROM ubuntu-python AS spot-sdk
+
+RUN pip3 install --upgrade --break-system-packages \
+    bosdyn-client bosdyn-mission bosdyn-choreography-client bosdyn-orbit
+
+# Clone the Spot SDK from GitHub
+WORKDIR /spot_ws
+RUN apt-get install -y git && \
+    git clone https://github.com/boston-dynamics/spot-sdk.git --depth 1
+
+# Install any additional tools needed to work with Spot
+RUN apt-get -y install iputils-ping
+
+VOLUME /spot_ws
+
+# TODO: Check with/without apt-get clean

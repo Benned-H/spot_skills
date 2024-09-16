@@ -54,3 +54,13 @@ services:
 
     volumes:
       - .:/spot_skills # Mount the repository (a ROS workspace) to the container
+
+  # Container with just the Spot SDK and its dependencies
+  spot-sdk:
+    extends: # Add config for GUIs and useful terminal properties
+      file: ./docker/core-compose.yaml
+      service: base-gui
+    build:
+      context: ./docker
+      dockerfile: Spot-Dockerfile
+      target: spot-sdk
