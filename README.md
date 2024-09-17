@@ -23,8 +23,9 @@ This repository uses Docker to standardize its workspace setup and dependencies 
 - GPU-enabled container (ROS 1 Noetic) - Service name `noetic-nvidia`
 - GPU-less container (ROS 1 Noetic) - Service name `noetic-no-gpu`
 - Spot driver plus GPU support (ROS 1 Noetic) - Service name `spot-ros1`
+- Spot SDK reference - Service name `spot-sdk`
 
-To select a service, set the `SERVICE_NAME` environment variable accordingly:
+To select a service, set the `SERVICE_NAME` environment variable accordingly, for example:
 
 ```bash
 export SERVICE_NAME=noetic-nvidia   # Noetic container with NVIDIA GPU support

@@ -21,7 +21,7 @@ RUN apt-get install -y python${PYTHON_VERSION} python3-pip
 ## Stage 2: Install Spot Python packages and the Spot SDK
 FROM ubuntu-python AS spot-sdk
 
-RUN pip3 install --upgrade --break-system-packages \
+RUN pip install --upgrade --break-system-packages \
     bosdyn-client bosdyn-mission bosdyn-choreography-client bosdyn-orbit
 
 # Clone the Spot SDK from GitHub
@@ -33,5 +33,3 @@ RUN apt-get install -y git && \
 RUN apt-get -y install iputils-ping
 
 VOLUME /spot_ws
-
-# TODO: Check with/without apt-get clean

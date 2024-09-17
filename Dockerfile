@@ -68,7 +68,7 @@ WORKDIR /spot_skills
 FROM noetic-moveit AS noetic-moveit-spot-driver
 
 # Install the Boston Dynamics SDK (needed to work with Spot)
-RUN pip install bosdyn-client bosdyn-mission bosdyn-api bosdyn-core && \
+RUN pip install --upgrade bosdyn-client bosdyn-mission bosdyn-choreography-client bosdyn-orbit && \
     # Ensure that all submodules are updated, and their dependencies installed
     git submodule update --init --recursive && \
     rosdep install --from-paths src --ignore-src -r -y && \

@@ -9,8 +9,27 @@ indent-width = 4
 # flake8-bugbear (B), flake8-builtins (A), flake8-comprehensions (C4),
 # flake8-pytest-style (PT), flake8-use-pathlib (PTH), Pylint (PL),
 # tryceratops (TRY), NumPy-specific (NPY), pydoclint (DOC), and Ruff (RUF).
-select = ["F", "E", "I", "N", "D", "UP", "ANN", "S", "B", "A", "C4", "PT", "PTH", "PL", "TRY", "NPY", "DOC", "RUF"]
-ignore = []
+select = [
+    "F",
+    "E",
+    "I",
+    "N",
+    "D",
+    "UP",
+    "ANN",
+    "S",
+    "B",
+    "A",
+    "C4",
+    "PT",
+    "PTH",
+    "PL",
+    "TRY",
+    "NPY",
+    "DOC",
+    "RUF",
+]
+ignore = ["ANN101"] # Ignore type annotations on `self`
 unfixable = ["F401"] # Disable fix for unused imports
 
 [tool.ruff.format]
