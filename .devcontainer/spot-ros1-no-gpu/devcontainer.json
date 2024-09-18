@@ -1,5 +1,5 @@
 {
-  "name": "Spot Driver Dev Container (No GPU)",
+  "name": "Spot SDK + ROS Dev Container (No GPU)",
   "dockerComposeFile": ["../../compose.yaml"],
   "service": "spot-ros1-no-gpu",
   "runServices": ["spot-ros1-no-gpu"],

@@ -1,5 +1,5 @@
 {
-  "name": "NVIDIA GPU Dev Container",
+  "name": "NVIDIA GPU Noetic Dev Container",
   "dockerComposeFile": ["../../compose.yaml"],
   "service": "noetic-nvidia",
   "runServices": ["noetic-nvidia"],

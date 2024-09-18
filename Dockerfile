@@ -57,23 +57,40 @@ VOLUME /moveit_ws
 # Source MoveIt in all terminals
 RUN echo "source /moveit_ws/devel/setup.bash" >> ~/.bashrc
 
-# Last-minute catch-all development tool installs
-RUN apt-get -y install python3-pip && \
-    pip install mypy
-
 # Finalize the intended working directory for the image
 WORKDIR /spot_skills
 
-## Stage 4: Install dependencies for the Spot ROS 1 driver
-FROM noetic-moveit AS noetic-moveit-spot-driver
+## Stage 4: Install Spot ROS 1 driver and the Spot SDK
+FROM noetic-moveit AS spot-moveit
+
+# The Spot Python SDK says it supports Ubuntu 18.04 LTS and Python 3.6-3.8
+#   However, to keep things uniform across the repo, try a newer version
+# Reference: https://dev.bostondynamics.com/docs/python/quickstart
+ARG PYTHON_VERSION=3.12
+
+# Ensure Python and pip are installed
+RUN apt-get -y install python${PYTHON_VERSION} python3-pip
 
 # Install the Boston Dynamics SDK (needed to work with Spot)
-RUN pip install --upgrade bosdyn-client bosdyn-mission bosdyn-choreography-client bosdyn-orbit && \
-    # Ensure that all submodules are updated, and their dependencies installed
-    git submodule update --init --recursive && \
-    rosdep install --from-paths src --ignore-src -r -y && \
-    # Install any additional tools needed to work with Spot
-    apt-get -y install iputils-ping
+# Maybe need: --break-system-packages \
+RUN pip install --upgrade \
+    bosdyn-client bosdyn-mission bosdyn-choreography-client bosdyn-orbit
 
+# Ensure that all submodules are updates, and install their dependencies
+RUN git submodule update --init --recursive && \
+    rosdep install --from-paths src --ignore-src -r -y
+
+# Pip-install the Spot ROS driver's wrapper for Python
 WORKDIR /spot_skills/src/spot_ros
 RUN pip install -e spot_wrapper
+
+# Clone the Spot SDK from GitHub
+WORKDIR /spot_sdk
+RUN git clone https://github.com/boston-dynamics/spot-sdk.git --depth 1
+VOLUME /spot_sdk
+
+# Catch-all: Additional tools needed to work with Spot
+RUN apt-get -y install iputils-ping
+
+# Finalize the intended working directory for the image
+WORKDIR /spot_skills

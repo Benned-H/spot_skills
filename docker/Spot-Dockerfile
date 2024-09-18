@@ -25,11 +25,11 @@ RUN pip install --upgrade --break-system-packages \
     bosdyn-client bosdyn-mission bosdyn-choreography-client bosdyn-orbit
 
 # Clone the Spot SDK from GitHub
-WORKDIR /spot_ws
+WORKDIR /spot_sdk
 RUN apt-get install -y git && \
     git clone https://github.com/boston-dynamics/spot-sdk.git --depth 1
 
 # Install any additional tools needed to work with Spot
 RUN apt-get -y install iputils-ping
 
-VOLUME /spot_ws
+VOLUME /spot_sdk

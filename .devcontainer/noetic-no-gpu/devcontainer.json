@@ -1,5 +1,5 @@
 {
-  "name": "Sans-GPU Dev Container",
+  "name": "Sans-GPU Noetic Dev Container",
   "dockerComposeFile": ["../../compose.yaml"],
   "service": "noetic-no-gpu",
   "runServices": ["noetic-no-gpu"],

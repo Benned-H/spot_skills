@@ -1,9 +1,9 @@
 {
-  "name": "Spot SDK Dev Container",
+  "name": "Just Spot SDK Dev Container",
   "dockerComposeFile": ["../../compose.yaml"],
   "service": "spot-sdk",
   "runServices": ["spot-sdk"],
-  "workspaceFolder": "/spot_ws",
+  "workspaceFolder": "/spot_sdk",
   "customizations": {
     "vscode": {
       "settings": {

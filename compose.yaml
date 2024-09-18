@@ -12,22 +12,7 @@ services:
         BASE_IMAGE: ubuntu:20.04 # Use a CUDA-less base image for the GPU-less service
 
     volumes:
-      - .:/spot_skills # Mount the repository (a ROS workspace) to the container
-
-  # Install the dependencies for the Spot ROS 1 driver alongside ROS 1 Noetic
-  spot-ros1-no-gpu:
-    extends: # Extend a service providing the config needed to run GUIs from the container
-      file: ./docker/core-compose.yaml
-      service: base-gui
-
-    build:
-      context: .
-      target: noetic-moveit-spot-driver
-      args:
-        BASE_IMAGE: ubuntu:20.04 # Use a CUDA-less base image for the GPU-less service
-
-    volumes:
-      - .:/spot_skills # Mount the repository (a ROS workspace) to the container
+      - .:/spot_skills # Mount this repository (a ROS workspace) into the container
 
   # Add NVIDIA GPU support to the Ubuntu 20.04 and ROS 1 Noetic container
   noetic-nvidia:
@@ -40,20 +25,7 @@ services:
       target: noetic-moveit
 
     volumes:
-      - .:/spot_skills # Mount the repository (a ROS workspace) to the container
-
-  # Install the dependencies for the Spot ROS 1 driver alongside NVIDIA GPU support
-  spot-ros1:
-    extends: # Extend a service providing the config needed for GUIs and NVIDIA GPU(s)
-      file: ./docker/core-compose.yaml
-      service: nvidia-gpu
-
-    build:
-      context: .
-      target: noetic-moveit-spot-driver
-
-    volumes:
-      - .:/spot_skills # Mount the repository (a ROS workspace) to the container
+      - .:/spot_skills # Mount this repository (a ROS workspace) into the container
 
   # Container with just the Spot SDK and its dependencies
   spot-sdk:
@@ -64,3 +36,18 @@ services:
       context: ./docker
       dockerfile: Spot-Dockerfile
       target: spot-sdk
+  
+  # Container with Ubuntu 20.04, ROS 1 Noetic, MoveIt, and the Spot SDK (no GPU)
+  spot-ros1-no-gpu:
+    extends: # Add config for GUIs and useful terminal properties
+      file: ./docker/core-compose.yaml
+      service: base-gui
+
+    build:
+      context: .
+      target: spot-moveit
+      args:
+        BASE_IMAGE: ubuntu:20.04 # Use a CUDA-less base image for the GPU-less service
+
+    volumes:
+      - .:/spot_skills # Mount this repository (a ROS workspace) into the container
