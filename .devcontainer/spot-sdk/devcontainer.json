@@ -1,9 +1,9 @@
 {
-  "name": "Spot Driver Dev Container",
+  "name": "'Just Spot SDK' Dev Container",
   "dockerComposeFile": ["../../compose.yaml"],
-  "service": "spot-ros1",
-  "runServices": ["spot-ros1"],
-  "workspaceFolder": "/spot_skills",
+  "service": "spot-sdk",
+  "runServices": ["spot-sdk"],
+  "workspaceFolder": "/spot_sdk",
   "customizations": {
     "vscode": {
       "settings": {
