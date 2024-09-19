@@ -1,5 +1,7 @@
 services:
-  # This base service defines the configuration needed to support GUIs from the container
+  # Base service defining the configuration needed to support GUIs and Spot
+  #   Note that only (late) image stages that use the Spot-related build arguments
+  #   will be rebuilt when the args change, so these won't break ROS-only images
   base-gui:
     environment:
       # Environment variables to support in-container GUIs
@@ -20,9 +22,20 @@ services:
     stdin_open: true # docker run -i
     tty: true # docker run -t
 
-  # This base service defines the configuration to support GUIs and NVIDIA GPU(s) in the container
+    build:
+      args:
+        SPOT_SDK_VERSION: 4.0.3 # Impacts the Spot Python package versions
+
+        # The Spot Python SDK says it supports Ubuntu 18.04 LTS and Python 3.6-3.8,
+        #   which seems to align with the version (3.8) installed for the Noetic
+        #   build, at least by default. Leaving this argument unspecified.
+        # Reference: https://dev.bostondynamics.com/docs/python/quickstart
+        # PYTHON_VERSION: 3.12 # Version of Python in the container
+        #   Alternative: Use miniconda to manage Python reqs (saves Docker rebuilds)
+
+  # Base service defines the configuration to support GUIs and NVIDIA GPU(s) in the container
   nvidia-gpu:
-    extends: # Extend the above service providing the config needed to run GUIs from the container
+    extends: # Extend the above service providing the config needed to output GUIs
       service: base-gui
 
     environment: # Additional NVIDIA-required environment variables

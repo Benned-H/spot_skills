@@ -18,19 +18,17 @@ git submodule update --init --recursive
 
 ## Docker Commands
 
-This repository uses Docker to standardize its workspace setup and dependencies across machines. The Docker Compose file `compose.yaml` specifies services for various use cases in the project, including:
-
-- GPU-enabled container (ROS 1 Noetic) - Service name `noetic-nvidia`
-- GPU-less container (ROS 1 Noetic) - Service name `noetic-no-gpu`
-- Spot driver plus GPU support (ROS 1 Noetic) - Service name `spot-ros1`
-- Spot SDK reference - Service name `spot-sdk`
+This repository uses Docker to standardize its workspace setup across machines. The `compose.yaml` defines a Docker service for several development use cases, varying across the inclusion or exclusion of ROS 1 Noetic, the Spot SDK, and GPU support:
+- ROS 1 Noetic (without GPU) - `noetic`
+- GPU-enabled ROS 1 Noetic - `noetic-nvidia`
+- Spot SDK (for API reference) - `spot-sdk`
+- ROS 1 Noetic + Spot SDK (without GPU) - `spot-ros1`
+- GPU-enabled ROS 1 Noetic + Spot SDK - `spot-ros1-nvidia`
 
 To select a service, set the `SERVICE_NAME` environment variable accordingly, for example:
 
 ```bash
-export SERVICE_NAME=noetic-nvidia   # Noetic container with NVIDIA GPU support
-export SERVICE_NAME=noetic-no-gpu   # Noetic container without GPU support
-export SERVICE_NAME=spot-ros1       # Spot ROS 1 driver plus NVIDIA GPU support
+export SERVICE_NAME=spot-sdk
 ```
 
 To build and start the selected container, run the command:
