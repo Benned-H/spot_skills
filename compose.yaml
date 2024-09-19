@@ -1,7 +1,7 @@
 services:
-  # Create a container running Ubuntu 20.04 with ROS 1 Noetic
-  noetic-no-gpu:
-    extends: # Extend a service providing the config needed to run GUIs from the container
+  # Container running Ubuntu 20.04 with ROS 1 Noetic (no GPU support)
+  noetic:
+    extends: # Add config for GUIs and useful terminal properties
       file: ./docker/core-compose.yaml
       service: base-gui
 
@@ -12,7 +12,7 @@ services:
         BASE_IMAGE: ubuntu:20.04 # Use a CUDA-less base image for the GPU-less service
 
     volumes:
-      - .:/spot_skills # Mount the repository (a ROS workspace) to the container
+      - .:/spot_skills # Mount this repository (a ROS workspace) into the container
 
   # Add NVIDIA GPU support to the Ubuntu 20.04 and ROS 1 Noetic container
   noetic-nvidia:
@@ -25,17 +25,46 @@ services:
       target: noetic-moveit
 
     volumes:
-      - .:/spot_skills # Mount the repository (a ROS workspace) to the container
+      - .:/spot_skills # Mount this repository (a ROS workspace) into the container
 
-  # Install the dependencies for the Spot ROS 1 driver alongside NVIDIA GPU support
+  # Container with just the Spot SDK and its dependencies (based on Ubuntu 20.04)
+  spot-sdk:
+    extends: # Add config for GUIs and useful terminal properties
+      file: ./docker/core-compose.yaml
+      service: base-gui
+
+    build:
+      context: .
+      target: spot-sdk # Build the stage that installs the Spot SDK (skips ROS stuff)
+      args:
+        # Setting this argument "skips" the ROS build stages used in other services
+        SPOT_BASE_IMAGE: ubuntu:20.04 # No need for GPU support in this container
+        DEFAULT_WORKDIR: /spot_sdk # Override the default folder in the container
+
+  # Container with Ubuntu 20.04, ROS 1 Noetic, MoveIt, and the Spot SDK (no GPU)
   spot-ros1:
+    extends: # Add config for GUIs and useful terminal properties
+      file: ./docker/core-compose.yaml
+      service: base-gui
+
+    build:
+      context: .
+      target: spot-sdk # Build the stage that installs the Spot SDK (after ROS stuff)
+      args:
+        BASE_IMAGE: ubuntu:20.04 # Use a CUDA-less base image for the GPU-less service
+
+    volumes:
+      - .:/spot_skills # Mount this repository (a ROS workspace) into the container
+
+  # Add NVIDIA GPU support to the ROS 1 Noetic + MoveIt + Spot SDK container
+  spot-ros1-nvidia:
     extends: # Extend a service providing the config needed for GUIs and NVIDIA GPU(s)
       file: ./docker/core-compose.yaml
       service: nvidia-gpu
 
     build:
       context: .
-      target: noetic-moveit-spot-driver
-      
+      target: spot-sdk # Build the stage that installs the Spot SDK (after ROS stuff)
+
     volumes:
-      - .:/spot_skills # Mount the repository (a ROS workspace) to the container
+      - .:/spot_skills # Mount this repository (a ROS workspace) into the container
