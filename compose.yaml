@@ -1,5 +1,5 @@
 services:
-  # This service creates a container running Ubuntu 20.04 with ROS 1 Noetic
+  # Create a container running Ubuntu 20.04 with ROS 1 Noetic
   noetic-no-gpu:
     extends: # Extend a service providing the config needed to run GUIs from the container
       file: ./docker/core-compose.yaml
@@ -7,38 +7,35 @@ services:
 
     build:
       context: .
+      target: noetic-moveit
       args:
         BASE_IMAGE: ubuntu:20.04 # Use a CUDA-less base image for the GPU-less service
 
     volumes:
       - .:/spot_skills # Mount the repository (a ROS workspace) to the container
 
-  # This service adds NVIDIA GPU support to our Ubuntu 20.04 and ROS 1 Noetic setup
+  # Add NVIDIA GPU support to the Ubuntu 20.04 and ROS 1 Noetic container
   noetic-nvidia:
-    extends: # Extend a service providing the config needed to support GUIs and NVIDIA GPU(s)
+    extends: # Extend a service providing the config needed for GUIs and NVIDIA GPU(s)
       file: ./docker/core-compose.yaml
       service: nvidia-gpu
 
-    build: .
+    build:
+      context: .
+      target: noetic-moveit
 
     volumes:
       - .:/spot_skills # Mount the repository (a ROS workspace) to the container
-#       - spot_driver_ws:/spot_driver_ws # Mount the Spot driver's workspace into the container
 
-#   # This service runs the ROS 2 driver for Spot with NVIDIA GPU support
-#   spot-ros2:
+  # Install the dependencies for the Spot ROS 1 driver alongside NVIDIA GPU support
+  spot-ros1:
+    extends: # Extend a service providing the config needed for GUIs and NVIDIA GPU(s)
+      file: ./docker/core-compose.yaml
+      service: nvidia-gpu
 
-#     extends: # Extend a service providing the config needed to support GUIs and NVIDIA GPU(s)
-#       file: ./docker/core-compose.yaml
-#       service: nvidia-gpu
-
-#     build: # Use BDAI's Dockerfile to build their Spot driver container
-#       context: ./src/spot_ros2
-
-#     volumes: # Mount this container's workspace so other containers can access it
-#       - type: volume
-#         source: spot_driver_ws
-#         target: /ros_ws
-
-# volumes: # Declare named volumes so they can be reused across multiple services
-#   spot_driver_ws:
+    build:
+      context: .
+      target: noetic-moveit-spot-driver
+      
+    volumes:
+      - .:/spot_skills # Mount the repository (a ROS workspace) to the container
