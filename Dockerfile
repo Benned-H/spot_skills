@@ -9,8 +9,18 @@ ARG CUDA_VERSION=12.2.2
 # Enable overriding the base image for non-GPU machines (default uses GPU)
 ARG BASE_IMAGE=nvidia/cuda:${CUDA_VERSION}-base-ubuntu20.04
 
-## Stage 1: Install ROS 1 Noetic (Desktop-Full) onto the base image (Ubuntu 20.04 LTS)
-FROM ${BASE_IMAGE} AS noetic
+## Stage 1: Install intended Python version onto base image (Ubuntu 20.04 LTS)
+FROM ${BASE_IMAGE} as ubuntu-python
+ARG PYTHON_VERSION
+
+# Install Python and pip for later stages
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python${PYTHON_VERSION} python3-pip && \
+    # Clean up layer after using apt-get update
+    rm -rf /var/lib/apt/lists/* && apt-get clean
+
+## Stage 2: Install ROS 1 Noetic (Desktop-Full) onto the Ubuntu-Python image
+FROM ubuntu-python AS noetic
 ENV ROS_DISTRO=noetic
 
 # Ensure that any failure in a pipe (|) causes the stage to fail
@@ -31,18 +41,17 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         python3-wstool \
         build-essential \
         ros-noetic-catkin \
-        python3-catkin-tools \
-        python3-pip && \
+        python3-catkin-tools && \
     # Clean up layer after using apt-get update
     rm -rf /var/lib/apt/lists/* && apt-get clean
-    
+
 RUN rosdep init && \
     rosdep update
 
 # Source ROS in all terminals
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
 
-## Stage 2: Install MoveIt 1 for ROS Noetic from source (includes moveit_tutorials and panda_moveit_config)
+## Stage 3: Install MoveIt 1 for ROS Noetic from source (includes moveit_tutorials and panda_moveit_config)
 # Reference: http://moveit.ros.org/install/source/
 FROM noetic AS noetic-moveit
 
@@ -69,24 +78,19 @@ RUN echo "source /moveit_ws/devel/setup.bash" >> ~/.bashrc
 ARG DEFAULT_WORKDIR=/spot_skills
 WORKDIR ${DEFAULT_WORKDIR}
 
-## Stage 3: Install the Boston Dynamics Python packages and the Spot SDK
+## Stage 4: Install the Boston Dynamics Python packages and the Spot SDK
 #   Build on the noetic-moveit image by default (but ARG enables override)
 ARG SPOT_BASE_IMAGE=noetic-moveit
 
 FROM ${SPOT_BASE_IMAGE} AS spot-sdk
 ARG SPOT_SDK_VERSION
 
-# TODO: An issue may arise where the Spot-SDK-only container needs something like:
-#   RUN apt-get install -y python${PYTHON_VERSION} python3-pip
-
 # Install the Boston Dynamics Python packages (needed to work with Spot)
 RUN pip install \
     bosdyn-client==${SPOT_SDK_VERSION} \
     bosdyn-mission==${SPOT_SDK_VERSION} \
     bosdyn-choreography-client==${SPOT_SDK_VERSION} \
-    bosdyn-orbit==${SPOT_SDK_VERSION} && \
-    # Clean up layer after using apt-get update
-    rm -rf /var/lib/apt/lists/* && apt-get clean
+    bosdyn-orbit==${SPOT_SDK_VERSION}
 
 # Clone the Spot SDK from GitHub
 WORKDIR /spot_sdk

@@ -30,10 +30,10 @@ services:
         #   which seems to align with the version (3.8) installed for the Noetic
         #   build, at least by default. Leaving this argument unspecified.
         # Reference: https://dev.bostondynamics.com/docs/python/quickstart
-        # PYTHON_VERSION: 3.12 # Version of Python in the container
-        #   Alternative: Use miniconda to manage Python reqs (saves Docker rebuilds)
+        #   Using 3.12 as latest major release (downgrade if needed)
+        PYTHON_VERSION: 3.12 # Version of Python in the container
 
-  # Base service defines the configuration to support GUIs and NVIDIA GPU(s) in the container
+  # Base service defining the configuration to support in-container GUIs and NVIDIA GPU(s)
   nvidia-gpu:
     extends: # Extend the above service providing the config needed to output GUIs
       service: base-gui

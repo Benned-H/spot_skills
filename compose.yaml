@@ -37,8 +37,9 @@ services:
       context: .
       target: spot-sdk # Build the stage that installs the Spot SDK (skips ROS stuff)
       args:
+        BASE_IMAGE: ubuntu:20.04 # No need for GPU support in this container
         # Setting this argument "skips" the ROS build stages used in other services
-        SPOT_BASE_IMAGE: ubuntu:20.04 # No need for GPU support in this container
+        SPOT_BASE_IMAGE: ubuntu-python
         DEFAULT_WORKDIR: /spot_sdk # Override the default folder in the container
 
   # Container with Ubuntu 20.04, ROS 1 Noetic, MoveIt, and the Spot SDK (no GPU)
