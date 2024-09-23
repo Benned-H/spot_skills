@@ -4,12 +4,14 @@ services:
     extends: # Add config for GUIs and useful terminal properties
       file: ./docker/core-compose.yaml
       service: base-gui
-
+    
     build:
       context: .
       target: noetic-moveit
       args:
         BASE_IMAGE: ubuntu:20.04 # Use a base image without GPU support
+    
+    image: bennedh/spot-skills:noetic-moveit
 
     volumes:
       - .:/spot_skills # Mount this repository (a ROS workspace) into the container
@@ -23,6 +25,8 @@ services:
     build:
       context: .
       target: noetic-moveit
+    
+    image: bennedh/spot-skills:noetic-moveit-gpu
 
     volumes:
       - .:/spot_skills # Mount this repository (a ROS workspace) into the container
@@ -39,3 +43,5 @@ services:
       args:
         BASE_IMAGE: ubuntu:20.04 # Use a base image without GPU support
         SPOT_SDK_VERSION: 4.0.3 # Specifies the Spot Python package versions
+    
+    image: bennedh/spot-skills:spot-sdk

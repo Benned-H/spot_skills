@@ -9,17 +9,17 @@ ARG CUDA_VERSION=12.2.2
 # Enable overriding the base image for non-GPU machines (default uses GPU)
 ARG BASE_IMAGE=nvidia/cuda:${CUDA_VERSION}-base-ubuntu20.04
 
-## Stage 0: Install Git onto the base image (Ubuntu 20.04 LTS)
-FROM ${BASE_IMAGE} AS ubuntu-git
+## Stage 0: Install Git, Python, and pip onto the base image (Ubuntu 20.04 LTS)
+FROM ${BASE_IMAGE} AS ubuntu-git-py
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
-    apt-get install -y --no-install-recommends git && \
+    apt-get install -y --no-install-recommends git python3 python3-pip && \
     # Clean up layer after using apt-get update
     rm -rf /var/lib/apt/lists/* && apt-get clean
 
 ## Stage A1: Install ROS 1 Noetic (Desktop-Full) onto the Ubuntu-Git image
-FROM ubuntu-git AS noetic
+FROM ubuntu-git-py AS noetic
 ENV ROS_DISTRO=noetic
 
 # Ensure that any failure in a pipe (|) causes the stage to fail
@@ -45,10 +45,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         build-essential \
         # MoveIt's source build requires the following dependency (provides catkin build)
         # Reference: https://moveit.ai/install/source/
-        python3-catkin-tools && \
-        # TODO: Delete this comment if ros-noetic-catkin turns out to be unneeded
-    # Clean up layer after using apt-get update
-    rm -rf /var/lib/apt/lists/* && apt-get clean
+        python3-catkin-tools
 
 RUN rosdep init && \
     rosdep update
@@ -77,14 +74,15 @@ RUN echo "source /moveit_ws/devel/setup.bash" >> ~/.bashrc
 WORKDIR /spot_skills
 
 ## Stage B1: Install the Spot SDK and its dependencies onto the Ubuntu-Git image
-FROM ubuntu-git as spot-sdk
+FROM ubuntu-git-py AS spot-sdk
 ARG SPOT_SDK_VERSION
 
 # Clone the Spot SDK from GitHub
 WORKDIR /spot_sdk
-RUN git clone --depth 1 --branch "v${SPOT_SDK_VERSION}" \
-        https://github.com/boston-dynamics/spot-sdk.git
-    # Add back if needed: git config --global http.sslVerify "false" then afterwards "true" 
+RUN git config --global http.sslVerify "false" && \
+    git clone --depth 1 --branch "v${SPOT_SDK_VERSION}" \
+        https://github.com/boston-dynamics/spot-sdk.git && \
+    git config --global http.sslVerify "true"
 VOLUME /spot_sdk
 
 # Install the Boston Dynamics Python packages (needed to work with Spot)
