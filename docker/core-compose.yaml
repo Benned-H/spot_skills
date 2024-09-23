@@ -25,17 +25,7 @@ services:
     build:
       args:
         SPOT_SDK_VERSION: 4.0.3 # Impacts the Spot Python package versions
-
-        # The Spot Python SDK says it supports Ubuntu 18.04 LTS and Python 3.6-3.8,
-        #   which seems to align with the version (3.8) installed for ROS Noetic
-        # Reference: https://dev.bostondynamics.com/docs/python/quickstart
-        #
-        # However, using an older version of Python can create issues when installing
-        #   packages with newer versions (e.g., PyQt5), especially due to older pip
-        #
-        # Therefore, we'll specify the latest major release of Python (3.12) and
-        #   install all packages within virtual environments (Python's venv)
-        PYTHON_VERSION: 3.12 # Version of Python in the container's venv
+        # Notice: We do not manually specify the Python version used by the Spot SDK
 
   # Base service defining the configuration to support in-container GUIs and NVIDIA GPU(s)
   nvidia-gpu:
