@@ -76,7 +76,7 @@ RUN echo "source /moveit_ws/devel/setup.bash" >> ~/.bashrc
 # Finalize the default working directory for the image
 WORKDIR /spot_skills
 
-## Stage B1: Install the Boston Dynamics Python packages and the Spot SDK, onto the Ubuntu-Git image
+## Stage B1: Install the Spot SDK and its dependencies onto the Ubuntu-Git image
 FROM ubuntu-git as spot-sdk
 ARG SPOT_SDK_VERSION
 
