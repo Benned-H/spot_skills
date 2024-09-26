@@ -18,12 +18,10 @@ git submodule update --init --recursive
 
 ## Docker Commands
 
-This repository uses Docker to standardize its workspace setup across machines. The `compose.yaml` defines a Docker service for several development use cases, varying across the inclusion or exclusion of ROS 1 Noetic, the Spot SDK, and GPU support:
-- ROS 1 Noetic (without GPU) - `noetic`
-- GPU-enabled ROS 1 Noetic - `noetic-nvidia`
-- Spot SDK (for API reference) - `spot-sdk`
-- ROS 1 Noetic + Spot SDK (without GPU) - `spot-ros1`
-- GPU-enabled ROS 1 Noetic + Spot SDK - `spot-ros1-nvidia`
+This repository uses Docker to standardize its workspace across machines. The `compose.yaml` defines a Docker service for several development use cases, varying across the inclusion or exclusion of ROS 1 Noetic and MoveIt 1, the Spot SDK, and GPU support:
+- *ROS 1 Noetic with MoveIt 1 (without GPU)* - `noetic-moveit`
+- *GPU-enabled ROS 1 Noetic with MoveIt 1* - `noetic-moveit-gpu`
+- *Spot SDK* - `spot-sdk`
 
 To select a service, set the `SERVICE_NAME` environment variable accordingly, for example:
 
@@ -31,21 +29,17 @@ To select a service, set the `SERVICE_NAME` environment variable accordingly, fo
 export SERVICE_NAME=spot-sdk
 ```
 
-To build and start the selected container, run the command:
+To create, start, and enter the selected container, run the commands:
 
 ```bash
-docker compose up --build --detach $SERVICE_NAME
-```
-
-Then, to enter the container, run the following commands:
-
-```bash
+docker compose up --detach --pull missing $SERVICE_NAME
 xhost +local:docker
-docker compose attach $SERVICE_NAME
+docker compose exec $SERVICE_NAME bash
 ```
 
 To enter the running container in another terminal, set the `SERVICE_NAME` variable and then run the command:
 
 ```bash
+export SERVICE_NAME=spot-sdk
 docker compose exec $SERVICE_NAME bash
 ```
