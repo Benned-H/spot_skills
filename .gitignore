@@ -6,7 +6,6 @@ logs/
 
 # Ignore byte-compiled Python files
 __pycache__/
-*.pyc
 
-# Ignore secret folders (for passwords, robot IPs, etc.)
+# Ignore secrets (e.g., passwords, robot IPs, etc.)
 secrets/

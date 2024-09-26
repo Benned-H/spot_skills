@@ -1,0 +1,25 @@
+name: Validate Docker Services
+
+on:
+  push:
+    paths: # Run whenever any Docker-essential file is changed
+      - "Dockerfile"
+      - "compose.yaml"
+      - "docker/**"
+      - ".github/workflows/validate-docker.yaml"
+
+jobs:
+  Build-All-Docker-Services:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Running a job triggered by user ${{ github.actor }} on a ${{ runner.os }} server."
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - run: echo "Branch ${{ github.ref }} in repository ${{ github.repository }} has been cloned to the runner."
+      - name: List files in the repository
+        run: |
+          ls ${{ github.workspace }}
+      - name: Build selected Docker Compose services (focus on the Spot SDK image)
+        run: |
+          docker compose build spot-sdk
+      - run: echo "This job's current status is ${{ job.status }}."
