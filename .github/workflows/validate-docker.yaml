@@ -19,5 +19,7 @@ jobs:
         run: |
           ls ${{ github.workspace }}
       - name: Build selected Docker Compose services (focus on those with Spot SDK)
-        run: docker compose build spot-sdk spot-moveit
+        run: |
+          docker compose pull noetic-moveit
+          docker compose build spot-sdk spot-moveit
       - run: echo "This job's current status is ${{ job.status }}."
