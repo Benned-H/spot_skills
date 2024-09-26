@@ -3,3 +3,6 @@
 build/
 devel/
 logs/
+
+# Ignore byte-compiled Python files
+__pycache__/

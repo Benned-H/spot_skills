@@ -1,0 +1,17 @@
+[tool.ruff]
+# Use the same settings as Black
+line-length = 88
+indent-width = 4
+
+[tool.ruff.lint]
+# Default to all Ruff rules, ignores to be added as necessary
+select = ["ALL"]
+ignore = ["ANN101"]  # Ignore type annotations on `self`
+unfixable = ["F401"] # Disable 'fix' for unused imports
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings
+quote-style = "double"
+
+# Like Black, indent with spaces (not tabs)
+indent-style = "space"
