@@ -9,6 +9,9 @@ ARG CUDA_VERSION=12.2.2
 # Enable overriding the base image for non-GPU machines (default uses GPU)
 ARG BASE_IMAGE=nvidia/cuda:${CUDA_VERSION}-base-ubuntu20.04
 
+# Enable overriding the image onto which the Spot SDK is installed
+ARG INSTALL_SPOT_SDK_ONTO=ubuntu-git-py
+
 ## Stage 0: Install Git, Python, and pip onto the base image (Ubuntu 20.04 LTS)
 FROM ${BASE_IMAGE} AS ubuntu-git-py
 
@@ -73,8 +76,11 @@ RUN echo "source /moveit_ws/devel/setup.bash" >> ~/.bashrc
 # Finalize the default working directory for the image
 WORKDIR /spot_skills
 
-## Stage B1: Install the Spot SDK and its dependencies onto the Ubuntu-Git image
-FROM ubuntu-git-py AS spot-sdk
+# For the next stage, renew the ARG specifying the image onto which the Spot SDK is installed
+ARG INSTALL_SPOT_SDK_ONTO
+
+## Stage B1/A3: Install the Spot SDK and its dependencies onto the selected image (default is Ubuntu-Git)
+FROM ${INSTALL_SPOT_SDK_ONTO} AS spot-sdk
 ARG SPOT_SDK_VERSION
 
 # Clone the Spot SDK from GitHub
