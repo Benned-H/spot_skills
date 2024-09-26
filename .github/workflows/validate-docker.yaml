@@ -18,4 +18,6 @@ jobs:
       - name: List files in the repository
         run: |
           ls ${{ github.workspace }}
+      - name: Build current services using Docker Compose
+        run: docker compose build
       - run: echo "This job's current status is ${{ job.status }}."
