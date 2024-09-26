@@ -42,6 +42,30 @@ services:
       target: spot-sdk
       args:
         BASE_IMAGE: ubuntu:20.04 # Use a base image without GPU support
-        SPOT_SDK_VERSION: 4.0.3 # Specifies the Spot Python package versions
+        SPOT_SDK_VERSION: 4.1.0 # Specifies the Spot Python package versions
     
     image: bennedh/spot-skills:spot-sdk
+
+    volumes:
+      - .:/spot_skills # Mount this repository into the container (for file access)
+
+  # Container providing the Spot SDK alongside ROS 1 Noetic and MoveIt (no GPU support)
+  spot-moveit:
+    extends: # Add config for GUIs and useful terminal properties
+      file: ./docker/core-compose.yaml
+      service: base-gui
+
+    build:
+      context: .
+      target: spot-sdk
+      args:
+        BASE_IMAGE: ubuntu:20.04 # Use a base image without GPU support
+        SPOT_SDK_VERSION: 4.1.0 # Specifies the Spot Python package versions
+
+        # Install the Spot SDK onto the stage that has ROS 1 Noetic and MoveIt
+        INSTALL_SPOT_SDK_ONTO: noetic-moveit
+    
+    image: bennedh/spot-skills:spot-moveit
+
+    volumes:
+      - .:/spot_skills # Mount this repository (a ROS workspace) into the container
