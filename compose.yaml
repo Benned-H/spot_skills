@@ -42,6 +42,9 @@ services:
       target: spot-sdk
       args:
         BASE_IMAGE: ubuntu:20.04 # Use a base image without GPU support
-        SPOT_SDK_VERSION: 4.0.3 # Specifies the Spot Python package versions
+        SPOT_SDK_VERSION: 4.1.0 # Specifies the Spot Python package versions
     
     image: bennedh/spot-skills:spot-sdk
+
+    volumes:
+      - .:/spot_skills # Mount this repository into the container (for file access)

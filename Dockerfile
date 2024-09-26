@@ -86,7 +86,8 @@ RUN git config --global http.sslVerify "false" && \
 VOLUME /spot_sdk
 
 # Install the Boston Dynamics Python packages (needed to work with Spot)
-RUN python3 -m pip install \
+RUN python3 -m pip install --upgrade pip && \
+    python3 -m pip install \
     bosdyn-client==${SPOT_SDK_VERSION} \
     bosdyn-mission==${SPOT_SDK_VERSION} \
     bosdyn-choreography-client==${SPOT_SDK_VERSION} \
