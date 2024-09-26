@@ -6,6 +6,7 @@ on:
       - "Dockerfile"
       - "compose.yaml"
       - "docker/**"
+      - ".github/workflows/validate-docker.yaml"
 
 jobs:
   Build-All-Docker-Services:
@@ -18,4 +19,7 @@ jobs:
       - name: List files in the repository
         run: |
           ls ${{ github.workspace }}
+      - name: Build selected Docker Compose services (focus on the Spot SDK image)
+        run: |
+          docker compose build spot-sdk
       - run: echo "This job's current status is ${{ job.status }}."
