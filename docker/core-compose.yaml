@@ -1,5 +1,5 @@
 services:
-  # This base service defines the configuration needed to support GUIs from the container
+  # Base service defining the configuration needed to support GUIs
   base-gui:
     environment:
       # Environment variables to support in-container GUIs
@@ -20,9 +20,9 @@ services:
     stdin_open: true # docker run -i
     tty: true # docker run -t
 
-  # This base service defines the configuration to support GUIs and NVIDIA GPU(s) in the container
+  # Base service defining the configuration to support in-container GUIs and NVIDIA GPU(s)
   nvidia-gpu:
-    extends: # Extend the above service providing the config needed to run GUIs from the container
+    extends: # Extend the above service providing the config needed to output GUIs
       service: base-gui
 
     environment: # Additional NVIDIA-required environment variables
