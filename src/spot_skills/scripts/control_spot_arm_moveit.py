@@ -7,6 +7,7 @@ import sys
 import geometry_msgs.msg
 import moveit_commander
 import rospy
+
 from spot_skills.geometry_utils import create_pose, stamp_pose
 
 
@@ -38,36 +39,41 @@ def main() -> None:
     move_group.set_pose_reference_frame(body_frame_name)
     rospy.loginfo(f"Updated reference frame: {move_group.get_pose_reference_frame()}")
 
-    ### Define the line we'll move Spot's end-effector back-and-forth along ###
+    ### Define the path we'll move Spot's end-effector back-and-forth along ###
 
-    # Reference: Spot + Spot Arm Information for Use (v1.0) (pg. 17)
-    forward_m = 0.5  # Distance forward (meters) in Spot's body frame
-    sideways_m = 0.6  # Maximum sideways end-effector extent (meters)
+    # Reference: Spot + Spot Arm Information for Use (v1.0) (pg. 17-18)
+    forward_m = 0.5  # Average distance forward (meters) in Spot's body frame
+    x_varies_m = 0.05  # Distance (m) forward/backward the path varies over
+
+    # Set path's center as farther forward than its endpoints (so it's non-linear)
+    center_x_m = forward_m + x_varies_m
+    endpoint_x_m = forward_m - x_varies_m
+
+    to_side_m = 0.6  # Maximum extent of the end-effector to the side (meters)
     height_m = 0.9  # Height from floor (meters)
 
     # TODO: What does the real robot say its body height is? Use that instead!
 
     body_frame_height_m = 0.54  # Nominal height of Spot's body frame from the ground
-    z_in_body_frame = height_m - body_frame_height_m  # Line's z in Spot's body frame
+    z_in_body_frame = height_m - body_frame_height_m  # Path's z in Spot's body frame
 
     # Specify end-effector (ee) target poses in Spot's body frame
     # Assume: Spot may begin at an arbitrary (x,y) location in the global frame
-    left_ee_pose = create_pose((forward_m, sideways_m, z_in_body_frame))
-    center_ee_pose = create_pose((forward_m, 0, z_in_body_frame))
-    right_ee_pose = create_pose((forward_m, -sideways_m, z_in_body_frame))
+    left_ee_pose = create_pose((endpoint_x_m, to_side_m, z_in_body_frame))
+    center_ee_pose = create_pose((center_x_m, 0, z_in_body_frame))
+    right_ee_pose = create_pose((endpoint_x_m, -to_side_m, z_in_body_frame))
 
     target_poses = [center_ee_pose, left_ee_pose, center_ee_pose, right_ee_pose]
     target_pose_idx = 0
 
     rospy.loginfo(f"Created list of target poses: {target_poses}")
 
-    # Begin alternating Spot's arm between the target poses
+    ### Begin alternating Spot's arm between the target poses ###
 
     switch_hz = 0.2  # Shift end-effector pose every 5 seconds
     rate = rospy.Rate(switch_hz)
 
     while not rospy.is_shutdown():
-        # Loop to the beginning of the target poses, if necessary
         curr_target_pose = target_poses[target_pose_idx]
         stamped_target_pose = stamp_pose(curr_target_pose, body_frame_name)
         target_pose_publisher.publish(stamped_target_pose)
@@ -85,7 +91,7 @@ def main() -> None:
         else:
             rospy.loginfo(f"Planning failed with error {error}!")
 
-        target_pose_idx = (target_pose_idx + 1) % len(target_poses)
+        target_pose_idx = (target_pose_idx + 1) % len(target_poses)  # Increment, wrap
 
         rate.sleep()  # Slow change of target poses to specified rate
 

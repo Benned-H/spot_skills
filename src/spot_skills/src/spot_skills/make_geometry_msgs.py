@@ -25,7 +25,8 @@ def create_pose(
     The roll, pitch, and yaw describe sequential counterclockwise rotations around the
         x, y, and z axes, respectively. The rotations are applied in a static frame.
 
-    Reference: Chapter 3.2.3 (pg. 98) of the Planning Algorithms book (LaValle 2006).
+    Reference: Chapter 3.2.3 (pg. 98) of "Planning Algorithms" (LaValle 2006).
+        Full book available online as a PDF: https://lavalle.pl/planning/
 
     :param      xyz_position    Position specified as (x,y,z) coordinates
     :param      roll_rad        Roll angle (radians) about the x-axis
