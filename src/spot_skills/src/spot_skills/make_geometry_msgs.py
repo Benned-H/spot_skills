@@ -1,5 +1,7 @@
 """Define utility functions for creating geometry-related ROS 1 messages."""
 
+from __future__ import annotations
+
 from math import pi
 
 import geometry_msgs.msg

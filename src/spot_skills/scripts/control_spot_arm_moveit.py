@@ -6,13 +6,11 @@ import sys
 
 import geometry_msgs.msg
 import moveit_commander
-import moveit_msgs.msg
 import rospy
-
 from spot_skills.geometry_utils import create_pose, stamp_pose
 
 
-def main():
+def main() -> None:
     """Stream joint angles from MoveIt motion plans to control Spot's arm."""
     ### Set up MoveIt and the 'arm' move group used to control Spot's arm ###
     moveit_commander.roscpp_initialize(sys.argv)
@@ -30,14 +28,14 @@ def main():
     move_group = moveit_commander.MoveGroupCommander(group_name)
 
     # Ensure that the move group expects poses in Spot's body frame
-    body_frame = "body"
+    body_frame_name = "body"
 
     rospy.loginfo(
         f"Move group '{group_name}' has the reference frame: "
         f"{move_group.get_pose_reference_frame()}",
     )
 
-    move_group.set_pose_reference_frame(body_frame)
+    move_group.set_pose_reference_frame(body_frame_name)
     rospy.loginfo(f"Updated reference frame: {move_group.get_pose_reference_frame()}")
 
     ### Define the line we'll move Spot's end-effector back-and-forth along ###
@@ -54,43 +52,40 @@ def main():
 
     # Specify end-effector (ee) target poses in Spot's body frame
     # Assume: Spot may begin at an arbitrary (x,y) location in the global frame
-    left_ee_pose = create_pose(forward_m, sideways_m, z_in_body_frame)
-    center_ee_pose = create_pose(forward_m, 0, z_in_body_frame)
-    right_ee_pose = create_pose(forward_m, -sideways_m, z_in_body_frame)
+    left_ee_pose = create_pose((forward_m, sideways_m, z_in_body_frame))
+    center_ee_pose = create_pose((forward_m, 0, z_in_body_frame))
+    right_ee_pose = create_pose((forward_m, -sideways_m, z_in_body_frame))
 
     target_poses = [center_ee_pose, left_ee_pose, center_ee_pose, right_ee_pose]
     target_pose_idx = 0
 
     rospy.loginfo(f"Created list of target poses: {target_poses}")
 
-    ### TODO: Continue reading/documenting rest of file!!! ###
-
     # Begin alternating Spot's arm between the target poses
-    freq_hz = 0.2  # Switch sides every 5 seconds
-    rate = rospy.Rate(freq_hz)
+
+    switch_hz = 0.2  # Shift end-effector pose every 5 seconds
+    rate = rospy.Rate(switch_hz)
 
     while not rospy.is_shutdown():
         # Loop to the beginning of the target poses, if necessary
-        if target_pose_idx >= len(target_poses):
-            target_pose_idx = 0
-
         curr_target_pose = target_poses[target_pose_idx]
-        target_pose_publisher.publish(stamp_pose(curr_target_pose, body_frame))
+        stamped_target_pose = stamp_pose(curr_target_pose, body_frame_name)
+        target_pose_publisher.publish(stamped_target_pose)
+
+        rospy.loginfo(f"Planning to pose:\n{stamped_target_pose}...")
 
         # Plan and move Spot's arm to the current target pose
-        print(f"Planning to pose:\n{curr_target_pose}...")
         move_group.set_pose_target(curr_target_pose)
         success, trajectory, _, error = move_group.plan()
         move_group.clear_pose_targets()  # Clear pose targets after planning
 
-        if not success:
-            print(f"Planning failed with error {error}!")
+        if success:  # If planning succeeded, execute the planned trajectory
+            move_group.execute(trajectory, wait=True)  # Blocks until done
+            move_group.stop()  # Ensure there's no residual movement
+        else:
+            rospy.loginfo(f"Planning failed with error {error}!")
 
-        # If planning succeeded, execute the planned trajectory (blocks until done)
-        move_group.execute(trajectory, wait=True)
-        move_group.stop()  # Ensure there's no residual movement
-
-        target_pose_idx += 1
+        target_pose_idx = (target_pose_idx + 1) % len(target_poses)
 
         rate.sleep()  # Slow change of target poses to specified rate
 
