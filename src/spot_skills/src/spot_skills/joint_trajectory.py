@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class TimeStamp:
-    """A timestamp representing a specific moment in time as a Unix epoch time.
+    """A timestamp representing a specific moment in time relative to the Unix epoch.
 
     This class specifies the number of seconds and nanoseconds since the Unix epoch.
     """
@@ -77,12 +77,13 @@ class JointTrajectoryPoint:
         return cls(angles_rad, velocities_radps, time_since_start_s)
 
     @classmethod
-    def from_ros(cls, point_msg: JointPointMsg) -> Self:
+    def from_ros_msg(cls, point_msg: JointPointMsg) -> Self:
         """Construct a JointTrajectoryPoint from an equivalent ROS message.
 
         :param    point_msg    ROS message representing a joint point
         """
-        return cls(point_msg.positions, point_msg.velocities, point_msg.time_from_start)
+        time_from_start_s = point_msg.time_from_start.to_sec()
+        return cls(point_msg.positions, point_msg.velocities, time_from_start_s)
 
 
 @dataclass
@@ -93,7 +94,7 @@ class JointTrajectory:
     treated as state variables. Accelerations can be treated similarly.
     """
 
-    joint_names: list[str]  # Implicitly defines the number of joints
+    joint_names: list[str]  # Implicitly defines the number of joints in the arm
     reference_timestamp: TimeStamp  # Relative timestamp for trajectory point times
     points: list[JointTrajectoryPoint]  # Points in the trajectory
 
@@ -114,22 +115,22 @@ class JointTrajectory:
         return cls(spot_arm_joint_names, timestamp, points)
 
     @classmethod
-    def from_ros(cls, trajectory_msg: JointTrajectoryMsg) -> Self:
+    def from_ros_msg(cls, trajectory_msg: JointTrajectoryMsg) -> Self:
         """Construct a JointTrajectory from an equivalent ROS message.
 
         :param    trajectory_msg    Trajectory of joint points as a ROS message
         """
-        timestamp_msg = trajectory_msg.header.stamp
-        timestamp = TimeStamp(timestamp_msg.secs, timestamp_msg.nsecs)
+        stamp_msg = trajectory_msg.header.stamp
+        timestamp = TimeStamp(stamp_msg.secs, stamp_msg.nsecs)
 
-        points = [JointTrajectoryPoint.from_ros(p) for p in trajectory_msg.points]
+        points = [JointTrajectoryPoint.from_ros_msg(p) for p in trajectory_msg.points]
 
         return cls(trajectory_msg.joint_names, timestamp, points)
 
     def to_robot_command(self) -> RobotCommand:
-        """Convert this JointTrajectory into a complete command for Spot.
+        """Convert this JointTrajectory into a populated robot command for Spot.
 
-        :returns    Command for Spot to execute with a corresponding arm trajectory
+        :returns    Command for Spot to execute, containing this arm trajectory
         """
         trajectory_positions = [point.positions_rad for point in self.points]
         trajectory_velocities = [point.velocities_radps for point in self.points]
