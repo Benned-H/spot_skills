@@ -35,7 +35,7 @@ class SpotManager:
         self._sdk = create_standard_sdk(client_name)
         self._robot = self._sdk.create_robot(robot_hostname)
         authenticate(self._robot)  # Need to authenticate with Spot before using it
-        self._robot.time_sync.wait_for_sync()  # Establish a time sync with the robot"
+        self._robot.time_sync.wait_for_sync()  # Establish a time sync with the robot
 
         # Establish member variables for clients that may be needed for Spot
         self._state_client = None  # Used to access Spot's state information
@@ -43,16 +43,16 @@ class SpotManager:
 
         # Establish a client to obtain control of Spot (i.e., Spot's "lease")
         self._lease_client = self._robot.ensure_client(LeaseClient.default_service_name)
-        self._lease_keeper = None  # To store a lease and keep it alive once obtained
+        self._lease_keeper = None  # Stores a lease and keeps it alive once obtained
 
-        self.wait_while_estopped()  # Wait until Spot isn't e-stopped
+        assert self.wait_while_estopped()  # Wait until Spot isn't e-stopped
 
     def wait_while_estopped(self, timeout_sec: int = 30) -> bool:
         """Notify the user if Spot is e-stopped by spamming the ROS and Spot logs.
 
         :param      timeout_sec     Time (seconds) after which the method gives up
 
-        :returns    Boolean indicating if Spot was "e-started" (un-e-stopped) in time
+        :returns    Boolean: Was Spot "e-started" (un-e-stopped) in time?
         """
         start_t = time.time()
 
@@ -71,13 +71,13 @@ class SpotManager:
         )
         return False
 
-    def take_control(self, resource_name: str) -> bool:
+    def take_control(self, resource_name: str = "body") -> bool:
         """Prepare to control Spot and ensure that Spot is powered on.
 
-        In detail, this method:
-            1. Attempts to acquire Spot's lease and store it in a member variable
-            2. Initializes a client to command Spot, if uninitialized
-            3. Attempts to power on Spot
+        In detail, this method performs these steps:
+            1. Attempt to acquire Spot's lease and store it in a member variable
+            2. Initialize a client to command Spot, if uninitialized
+            3. Attempt to power on Spot, if necessary
 
         Spot's lease-able resources are:
             "body", "mobility", ("full-arm", "gripper", "arm" for robots with an arm)
@@ -135,7 +135,7 @@ class SpotManager:
         # Issue a command to the robot synchronously (blocks until done sending)
         command_id = self._command_client.robot_command(command)
 
-        # TODO: Determine and document the type of the resulting robot ID
+        # TODO: Determine and document the type of the resulting command ID
         log_message = (
             f"Issued robot command with ID: {command_id}"
             f" and type {type(command_id)}"
@@ -145,7 +145,7 @@ class SpotManager:
 
         return command_id
 
-    def power_off(self):
+    def safely_power_off(self) -> None:
         """Power Spot off by issuing a "safe power off" command."""
         self._robot.power_off(cut_immediately=False, timeout_sec=20)
         assert not self._robot.is_powered_on(), "Robot power off failed."
