@@ -8,7 +8,7 @@ import geometry_msgs.msg
 import moveit_commander
 import rospy
 
-from spot_skills.geometry_utils import create_pose, stamp_pose
+from spot_skills.make_geometry_msgs import create_pose, stamp_pose
 
 
 def main() -> None:
