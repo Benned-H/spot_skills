@@ -1,0 +1,46 @@
+<!-- Launch nodes to demonstrate MoveIt motion plans controlling Spot's arm -->
+<launch>
+
+    <!-- Choose MoveIt's controller manager: fake, simple, or ros_control
+
+     - fake - Provides fake trajectory execution, when we don't have a real robot
+
+     - simple - Interfaces with any low-level controller supporting either the
+        JointTrajectoryController or GripperActionController API from the ROS controllers package
+
+     - ros_control - Directly interfaces with the ROS Controller Manager
+    
+     Reference: https://tinyurl.com/moveit-noetic-controllers
+
+     By default, assume we're running the smoke test in simulation -->
+    <arg name="moveit_controller_manager" default="fake" />
+
+    <arg name="debug" default="false" /> <!-- Default not in debug mode -->
+
+    <!-- Launch the core nodes required to control a robot using MoveIt -->
+    <include file="$(dirname)/moveit_core.launch" pass_all_args="true">
+        <arg name="pipeline" default="ompl" /> <!-- Default planning pipeline -->
+
+        <!-- Load/override the robot description by default -->
+        <arg name="load_robot_description" default="true" />
+
+        <!-- Set execution mode for fake execution controllers
+            Options: interpolate, via points, or last point
+            Reference: https://tinyurl.com/noetic-fake-controller-manager -->
+        <arg name="fake_execution_type" default="interpolate" />
+
+        <!-- Default: Don't provide a GUI for manual control of the robot joint states -->
+        <arg name="joints_gui" default="false" />
+    </include>
+
+    <!-- Run Rviz and load the default config to see the state of the move_group node -->
+    <include file="$(find spot_moveit_config)/launch/moveit_rviz.launch">
+        <arg name="rviz_config" value="$(find spot_moveit_config)/launch/moveit.rviz" />
+        <arg name="debug" value="$(arg debug)" />
+    </include>
+
+    <!-- Launch the Python node that prompts MoveIt to generate motion plans -->
+    <node name="generate_moveit_plans" pkg="spot_skills" type="generate_moveit_plans.py"
+        output="screen" />
+
+</launch>
