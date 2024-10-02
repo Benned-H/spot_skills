@@ -48,7 +48,12 @@ docker compose exec $SERVICE_NAME bash
 
 Before launching the Spot driver, navigate to `/docker/spot_skills` in the container, then run:
 ```bash
+rosdep install -y --from-paths src --ignore-src --rosdistro noetic
 pip3 install -e src/spot_ros/spot_wrapper/
+```
+
+Then, run each of these commands:
+```bash
 catkin clean
 catkin build
 source devel/setup.bash
