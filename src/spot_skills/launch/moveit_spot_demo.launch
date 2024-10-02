@@ -1,6 +1,14 @@
 <!-- Launch nodes to demonstrate MoveIt motion plans controlling Spot's arm -->
 <launch>
 
+    <!-- The demo can be simulated ("true"; default) or on the robot ("false") -->
+    <arg name="simulated_demo" default="true" />
+
+    <!-- Username, password, and IP used to connect to the Spot (pass via commandline) -->
+    <arg name="spot_username" default="dummyusername" />
+    <arg name="spot_password" default="dummypassword" />
+    <arg name="spot_hostname" default="192.168.50.3" />
+
     <!-- Choose MoveIt's controller manager: fake, simple, or ros_control
 
      - fake - Provides fake trajectory execution, when we don't have a real robot
@@ -12,8 +20,9 @@
     
      Reference: https://tinyurl.com/moveit-noetic-controllers
 
-     By default, assume we're running the smoke test in simulation -->
-    <arg name="moveit_controller_manager" default="fake" />
+     Use the fake controller manager in simulation and "simple" for the real robot -->
+     <arg name="moveit_controller_manager" default="fake" if="$(arg simulated_demo)"/>
+     <arg name="moveit_controller_manager" default="simple" unless="$(arg simulated_demo)"/>
 
     <arg name="debug" default="false" /> <!-- Default not in debug mode -->
 
@@ -33,9 +42,24 @@
         <arg name="joints_gui" default="false" />
     </include>
 
+    <!-- If we're running the demo on Spot, launch the necessary nodes -->
+    <group unless="$(arg simulated_demo)">
+
+        <!-- Launch the Spot ROS 1 driver using its primary launch file -->
+        <include file="$(find spot_driver)/launch/driver.launch">
+            <arg name="username" value="$(arg spot_username)" />
+            <arg name="password" value="$(arg spot_password)" />
+            <arg name="hostname" value="$(arg spot_hostname)" />
+
+            <!-- Load Spot's URDF/SRDF using MoveIt, not the Spot driver -->
+            <arg name="load_robot_description" value="false" />
+        </include>
+
+    </group>
+
     <!-- Run Rviz and load the default config to see the state of the move_group node -->
     <include file="$(find spot_moveit_config)/launch/moveit_rviz.launch">
-        <arg name="rviz_config" value="$(find spot_moveit_config)/launch/moveit.rviz" />
+        <arg name="rviz_config" value="$(find spot_skills)/launch/moveit_spot_demo.rviz" />
         <arg name="debug" value="$(arg debug)" />
     </include>
 
