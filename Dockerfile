@@ -102,9 +102,7 @@ RUN python3 -m pip install --upgrade pip && \
 # Catch-all: Final `apt-get install` for any tools needed to work with Spot (saves rebuild time)
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
-    apt-get install -y --no-install-recommends iputils-ping && \
-    # Clean up layer after using apt-get update
-    rm -rf /var/lib/apt/lists/* && apt-get clean
+    apt-get install -y --no-install-recommends iputils-ping
 
 # Finalize the default working directory for the image
 WORKDIR /docker/spot_sdk
