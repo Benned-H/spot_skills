@@ -1,5 +1,7 @@
 """Define a class to control Spot's arm using the Spot SDK."""
 
+import time
+
 from bosdyn.client import robot_command
 from bosdyn.client.robot_command import RobotCommandBuilder
 
@@ -25,14 +27,58 @@ class SpotArmController:
         self._last_command_id = None  # ID of the most recent robot command to Spot
         self._last_trajectory = None  # Most recent trajectory sent to Spot
 
+        # Default: Send the maximum number of points at a time (250, per Spot SDK)
+        self.max_segment_len = 250
+
+    def send_trajectory_segment(self, segment: JointTrajectory) -> None:
+        """Command Spot to execute the given trajectory segment *all at once*.
+
+        :param      segment     Short trajectory over joint positions/velocities/times
+        """
+        assert len(segment) <= self.max_segment_len, "Segment too long!"
+
+        # Wait to send the segment until within 5 seconds of its start
+        wait_until_before_s = 5.0
+
+        segment_starts_in_s = segment.reference_timestamp.to_time_s() - time.time()
+        if segment_starts_in_s > wait_until_before_s:
+            time.sleep(segment_starts_in_s - wait_until_before_s)
+
+        robot_command = segment.to_robot_command()
+        self._command_id = self._spot_manager.send_robot_command(robot_command)
+        self._last_trajectory = segment
+
     def command_trajectory(self, trajectory: JointTrajectory) -> None:
         """Command Spot to execute the given joint trajectory.
 
+        We can only send a maximum of 250 points at a time (per Spot SDK). Therefore,
+            we create "segments" of any trajectories longer than this limit.
+
         :param    trajectory    Trajectory of joint (position, velocity) points
         """
-        robot_command = trajectory.to_robot_command()
-        self._command_id = self._spot_manager.send_robot_command(robot_command)
-        self._last_trajectory = trajectory
+        if len(trajectory.points) <= self.points_per_segment:  # If short enough,
+            self.send_trajectory_segment(trajectory)  # send all at once
+            return
+
+        # Otherwise, we need to segment the trajectory. We'll create continuity by
+        #   setting the first point of each segment to the last point of the previous
+
+        start_idx = 0  # Both indices are inclusive
+        end_idx = min(start_idx + self.max_segment_len, len(trajectory)) - 1
+
+        sent_last_point = False  # Stop once we've sent a segment at trajectory's end
+
+        while not sent_last_point:
+            segment_points = trajectory.points[start_idx : end_idx + 1]
+            segment = JointTrajectory(trajectory.reference_timestamp, segment_points)
+            self.send_trajectory_segment(segment)
+
+            if end_idx == len(trajectory) - 1:
+                sent_last_point = True
+
+            # Find indices for the next segment, which begins where the last ended
+            start_idx = end_idx  # Recall: both are inclusive
+            end_idx = min(start_idx + self.max_segment_len, len(trajectory)) - 1
 
     def block_until_arm_arrives(self) -> None:
         """Block until Spot's arm arrives at the current command ID's goal."""

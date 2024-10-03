@@ -54,6 +54,13 @@ class TimeStamp:
         """
         return timestamp_pb2.Timestamp(seconds=self.time_s, nanos=self.time_ns)
 
+    def to_time_s(self) -> float:
+        """Convert this timestamp into a number of seconds since the Unix epoch.
+
+        :returns    Time (seconds) since the Unix epoch started
+        """
+        return self.time_s + self.time_ns / NSEC_PER_SEC
+
 
 @dataclass
 class JointTrajectoryPoint:
@@ -103,11 +110,13 @@ class JointTrajectoryPoint:
 class JointTrajectory:
     """A trajectory describing an arm's joints in phase space over time.
 
+    Note: Removed joint names, as they have not seemed essential for current goals.
+        i.e, spot_arm_joint_names = ["sh0", "sh1", "el0", "el1", "wr0", "wr1"]
+
     In a phase space representation, the velocities of the state variables are
     treated as state variables. Accelerations can be treated similarly.
     """
 
-    joint_names: list[str]  # Implicitly defines the number of joints in the arm
     reference_timestamp: TimeStamp  # Relative timestamp for trajectory point times
     points: list[JointTrajectoryPoint]  # Points in the trajectory
 
@@ -117,15 +126,13 @@ class JointTrajectory:
 
         :param    trajectory_proto    Trajectory of joint points as a Protobuf message
         """
-        spot_arm_joint_names = ["sh0", "sh1", "el0", "el1", "wr0", "wr1"]
-
         timestamp = TimeStamp.from_proto(trajectory_proto.reference_time)
 
         points = [JointTrajectoryPoint.from_proto(p) for p in trajectory_proto.points]
 
         # Note: Ignoring maximum velocity/acceleration from Protobuf message
 
-        return cls(spot_arm_joint_names, timestamp, points)
+        return cls(timestamp, points)
 
     @classmethod
     def from_ros_msg(cls, trajectory_msg: JointTrajectoryMsg):
@@ -138,7 +145,9 @@ class JointTrajectory:
 
         points = [JointTrajectoryPoint.from_ros_msg(p) for p in trajectory_msg.points]
 
-        return cls(trajectory_msg.joint_names, timestamp, points)
+        # Note: Ignoring joint names from ROS message
+
+        return cls(timestamp, points)
 
     def to_robot_command(self) -> RobotCommand:
         """Convert this JointTrajectory into a populated robot command for Spot.
