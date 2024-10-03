@@ -40,7 +40,10 @@ class SpotArmController:
         # Wait to send the segment until within 5 seconds of its start
         wait_until_before_s = 5.0
 
-        segment_starts_in_s = segment.reference_timestamp.to_time_s() - time.time()
+        ref_time_s = segment.reference_timestamp.to_time_s()
+        segment_start_time_s = ref_time_s + segment.points[0].time_from_start_s
+
+        segment_starts_in_s = segment_start_time_s - time.time()
         if segment_starts_in_s > wait_until_before_s:
             time.sleep(segment_starts_in_s - wait_until_before_s)
 
