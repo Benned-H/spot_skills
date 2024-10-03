@@ -5,9 +5,9 @@
     <arg name="simulated_demo" default="true" />
 
     <!-- Username, password, and IP used to connect to the Spot (pass via commandline) -->
-    <arg name="spot_username" default="dummyusername" />
-    <arg name="spot_password" default="dummypassword" />
-    <arg name="spot_hostname" default="192.168.50.3" />
+    <arg name="username" default="dummyusername" />
+    <arg name="password" default="dummypassword" />
+    <arg name="hostname" default="192.168.50.3" />
 
     <!-- Choose MoveIt's controller manager: fake, simple, or ros_control
 
@@ -47,21 +47,21 @@
 
         <!-- Launch the Spot ROS 1 driver using its primary launch file -->
         <include file="$(find spot_driver)/launch/driver.launch">
-            <arg name="username" value="$(arg spot_username)" />
-            <arg name="password" value="$(arg spot_password)" />
-            <arg name="hostname" value="$(arg spot_hostname)" />
+            <arg name="username" value="$(arg username)" />
+            <arg name="password" value="$(arg password)" />
+            <arg name="hostname" value="$(arg hostname)" />
 
             <!-- Load Spot's URDF/SRDF using MoveIt, not the Spot driver -->
             <arg name="load_robot_description" value="false" />
         </include>
 
+        <!-- Launch a node to map Spot's joint states into link transforms -->
+        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+
     </group>
 
-    <!-- Run Rviz and load the default config to see the state of the move_group node -->
-    <include file="$(find spot_moveit_config)/launch/moveit_rviz.launch">
-        <arg name="rviz_config" value="$(find spot_skills)/launch/moveit_spot_demo.rviz" />
-        <arg name="debug" value="$(arg debug)" />
-    </include>
+    <!-- Run Rviz using a config file designed for this demo -->
+     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" />
 
     <!-- Launch the Python node that prompts MoveIt to generate motion plans -->
     <node name="generate_moveit_plans" pkg="spot_skills" type="generate_moveit_plans.py"
