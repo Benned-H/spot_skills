@@ -9,6 +9,8 @@ is subject to the terms and conditions of the Boston Dynamics Software
 Development Kit License (20191101-BDSDK-SL).
 """
 
+from __future__ import annotations
+
 import math
 import sys
 import time
@@ -52,7 +54,7 @@ def query_trajectory(t_s: float) -> JointTrajectoryPoint:
     joint_positions[5] = nominal_pose[5] + 1.0 * math.cos(4 * w * t_s)
 
     # Take the derivative of our position trajectory to get our velocities
-    joint_velocities = [0, 0, 0, 0, 0, 0]
+    joint_velocities: list[float] = [0, 0, 0, 0, 0, 0]
     joint_velocities[0] = -0.8 * w * math.sin(w * t_s)
     joint_velocities[2] = 0.2 * 2 * w * math.cos(2 * w * t_s)
     joint_velocities[4] = 0.5 * 2 * w * math.cos(2 * w * t_s)
@@ -70,7 +72,7 @@ def main():
     spot_hostname = None
     if rospy.has_param("/spot/hostname"):
         spot_hostname = rospy.get_param("/spot/hostname")
-    assert spot_hostname is not None, "Cannot connect to Spot with its hostname!"
+    assert spot_hostname is not None, "Cannot connect to Spot without its hostname!"
 
     # Create a manager for Spot and a controller for Spot's arm
     sdk_client_name = "ArmJointLongTrajectoryClient"
@@ -80,7 +82,7 @@ def main():
     # By now, Spot should be powered on and controllable
     arm_controller.deploy_arm()
 
-    # Set our trajectory reference time using the Spot SDK's utilities
+    # Define the reference start time for the initial trajectory
     start_time_s = time.time()
     ref_timestamp = TimeStamp.from_time_s(start_time_s)
 
@@ -98,36 +100,36 @@ def main():
     ref_timestamp = TimeStamp.from_time_s(start_time_s)
 
     # We'll send 250 points at a time (the maximum allowed value)
-    points_per_snippet = 250
+    points_per_segment = 250
 
     # We'll create seamless continuity by setting the first point of each next message
     #   equal to the last point in the previous message. General idea will scale!
-    segment_start_time_s = 0  # Segment's start time (relative to ref_timestamp)
+    segment_start_s = 0  # Segment's start time (seconds relative to ref_timestamp)
     dt_s = 0.2  # Timestep size (seconds)
+
+    # Every trajectory segment will have the same relative timesteps (in seconds)
+    relative_segment_t_s = [step * dt_s for step in range(points_per_segment)]
 
     # Run until we've completed the desired duration of movement
     while time.time() - start_time_s < RUN_TIME_S:
-        # Compute the knot points for this snippet of trajectory
-        knot_points = []
-
-        for step in range(points_per_snippet):
-            t_s = segment_start_time_s + step * dt_s
-            point = query_trajectory(t_s)
-            knot_points.append(point)
+        # Compute the knot points for this segment of trajectory
+        knot_points = [
+            query_trajectory(segment_start_s + t_s) for t_s in relative_segment_t_s
+        ]
 
         # Convert the points into a JointTrajectory
-        trajectory_snippet = JointTrajectory(joint_names, ref_timestamp, knot_points)
+        trajectory_segment = JointTrajectory(joint_names, ref_timestamp, knot_points)
 
         # Wait until a bit before the previous segment is going to expire, then send
-        segment_starts_in_s = start_time_s + segment_start_time_s - time.time()
+        segment_starts_in_s = start_time_s + segment_start_s - time.time()
         sleep_time_s = segment_starts_in_s - (0.75 * dt_s)  # "a bit before"
         if sleep_time_s > 0:
             time.sleep(sleep_time_s)
 
-        arm_controller.command_trajectory(trajectory_snippet)
+        arm_controller.command_trajectory(trajectory_segment)
 
         # Start the next segment at the same point where the last segment ended
-        segment_start_time_s = segment_start_time_s + dt_s * (points_per_snippet - 1)
+        segment_start_s = segment_start_s + dt_s * (points_per_segment - 1)
 
     # We're done executing our trajectory, so stow the arm
     arm_controller.stow_arm()
@@ -135,7 +137,8 @@ def main():
     # Power off the robot safely using a "safe power off" command
     spot_manager.safely_power_off()
 
-    rospy.loginfo("Finished running the long joint trajectory, exiting...")
+    rospy.loginfo("Finished running the long joint trajectory.")
+    rospy.spin()  # Keep the node alive for debugging purposes
 
 
 if __name__ == "__main__":

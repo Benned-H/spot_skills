@@ -11,13 +11,7 @@ from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
-from bosdyn.client.robot_command import (
-    RobotCommandClient,
-    blocking_stand,
-)
-from bosdyn.client.robot_command import (
-    block_until_arm_arrives as block_until_arm_arrives_sdk,
-)
+from bosdyn.client.robot_command import RobotCommandClient, blocking_stand
 from bosdyn.client.util import authenticate, setup_logging
 from rospy import loginfo
 
@@ -47,7 +41,7 @@ class SpotManager:
 
         # Establish member variables for clients that may be needed for Spot
         self._state_client = None  # Used to access Spot's state information
-        self._command_client = None  # Used to command Spot to move
+        self.command_client = None  # Used to command Spot to move (non-private)
 
         # Establish a client to query Spot's e-stop status
         self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
@@ -103,8 +97,8 @@ class SpotManager:
         )
 
         # 2. If needed, initialize a client to command Spot to move
-        if self._command_client is None:
-            self._command_client = self._robot.ensure_client(
+        if self.command_client is None:
+            self.command_client = self._robot.ensure_client(
                 RobotCommandClient.default_service_name,
             )
 
@@ -117,7 +111,7 @@ class SpotManager:
 
         # Verify that the attempted operations succeeded
         lease_alive = self._lease_keeper.is_alive()
-        has_command_client = self._command_client is not None
+        has_command_client = self.command_client is not None
         power_on_success = self._robot.is_powered_on()
 
         if power_on_success:
@@ -137,11 +131,11 @@ class SpotManager:
         :param      command     Command for Spot to execute
         :returns    ID of the issued robot command
         """
-        has_command_client = self._command_client is not None
+        has_command_client = self.command_client is not None
         assert has_command_client, "Cannot command Spot without a command client!"
 
         # Issue a command to the robot synchronously (blocks until done sending)
-        command_id = self._command_client.robot_command(command)
+        command_id = self.command_client.robot_command(command)
 
         # TODO: Determine and document the type of the resulting command ID
         log_message = (
@@ -158,15 +152,8 @@ class SpotManager:
 
         :param      timeout_s       Timeout (seconds) for the blocking stand command
         """
-        blocking_stand(self._command_client, timeout_sec=timeout_s)
+        blocking_stand(self.command_client, timeout_sec=timeout_s)
         self._robot.logger.info("Robot standing.")
-
-    def block_until_arm_arrives(self, command_id) -> None:
-        """Block until Spot's arm reaches the given command ID's goal.
-
-        :param      command_id      ID of the robot command to wait out
-        """
-        block_until_arm_arrives_sdk(self._command_client, command_id)
 
     def safely_power_off(self) -> None:
         """Power Spot off by issuing a "safe power off" command."""
