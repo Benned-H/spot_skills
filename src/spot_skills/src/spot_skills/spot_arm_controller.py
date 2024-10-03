@@ -45,10 +45,10 @@ class SpotArmController:
         """Deploy Spot's arm to "ready" and wait until the arm has deployed."""
         arm_ready = RobotCommandBuilder.arm_ready_command()
         self._command_id = self._spot_manager.send_robot_command(arm_ready)
-        self._spot_manager.block_until_arm_arrives(self._command_id)
+        self.block_until_arm_arrives()
 
     def stow_arm(self) -> None:
         """Stow Spot's arm and wait until the arm has finished stowing."""
         arm_stow = RobotCommandBuilder.arm_stow_command()
         self._command_id = self._spot_manager.send_robot_command(arm_stow)
-        self._spot_manager.block_until_arm_arrives(self._command_id)
+        self.block_until_arm_arrives()
