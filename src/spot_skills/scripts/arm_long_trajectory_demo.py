@@ -27,9 +27,7 @@ from spot_skills.spot_manager import SpotManager
 
 RUN_TIME_S = 20  # Duration (seconds) to run our trajectory for
 
-# Amount of time in seconds to take to move from the "POSITIONS_READY"
-# pose to the start of our trajectory
-TRAJ_APPROACH_TIME_S = 1.0
+TRAJ_APPROACH_TIME_S = 1.0  # Time (seconds) to move from "ready" to trajectory start
 
 
 def query_trajectory(t_s: float) -> JointTrajectoryPoint:
@@ -82,54 +80,35 @@ def main():
     # By now, Spot should be powered on and controllable
     arm_controller.deploy_arm()
 
-    # Define the reference start time for the initial trajectory
+    ### Compute the full trajectory to be executed on Spot's arm ###
+    dt_s = 0.2  # Timestep (seconds)
+    relative_t_s = 0  # Relative time (seconds) since trajectory started
+
+    full_trajectory_times_s = []
+    while relative_t_s <= RUN_TIME_S:
+        full_trajectory_times_s.append(relative_t_s)
+        relative_t_s += dt_s
+
+    trajectory_points = [query_trajectory(t_s) for t_s in full_trajectory_times_s]
+
+    # Define the full trajectory (reference time to be set later)
+    full_trajectory = JointTrajectory(None, trajectory_points)
+
+    ### Define an approach trajectory to bring Spot's arm to the trajectory start ###
+    point_0 = query_trajectory(0)
+    point_0.time_from_start_s = TRAJ_APPROACH_TIME_S  # Take some time to approach
+
     start_time_s = time.time()
     ref_timestamp = TimeStamp.from_time_s(start_time_s)
 
-    # To ensure the trajectory runs smoothly, move to its initial position and velocity
-    point_0 = query_trajectory(0)
-    point_0.time_from_start_s = TRAJ_APPROACH_TIME_S  # Take some time to reach start
+    approach_trajectory = JointTrajectory(ref_timestamp, [point_0])
+    arm_controller.command_trajectory(approach_trajectory)
 
-    joint_names = ["sh0", "sh1", "el0", "el1", "wr0", "wr1"]
-    go_to_point_0 = JointTrajectory(joint_names, ref_timestamp, [point_0])
+    ### Update the real trajectory's start time based on the approach trajectory ###
+    start_time_s = start_time_s + TRAJ_APPROACH_TIME_S  # End of last trajectory
 
-    arm_controller.command_trajectory(go_to_point_0)
-
-    # Update the real trajectory's start time using TRAJ_APPROACH_TIME_S
-    start_time_s = start_time_s + TRAJ_APPROACH_TIME_S
-    ref_timestamp = TimeStamp.from_time_s(start_time_s)
-
-    # We'll send 250 points at a time (the maximum allowed value)
-    points_per_segment = 250
-
-    # We'll create seamless continuity by setting the first point of each next message
-    #   equal to the last point in the previous message. General idea will scale!
-    segment_start_s = 0  # Segment's start time (seconds relative to ref_timestamp)
-    dt_s = 0.2  # Timestep size (seconds)
-
-    # Every trajectory segment will have the same relative timesteps (in seconds)
-    relative_segment_t_s = [step * dt_s for step in range(points_per_segment)]
-
-    # Run until we've completed the desired duration of movement
-    while time.time() - start_time_s < RUN_TIME_S:
-        # Compute the knot points for this segment of trajectory
-        knot_points = [
-            query_trajectory(segment_start_s + t_s) for t_s in relative_segment_t_s
-        ]
-
-        # Convert the points into a JointTrajectory
-        trajectory_segment = JointTrajectory(joint_names, ref_timestamp, knot_points)
-
-        # Wait until a bit before the previous segment is going to expire, then send
-        segment_starts_in_s = start_time_s + segment_start_s - time.time()
-        sleep_time_s = segment_starts_in_s - (0.75 * dt_s)  # "a bit before"
-        if sleep_time_s > 0:
-            time.sleep(sleep_time_s)
-
-        arm_controller.command_trajectory(trajectory_segment)
-
-        # Start the next segment at the same point where the last segment ended
-        segment_start_s = segment_start_s + dt_s * (points_per_segment - 1)
+    full_trajectory.reference_timestamp = TimeStamp.from_time_s(start_time_s)
+    arm_controller.command_trajectory(full_trajectory)
 
     # We're done executing our trajectory, so stow the arm
     arm_controller.stow_arm()
