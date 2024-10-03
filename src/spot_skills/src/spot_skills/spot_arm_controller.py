@@ -1,5 +1,6 @@
 """Define a class to control Spot's arm using the Spot SDK."""
 
+from bosdyn.client import robot_command
 from bosdyn.client.robot_command import RobotCommandBuilder
 
 from spot_skills.joint_trajectory import JointTrajectory
@@ -32,6 +33,13 @@ class SpotArmController:
         robot_command = trajectory.to_robot_command()
         self._command_id = self._spot_manager.send_robot_command(robot_command)
         self._last_trajectory = trajectory
+
+    def block_until_arm_arrives(self) -> None:
+        """Block until Spot's arm arrives at the current command ID's goal."""
+        robot_command.block_until_arm_arrives(
+            self._spot_manager.command_client,
+            self._command_id,
+        )
 
     def deploy_arm(self) -> None:
         """Deploy Spot's arm to "ready" and wait until the arm has deployed."""
