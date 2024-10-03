@@ -6,10 +6,18 @@ This file has reviewed the contents of the following Spot SDK examples:
 
 import time
 
+from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.client import create_standard_sdk
+from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
-from bosdyn.client.robot_command import RobotCommandClient
+from bosdyn.client.robot_command import (
+    RobotCommandClient,
+    blocking_stand,
+)
+from bosdyn.client.robot_command import (
+    block_until_arm_arrives as block_until_arm_arrives_sdk,
+)
 from bosdyn.client.util import authenticate, setup_logging
 from rospy import loginfo
 
@@ -41,6 +49,9 @@ class SpotManager:
         self._state_client = None  # Used to access Spot's state information
         self._command_client = None  # Used to command Spot to move
 
+        # Establish a client to query Spot's e-stop status
+        self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
+
         # Establish a client to obtain control of Spot (i.e., Spot's "lease")
         self._lease_client = self._robot.ensure_client(LeaseClient.default_service_name)
         self._lease_keeper = None  # Stores a lease and keeps it alive once obtained
@@ -54,24 +65,27 @@ class SpotManager:
 
         :returns    Boolean: Was Spot "e-started" (un-e-stopped) in time?
         """
+        estop_level = self._estop_client.get_status().stop_level
+
         start_t = time.time()
 
         while (time.time() - start_t) < timeout_sec:
-            if not self._robot.is_estopped():
+            if estop_level == ESTOP_LEVEL_NONE:
                 loginfo("[SpotManager] Spot is not e-stopped, continuing on...")
-                self.robot.logger.info("Robot is not e-stopped, continuing on...")
+                self._robot.logger.info("Robot is not e-stopped, continuing on...")
                 return True
 
             loginfo("[SpotManager] Spot is currently e-stopped!")
-            self.robot.logger.info("Robot is currently e-stopped!")
+            self._robot.logger.info("Robot is currently e-stopped!")
             time.sleep(0.5)
+            estop_level = self._estop_client.get_status().stop_level
 
-        loginfo(
-            f"[SpotManager] Spot remained e-stopped after {timeout_sec} seconds.",
-        )
+        log_message = f"Spot remained e-stopped after {timeout_sec} seconds."
+        self._robot.logger.info(log_message)
+        loginfo(f"[SpotManager] {log_message}")
         return False
 
-    def take_control(self, resource_name: str = "body") -> bool:
+    def take_control(self) -> bool:
         """Prepare to control Spot and ensure that Spot is powered on.
 
         In detail, this method performs these steps:
@@ -79,17 +93,11 @@ class SpotManager:
             2. Initialize a client to command Spot, if uninitialized
             3. Attempt to power on Spot, if necessary
 
-        Spot's lease-able resources are:
-            "body", "mobility", ("full-arm", "gripper", "arm" for robots with an arm)
-
-        :param      resource_name    Name of the lease-able resource to request
-
         :returns    Boolean indicating if all attempted operations were successful
         """
         # 1. Attempt to acquire Spot's lease using a LeaseKeepAlive object
         self._lease_keeper = LeaseKeepAlive(
             self._lease_client,
-            resource=resource_name,
             must_acquire=True,
             return_at_exit=True,
         )
@@ -144,6 +152,21 @@ class SpotManager:
         self._robot.logger.info(log_message)
 
         return command_id
+
+    def stand_up(self, timeout_s: float) -> None:
+        """Tell Spot to stand up within the given timeout (in seconds).
+
+        :param      timeout_s       Timeout (seconds) for the blocking stand command
+        """
+        blocking_stand(self._command_client, timeout_sec=timeout_s)
+        self._robot.logger.info("Robot standing.")
+
+    def block_until_arm_arrives(self, command_id) -> None:
+        """Block until Spot's arm reaches the given command ID's goal.
+
+        :param      command_id      ID of the robot command to wait out
+        """
+        block_until_arm_arrives_sdk(self._command_client, command_id)
 
     def safely_power_off(self) -> None:
         """Power Spot off by issuing a "safe power off" command."""

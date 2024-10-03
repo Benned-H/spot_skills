@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING
 
-from bosdyn.client.robot_command import arm_joint_move_helper
+from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 from google.protobuf import timestamp_pb2
 from trajectory_msgs.msg import JointTrajectory as JointTrajectoryMsg
@@ -14,6 +14,8 @@ from trajectory_msgs.msg import JointTrajectoryPoint as JointPointMsg
 if TYPE_CHECKING:
     from bosdyn.api.arm_command_pb2 import ArmJointTrajectory, ArmJointTrajectoryPoint
     from bosdyn.api.robot_command_pb2 import RobotCommand
+
+NSEC_PER_SEC = 10**9
 
 
 @dataclass
@@ -27,12 +29,23 @@ class TimeStamp:
     time_ns: int  # Nanoseconds since the timestamp's second began
 
     @classmethod
-    def from_proto(cls, timestamp_proto: timestamp_pb2.Timestamp) -> Self:
+    def from_proto(cls, timestamp_proto: timestamp_pb2.Timestamp):
         """Construct a TimeStamp from an equivalent Protobuf message.
 
         :param    timestamp_proto    Timestamp since the Unix epoch began
         """
         return cls(timestamp_proto.seconds, timestamp_proto.nanos)
+
+    @classmethod
+    def from_time_s(cls, time_s: float):
+        """Construct a TimeStamp from a number of seconds since the Epoch.
+
+        :param      time_s      Time (seconds) since the Epoch
+        """
+        timestamp_s = int(time_s)
+        timestamp_ns = int((time_s - timestamp_s) * NSEC_PER_SEC)
+
+        return cls(timestamp_s, timestamp_ns)
 
     def to_proto(self) -> timestamp_pb2.Timestamp:
         """Convert this timestamp into an equivalent Protobuf message.
@@ -54,7 +67,7 @@ class JointTrajectoryPoint:
     time_from_start_s: float  # Duration (seconds) since the start of the trajectory
 
     @classmethod
-    def from_proto(cls, point_proto: ArmJointTrajectoryPoint) -> Self:
+    def from_proto(cls, point_proto: ArmJointTrajectoryPoint):
         """Construct a JointTrajectoryPoint from an equivalent Protobuf message.
 
         :param    point_proto    Protobuf message representing a joint point
@@ -77,7 +90,7 @@ class JointTrajectoryPoint:
         return cls(angles_rad, velocities_radps, time_since_start_s)
 
     @classmethod
-    def from_ros_msg(cls, point_msg: JointPointMsg) -> Self:
+    def from_ros_msg(cls, point_msg: JointPointMsg):
         """Construct a JointTrajectoryPoint from an equivalent ROS message.
 
         :param    point_msg    ROS message representing a joint point
@@ -99,7 +112,7 @@ class JointTrajectory:
     points: list[JointTrajectoryPoint]  # Points in the trajectory
 
     @classmethod
-    def from_proto(cls, trajectory_proto: ArmJointTrajectory) -> Self:
+    def from_proto(cls, trajectory_proto: ArmJointTrajectory):
         """Construct a JointTrajectory from an equivalent Protobuf message.
 
         :param    trajectory_proto    Trajectory of joint points as a Protobuf message
@@ -115,7 +128,7 @@ class JointTrajectory:
         return cls(spot_arm_joint_names, timestamp, points)
 
     @classmethod
-    def from_ros_msg(cls, trajectory_msg: JointTrajectoryMsg) -> Self:
+    def from_ros_msg(cls, trajectory_msg: JointTrajectoryMsg):
         """Construct a JointTrajectory from an equivalent ROS message.
 
         :param    trajectory_msg    Trajectory of joint points as a ROS message
@@ -132,15 +145,16 @@ class JointTrajectory:
 
         :returns    Command for Spot to execute, containing this arm trajectory
         """
-        trajectory_positions = [point.positions_rad for point in self.points]
-        trajectory_velocities = [point.velocities_radps for point in self.points]
-        trajectory_times = [point.time_from_start_s for point in self.points]
+        positions = [point.positions_rad for point in self.points]
+        velocities = [point.velocities_radps for point in self.points]
+        times = [point.time_from_start_s for point in self.points]
 
         timestamp_proto = self.reference_timestamp.to_proto()
 
-        return arm_joint_move_helper(
-            trajectory_positions,
-            trajectory_times,
-            trajectory_velocities,
-            timestamp_proto,
+        return RobotCommandBuilder.arm_joint_move_helper(
+            joint_positions=positions,
+            times=times,
+            joint_velocities=velocities,
+            ref_time=timestamp_proto,
+            # TODO: Could raise velocity and acceleration limits (max_vel, max_acc)
         )
