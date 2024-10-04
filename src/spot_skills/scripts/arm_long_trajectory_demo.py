@@ -18,8 +18,8 @@ import time
 import rospy
 
 from spot_skills.joint_trajectory import (
+    JointsPoint,
     JointTrajectory,
-    JointTrajectoryPoint,
     TimeStamp,
 )
 from spot_skills.spot_arm_controller import SpotArmController
@@ -27,15 +27,15 @@ from spot_skills.spot_manager import SpotManager
 
 RUN_TIME_S = 20  # Duration (seconds) to run our trajectory for
 
-TRAJ_APPROACH_TIME_S = 1.0  # Time (seconds) to move from "ready" to trajectory start
+TRAJ_APPROACH_TIME_S = 2.0  # Time (seconds) to move from "ready" to trajectory start
 
 
-def query_trajectory(t_s: float) -> JointTrajectoryPoint:
+def query_trajectory(t_s: float) -> JointsPoint:
     """Compute the trajectory knot point for the given timestep (seconds).
 
     :param      t_s     Time (seconds) from the trajectory start
 
-    :returns    JointTrajectoryPoint representing the requested knot point
+    :returns    JointsPoint representing the requested knot point
     """
     # Move our arm joint poses around a nominal pose
     nominal_pose = [0, -0.9, 1.8, 0, -0.9, 0]
@@ -59,28 +59,47 @@ def query_trajectory(t_s: float) -> JointTrajectoryPoint:
     joint_velocities[5] = -1.0 * 4 * w * math.sin(4 * w * t_s)
 
     # Return the joint positions and velocities at time t in our trajectory
-    return JointTrajectoryPoint(joint_positions, joint_velocities, t_s)
+    return JointsPoint(joint_positions, joint_velocities, t_s)
 
 
 def main():
     """Use the Boston Dynamics API to command Spot's arm through a long trajectory."""
     rospy.init_node("arm_long_trajectory_demo")
 
-    # Access Spot's IP from the ROS parameters
+    # Attempt to load Spot's username, password, and IP from ROS parameters
+    spot_username = None
+    username_param = "/spot/username"
+    if rospy.has_param(username_param):
+        spot_username = rospy.get_param(username_param)
+    assert spot_username is not None, "Cannot connect to Spot without a username!"
+
+    spot_password = None
+    password_param = "/spot/password"
+    if rospy.has_param(password_param):
+        spot_password = rospy.get_param(password_param)
+    assert spot_password is not None, "Cannot connect to Spot without a password!"
+
     spot_hostname = None
-    if rospy.has_param("/spot/hostname"):
-        spot_hostname = rospy.get_param("/spot/hostname")
+    hostname_param = "/spot/hostname"
+    if rospy.has_param(hostname_param):
+        spot_hostname = rospy.get_param(hostname_param)
     assert spot_hostname is not None, "Cannot connect to Spot without its hostname!"
 
     # Create a manager for Spot and a controller for Spot's arm
     sdk_client_name = "ArmJointLongTrajectoryClient"
-    spot_manager = SpotManager(sdk_client_name, spot_hostname)
+    spot_manager = SpotManager(
+        sdk_client_name,
+        spot_hostname,
+        spot_username,
+        spot_password,
+    )
     arm_controller = SpotArmController(spot_manager)
 
     # By now, Spot should be powered on and controllable
+    spot_manager.stand_up(20)
     arm_controller.deploy_arm()
 
-    ### Compute the full trajectory to be executed on Spot's arm ###
+    # Compute the full trajectory to be executed on Spot's arm
     dt_s = 0.2  # Timestep (seconds)
     relative_t_s = 0  # Relative time (seconds) since trajectory started
 
@@ -91,30 +110,31 @@ def main():
 
     trajectory_points = [query_trajectory(t_s) for t_s in full_trajectory_times_s]
 
-    # Define the full trajectory (reference time to be set later)
-    full_trajectory = JointTrajectory(None, trajectory_points)
+    # Create an "approaching" point so Spot's arm has time to reach the trajectory
+    current_point: JointsPoint = spot_manager.get_arm_state()
+    current_point.time_from_start_s = 0  # Begin from where we are at t = 0
 
-    ### Define an approach trajectory to bring Spot's arm to the trajectory start ###
-    point_0 = query_trajectory(0)
-    point_0.time_from_start_s = TRAJ_APPROACH_TIME_S  # Take some time to approach
+    # Offset the full trajectory's relative times based on the approach duration
+    for point in trajectory_points:
+        point.time_from_start_s += TRAJ_APPROACH_TIME_S
 
-    start_time_s = time.time()
+    full_trajectory_points = [current_point, *trajectory_points]
+
+    # Set the full trajectory to begin in the future
+    future_proof_s = 3.0  # Offset duration (seconds) into the future
+    start_time_s = time.time() + future_proof_s
     ref_timestamp = TimeStamp.from_time_s(start_time_s)
 
-    approach_trajectory = JointTrajectory(ref_timestamp, [point_0])
-    arm_controller.command_trajectory(approach_trajectory)
-
-    ### Update the real trajectory's start time based on the approach trajectory ###
-    start_time_s = start_time_s + TRAJ_APPROACH_TIME_S  # End of last trajectory
-
-    full_trajectory.reference_timestamp = TimeStamp.from_time_s(start_time_s)
+    # Create and send the full trajectory
+    full_trajectory = JointTrajectory(ref_timestamp, full_trajectory_points)
     arm_controller.command_trajectory(full_trajectory)
 
     # We're done executing our trajectory, so stow the arm
     arm_controller.stow_arm()
 
-    # Power off the robot safely using a "safe power off" command
+    # Send a "safe power off" command, then return Spot's lease
     spot_manager.safely_power_off()
+    spot_manager.release_control()
 
     rospy.loginfo("Finished running the long joint trajectory.")
     rospy.spin()  # Keep the node alive for debugging purposes
