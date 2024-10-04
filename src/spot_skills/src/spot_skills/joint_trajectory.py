@@ -63,10 +63,10 @@ class TimeStamp:
 
 
 @dataclass
-class JointTrajectoryPoint:
-    """A knot point describing an arm's joints in phase space at a particular time.
+class JointsPoint:
+    """A knot point describing the state of an arm's joints during a trajectory.
 
-    The represented phase space includes positions (angles) and optional velocities.
+    This state includes the positions (angles) and velocities of the joints.
     """
 
     positions_rad: list[float]  # Position (rad) of each joint at this timestep
@@ -75,9 +75,9 @@ class JointTrajectoryPoint:
 
     @classmethod
     def from_proto(cls, point_proto: ArmJointTrajectoryPoint):
-        """Construct a JointTrajectoryPoint from an equivalent Protobuf message.
+        """Construct a JointsPoint from an equivalent Protobuf message.
 
-        :param    point_proto    Protobuf message representing a joint point
+        :param    point_proto    Protobuf message representing an arm's joints' state
         """
         pos = point_proto.position  # An arm_command_pb2.ArmJointPosition
         vel = point_proto.velocity  # An arm_command_pb2.ArmJointVelocity
@@ -98,9 +98,9 @@ class JointTrajectoryPoint:
 
     @classmethod
     def from_ros_msg(cls, point_msg: JointPointMsg):
-        """Construct a JointTrajectoryPoint from an equivalent ROS message.
+        """Construct a JointsPoint from an equivalent ROS message.
 
-        :param    point_msg    ROS message representing a joint point
+        :param    point_msg    ROS message representing an arm's joints' state
         """
         time_from_start_s = point_msg.time_from_start.to_sec()
         return cls(point_msg.positions, point_msg.velocities, time_from_start_s)
@@ -118,7 +118,7 @@ class JointTrajectory:
     """
 
     reference_timestamp: TimeStamp  # Relative timestamp for trajectory point times
-    points: list[JointTrajectoryPoint]  # Points in the trajectory
+    points: list[JointsPoint]  # Points in the trajectory
 
     @classmethod
     def from_proto(cls, trajectory_proto: ArmJointTrajectory):
@@ -128,7 +128,7 @@ class JointTrajectory:
         """
         timestamp = TimeStamp.from_proto(trajectory_proto.reference_time)
 
-        points = [JointTrajectoryPoint.from_proto(p) for p in trajectory_proto.points]
+        points = [JointsPoint.from_proto(p) for p in trajectory_proto.points]
 
         # Note: Ignoring maximum velocity/acceleration from Protobuf message
 
@@ -143,27 +143,57 @@ class JointTrajectory:
         stamp_msg = trajectory_msg.header.stamp
         timestamp = TimeStamp(stamp_msg.secs, stamp_msg.nsecs)
 
-        points = [JointTrajectoryPoint.from_ros_msg(p) for p in trajectory_msg.points]
+        points = [JointsPoint.from_ros_msg(p) for p in trajectory_msg.points]
 
         # Note: Ignoring joint names from ROS message
 
         return cls(timestamp, points)
 
-    def to_robot_command(self) -> RobotCommand:
-        """Convert this JointTrajectory into a populated robot command for Spot.
+    def segment_to_robot_commands(self, max_segment_len: int) -> list[RobotCommand]:
+        """Convert this JointTrajectory into a list of robot commands for Spot.
 
-        :returns    Command for Spot to execute, containing this arm trajectory
+        Each command will contain a single "segment" of the overall trajectory, obeying
+            the given maximum length, so that Spot can quickly process each command.
+
+        Create continuity: First point in each segment = Last point of the previous
+
+        TODO: Could raise or lower the output commands' velocity/acceleration limits
+
+        :param      max_segment_len     Maximum allowed segment length (# points)
+
+        :return     List of RobotCommand objects ready to be sent to Spot
         """
         positions = [point.positions_rad for point in self.points]
         velocities = [point.velocities_radps for point in self.points]
         times = [point.time_from_start_s for point in self.points]
-
         timestamp_proto = self.reference_timestamp.to_proto()
 
-        return RobotCommandBuilder.arm_joint_move_helper(
-            joint_positions=positions,
-            times=times,
-            joint_velocities=velocities,
-            ref_time=timestamp_proto,
-            # TODO: Could raise velocity and acceleration limits (max_vel, max_acc)
-        )
+        # Segment the trajectory as described in this method's docstring
+
+        start_idx = 0  # Both indices are inclusive
+        end_idx = min(start_idx + max_segment_len, len(self.points)) - 1
+
+        robot_commands: list[RobotCommand] = []
+        while True:
+            segment_positions = positions[start_idx : end_idx + 1]
+            segment_velocities = velocities[start_idx : end_idx + 1]
+            segment_times = times[start_idx : end_idx + 1]
+
+            robot_command = RobotCommandBuilder.arm_joint_move_helper(
+                joint_positions=segment_positions,
+                times=segment_times,
+                joint_velocities=segment_velocities,
+                ref_time=timestamp_proto,
+            )
+
+            robot_commands.append(robot_command)
+
+            # Exit once we've created a segment containing the trajectory's end
+            if end_idx == len(self.points) - 1:
+                break
+
+            # Find indices for the next segment, which begins where the last ended
+            start_idx = end_idx  # Recall: both are inclusive
+            end_idx = min(start_idx + max_segment_len, len(self.points)) - 1
+
+        return robot_commands
