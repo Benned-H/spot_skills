@@ -1,14 +1,13 @@
 """Define a class to control Spot's arm using the Spot SDK."""
 
 import time
-from typing import TYPE_CHECKING
 
 from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.client import robot_command
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 
-from spot_skills.joint_trajectory import JointTrajectory, TimeStamp
+from spot_skills.joint_trajectory import JointTrajectory
 from spot_skills.spot_manager import SpotManager
 
 
@@ -45,15 +44,18 @@ class SpotArmController:
         )  # An ArmJointTrajectory
 
         points_proto = trajectory_proto.points
-        ref_time_s = TimeStamp.from_proto(trajectory_proto.reference_time).to_time_s()
+
+        local_ref_time_s = self._spot_manager.time_sync.timestamp_proto_to_local_s(
+            trajectory_proto.reference_time,
+        )  # Reference time (seconds) for the trajectory, relative to the local clock
 
         assert len(points_proto) <= self.max_segment_len, "Segment too long!"
 
-        # TODO (DELETE ME): Length of trajectory? First time? Absolute reference?
+        # Log useful information about the trajectory segment to be sent
         log_message = f"Sending trajectory segment of length {len(points_proto)}..."
         self._spot_manager.log_info(log_message)
 
-        log_message = f"Segment reference time: {ref_time_s:.2f} seconds."
+        log_message = f"Segment reference time (local): {local_ref_time_s:.2f} seconds."
         self._spot_manager.log_info(log_message)
 
         first_rel_time_s = duration_to_seconds(points_proto[0].time_since_reference)
@@ -64,18 +66,26 @@ class SpotArmController:
         log_message = f"Last relative time in segment: {last_rel_time_s} seconds."
         self._spot_manager.log_info(log_message)
 
-        self._spot_manager.log_info(f"time.time() check: {time.time():.2f}\n\n")
+        self._spot_manager.log_info(f"Local clock time: {time.time():.2f} seconds.\n")
 
         # Wait to send the segment until close to when it starts
         round_trip_s = self._spot_manager.get_round_trip_s()
 
-        wait_until_before_s = round_trip_s * 0.7
+        wait_until_before_s = round_trip_s * 0.75
 
-        segment_start_time_s = ref_time_s + first_rel_time_s
+        segment_start_time_s = local_ref_time_s + first_rel_time_s  # In local time
 
-        segment_starts_in_s = segment_start_time_s - time.time()
+        segment_starts_in_s = segment_start_time_s - time.time()  # Both in local time
         if segment_starts_in_s > wait_until_before_s:
-            time.sleep(segment_starts_in_s - wait_until_before_s)
+            # Re-sync the robot time, if there's time
+            spare_time_s = segment_starts_in_s - wait_until_before_s
+            if spare_time_s > self._spot_manager.time_sync.max_sync_time_s:
+                self._spot_manager.time_sync.resync()
+
+            # Sleep for any remaining time, if necessary
+            segment_starts_in_s = segment_start_time_s - time.time()
+            if segment_starts_in_s > wait_until_before_s:
+                time.sleep(segment_starts_in_s - wait_until_before_s)
 
         self._command_id = self._spot_manager.send_robot_command(command)
         self._spot_manager.log_info("Trajectory segment sent.")
