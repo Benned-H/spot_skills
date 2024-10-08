@@ -7,59 +7,15 @@ from typing import TYPE_CHECKING
 
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
-from google.protobuf import timestamp_pb2
 from trajectory_msgs.msg import JointTrajectory as JointTrajectoryMsg
 from trajectory_msgs.msg import JointTrajectoryPoint as JointPointMsg
+
+from spot_skills.spot_sync import SpotTimeSync
+from spot_skills.time_stamp import SystemClock, TimeStamp
 
 if TYPE_CHECKING:
     from bosdyn.api.arm_command_pb2 import ArmJointTrajectory, ArmJointTrajectoryPoint
     from bosdyn.api.robot_command_pb2 import RobotCommand
-
-NSEC_PER_SEC = 10**9
-
-
-@dataclass
-class TimeStamp:
-    """A timestamp representing a specific moment in time relative to the Unix epoch.
-
-    This class specifies the number of seconds and nanoseconds since the Unix epoch.
-    """
-
-    time_s: int  # Seconds since the Unix epoch began
-    time_ns: int  # Nanoseconds since the timestamp's second began
-
-    @classmethod
-    def from_proto(cls, timestamp_proto: timestamp_pb2.Timestamp):
-        """Construct a TimeStamp from an equivalent Protobuf message.
-
-        :param    timestamp_proto    Timestamp since the Unix epoch began
-        """
-        return cls(timestamp_proto.seconds, timestamp_proto.nanos)
-
-    @classmethod
-    def from_time_s(cls, time_s: float):
-        """Construct a TimeStamp from a number of seconds since the Epoch.
-
-        :param      time_s      Time (seconds) since the Epoch
-        """
-        timestamp_s = int(time_s)
-        timestamp_ns = int((time_s - timestamp_s) * NSEC_PER_SEC)
-
-        return cls(timestamp_s, timestamp_ns)
-
-    def to_proto(self) -> timestamp_pb2.Timestamp:
-        """Convert this timestamp into an equivalent Protobuf message.
-
-        :returns    Protobuf message representing a Unix epoch timestamp
-        """
-        return timestamp_pb2.Timestamp(seconds=self.time_s, nanos=self.time_ns)
-
-    def to_time_s(self) -> float:
-        """Convert this timestamp into a number of seconds since the Unix epoch.
-
-        :returns    Time (seconds) since the Unix epoch started
-        """
-        return self.time_s + self.time_ns / NSEC_PER_SEC
 
 
 @dataclass
@@ -140,16 +96,18 @@ class JointTrajectory:
 
         :param    trajectory_msg    Trajectory of joint points as a ROS message
         """
-        stamp_msg = trajectory_msg.header.stamp
-        timestamp = TimeStamp(stamp_msg.secs, stamp_msg.nsecs)
+        stamp_msg = trajectory_msg.header.stamp  # TODO: Confirm that ROS time is local
+        timestamp = TimeStamp(stamp_msg.secs, stamp_msg.nsecs, SystemClock.LOCAL)
 
         points = [JointsPoint.from_ros_msg(p) for p in trajectory_msg.points]
 
-        # Note: Ignoring joint names from ROS message
+        return cls(timestamp, points)  # Note: Ignoring joint names from ROS message
 
-        return cls(timestamp, points)
-
-    def segment_to_robot_commands(self, max_segment_len: int) -> list[RobotCommand]:
+    def segment_to_robot_commands(
+        self,
+        max_segment_len: int,
+        spot_sync: SpotTimeSync,
+    ) -> list[RobotCommand]:
         """Convert this JointTrajectory into a list of robot commands for Spot.
 
         Each command will contain a single "segment" of the overall trajectory, obeying
@@ -160,13 +118,15 @@ class JointTrajectory:
         TODO: Could raise or lower the output commands' velocity/acceleration limits
 
         :param      max_segment_len     Maximum allowed segment length (# points)
+        :param      spot_sync           Maintains the time-sync with Spot
 
         :return     List of RobotCommand objects ready to be sent to Spot
         """
         positions = [point.positions_rad for point in self.points]
         velocities = [point.velocities_radps for point in self.points]
         times = [point.time_from_start_s for point in self.points]
-        timestamp_proto = self.reference_timestamp.to_proto()
+
+        timestamp_proto = spot_sync.timestamp_to_proto(self.reference_timestamp)
 
         # Segment the trajectory as described in this method's docstring
 

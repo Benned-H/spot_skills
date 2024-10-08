@@ -13,12 +13,11 @@ from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.robot_command import RobotCommandClient, blocking_stand
 from bosdyn.client.robot_state import RobotStateClient
-from bosdyn.client.time_sync import TimeSyncClient, TimeSyncEndpoint
 from bosdyn.client.util import setup_logging
-from bosdyn.util import duration_to_seconds
 from rospy import loginfo
 
 from spot_skills.joint_trajectory import JointsPoint
+from spot_skills.spot_sync import SpotTimeSync
 
 
 class SpotManager:
@@ -49,21 +48,11 @@ class SpotManager:
         # We need to authenticate with Spot before using it
         self._robot.authenticate(username=username, password=password)
 
-        # Establish a client and thread-safe endpoint to time-sync with Spot
-        # Reference: https://dev.bostondynamics.com/search.html?q=TimeSyncClient
-        self._time_sync_client = self._robot.ensure_client(
-            TimeSyncClient.default_service_name,
-        )
-        self._time_sync_endpoint = TimeSyncEndpoint(self._time_sync_client)
-        time_sync_success = self._time_sync_endpoint.establish_timesync()
-        assert time_sync_success, "Could not establish a time sync with Spot!"
+        # Establish a time-sync with Spot, which enables local-robot time conversion
+        self.time_sync = SpotTimeSync()
 
-        # Log information characterizing the time sync and communication latency
         self.log_info("Time sync has been established with Spot.")
-        round_trip_s = duration_to_seconds(self._time_sync_endpoint.round_trip_time)
-        clock_skew_s = duration_to_seconds(self._time_sync_endpoint.clock_skew)
-        self.log_info(f"Current round trip time: {round_trip_s} seconds.")
-        self.log_info(f"Current robot clock skew from local: {clock_skew_s} seconds.")
+        self.log_sync_info()
 
         # Establish member variables for clients that may be needed for Spot
         self._state_client = self._robot.ensure_client(
@@ -157,6 +146,21 @@ class SpotManager:
         self._robot.logger.info(formatted_message)
         loginfo(formatted_message)
 
+    def log_sync_info(self) -> None:
+        """Log information characterizing the time sync and communication latency."""
+        self.time_sync.resync()
+
+        round_trip_s = self.time_sync.get_round_trip_s()
+        self.log_info(f"Current round trip time: {round_trip_s} seconds.")
+
+        clock_skew_s = self.time_sync.get_clock_skew_s()
+        self.log_info(f"Current robot clock skew from local: {clock_skew_s} seconds.")
+
+        max_sync_time_s = self.time_sync.max_sync_time_s
+        self.log_info(
+            f"Maximum duration a time-sync has taken: {max_sync_time_s} seconds.",
+        )
+
     def has_arm(self) -> bool:
         """Check whether the Spot robot has an arm connected."""
         return self._robot.has_arm()
@@ -186,13 +190,6 @@ class SpotManager:
                 arm_joint_velocities[joint_idx] = joint.velocity.value
 
         return JointsPoint(arm_joint_positions, arm_joint_velocities, None)
-
-    def get_round_trip_s(self) -> float:
-        """Find, log, and return the current round-trip latency (seconds) for Spot."""
-        # TODO: Crashes, probably re-compute round-trip and time its running!
-        round_trip_s = duration_to_seconds(self._time_sync_endpoint.round_trip_time)
-        self.log_info(f"Current round trip time: {round_trip_s} seconds.")
-        return round_trip_s
 
     def send_robot_command(self, command: RobotCommand):
         """Command Spot to execute the given robot command.
