@@ -107,18 +107,18 @@ def main():
 
     trajectory_points = [query_trajectory(t_s) for t_s in full_trajectory_times_s]
 
-    # Create an "approaching" point so Spot's arm has time to reach the trajectory
-    current_point: JointsPoint = spot_manager.get_arm_state()
-    current_point.time_from_start_s = 0  # Begin from where we are at t = 0
+    # Create an "approaching" point to bring Spot's arm to the trajectory's start
+    current_arm_state: JointsPoint = spot_manager.get_arm_state()
+    current_arm_state.time_from_start_s = 0  # Begin approach (t = 0) from where arm is
 
     # Offset the full trajectory's relative times based on the approach duration
     for point in trajectory_points:
         point.time_from_start_s += TRAJ_APPROACH_TIME_S
 
-    full_trajectory_points = [current_point, *trajectory_points]
+    full_trajectory_points = [current_arm_state, *trajectory_points]
 
-    # Re-sync the local and robot time (helps us learn how long syncing takes)
-    spot_manager.resync_and_log_info()
+    # Re-sync the local/robot time (provides initial estimate of time-sync duration)
+    spot_manager.resync_and_log()
 
     # Set the full trajectory to begin in the future
     future_proof_s = 1.0  # Offset duration (seconds) into the future

@@ -1,8 +1,4 @@
-"""Define a class to manage a sustained connection to a Spot robot.
-
-This file has reviewed the contents of the following Spot SDK examples:
-    hello_spot.py
-"""
+"""Define a class to manage a sustained connection to a Spot robot."""
 
 import time
 from typing import TYPE_CHECKING
@@ -55,27 +51,31 @@ class SpotManager:
         self.time_sync = SpotTimeSync(self._robot)
 
         self.log_info("Time sync has been established with Spot.")
-        self.resync_and_log_info()
+        self.resync_and_log()
 
-        # Establish member variables for clients that may be needed for Spot
+        # Define a client that can command Spot to move
+        self.command_client = self._robot.ensure_client(
+            RobotCommandClient.default_service_name,
+        )
+
+        # Define a client to query the state of the robot
         self._state_client = self._robot.ensure_client(
             RobotStateClient.default_service_name,
         )
-        self.command_client = None  # Used to command Spot to move (non-private)
 
-        # Establish a client to query Spot's e-stop status
+        # Define a client to query Spot's e-stop status
         self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
 
-        # Establish a client to obtain control of Spot (i.e., Spot's "lease")
+        # Define a client to obtain control of Spot (i.e., Spot's "lease")
         self._lease_client = self._robot.ensure_client(LeaseClient.default_service_name)
         self._lease_keeper = None  # Stores a lease and keeps it alive once obtained
 
         assert self.wait_while_estopped()  # Wait until Spot isn't e-stopped
 
-    def wait_while_estopped(self, timeout_sec: int = 30) -> bool:
+    def wait_while_estopped(self, timeout_s: int = 30) -> bool:
         """Notify the user if Spot is e-stopped by spamming the ROS and Spot logs.
 
-        :param      timeout_sec     Time (seconds) after which the method gives up
+        :param      timeout_s       Time (seconds) after which the method gives up
 
         :returns    Boolean: Was Spot "e-started" (un-e-stopped) in time?
         """
@@ -83,7 +83,7 @@ class SpotManager:
 
         start_t = time.time()
 
-        while (time.time() - start_t) < timeout_sec:
+        while (time.time() - start_t) < timeout_s:
             if estop_level == ESTOP_LEVEL_NONE:
                 self.log_info("Spot is not e-stopped, continuing on...")
                 return True
@@ -93,8 +93,7 @@ class SpotManager:
             time.sleep(0.5)
             estop_level = self._estop_client.get_status().stop_level
 
-        log_message = f"Spot remained e-stopped after {timeout_sec} seconds."
-        self.log_info(log_message)
+        self.log_info(f"Spot remained e-stopped after {timeout_s} seconds.")
         return False
 
     def take_control(self) -> bool:
@@ -102,8 +101,7 @@ class SpotManager:
 
         In detail, this method performs these steps:
             1. Attempt to acquire Spot's lease and store it in a member variable
-            2. Initialize a client to command Spot, if uninitialized
-            3. Attempt to power on Spot, if necessary
+            2. Attempt to power on Spot, if necessary
 
         :returns    Boolean indicating if all attempted operations were successful
         """
@@ -115,27 +113,20 @@ class SpotManager:
             return_at_exit=True,
         )
 
-        # 2. If needed, initialize a client to command Spot to move
-        if self.command_client is None:
-            self.command_client = self._robot.ensure_client(
-                RobotCommandClient.default_service_name,
-            )
-
-        # 3. If needed, attempt to power on Spot
+        # 2. If needed, attempt to power on Spot
         if not self._robot.is_powered_on():
             self.log_info("Powering on Spot... This may take several seconds.")
             self._robot.power_on(timeout_sec=20)
 
         # Verify that the attempted operations succeeded
         lease_alive = self._lease_keeper.is_alive()
-        has_command_client = self.command_client is not None
         power_success = self._robot.is_powered_on()
 
         self.log_info("Spot powered on." if power_success else "Spot power on failed.")
 
         self.log_info("Exiting SpotManager.take_control()...\n")
 
-        return lease_alive and has_command_client and power_success
+        return lease_alive and power_success
 
     def log_info(self, message: str) -> None:
         """Log the given message to the Spot and ROS information logs.
@@ -149,7 +140,7 @@ class SpotManager:
         self._robot.logger.info(formatted_message)
         loginfo(formatted_message)
 
-    def resync_and_log_info(self) -> None:
+    def resync_and_log(self) -> None:
         """Resync with Spot and log information describing the resulting time sync."""
         self.time_sync.resync()
 
@@ -177,7 +168,10 @@ class SpotManager:
         return self._robot.has_arm()
 
     def get_arm_state(self) -> JointsPoint:
-        """Query and return the current state of Spot's arm."""
+        """Query and return the current state of Spot's arm.
+
+        :returns    Point storing the current positions/velocities of Spot's arm joints
+        """
         robot_state = self._state_client.get_robot_state()
 
         arm_joint_names_from_spot = [
@@ -212,9 +206,6 @@ class SpotManager:
 
         :returns    ID (integer) of the issued robot command
         """
-        has_command_client = self.command_client is not None
-        assert has_command_client, "Cannot command Spot without a command client!"
-
         # Issue a command to the robot synchronously (blocks until done sending)
         command_id: int = self.command_client.robot_command(
             command,
