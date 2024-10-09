@@ -5,9 +5,9 @@ This file has reviewed the contents of the following Spot SDK examples:
 """
 
 import time
+from typing import TYPE_CHECKING
 
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
-from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
@@ -18,6 +18,9 @@ from rospy import loginfo
 
 from spot_skills.joint_trajectory import JointsPoint
 from spot_skills.spot_sync import SpotTimeSync
+
+if TYPE_CHECKING:
+    from bosdyn.api.robot_command_pb2 import RobotCommand
 
 
 class SpotManager:

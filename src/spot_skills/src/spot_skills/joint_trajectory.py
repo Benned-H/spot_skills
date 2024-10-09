@@ -7,14 +7,14 @@ from typing import TYPE_CHECKING
 
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
-from trajectory_msgs.msg import JointTrajectory as JointTrajectoryMsg
-from trajectory_msgs.msg import JointTrajectoryPoint as JointPointMsg
 
 from spot_skills.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
     from bosdyn.api.arm_command_pb2 import ArmJointTrajectory, ArmJointTrajectoryPoint
     from bosdyn.api.robot_command_pb2 import RobotCommand
+    from trajectory_msgs.msg import JointTrajectory as JointTrajectoryMsg
+    from trajectory_msgs.msg import JointTrajectoryPoint as JointPointMsg
 
 
 @dataclass

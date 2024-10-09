@@ -1,15 +1,19 @@
 """Define a class to control Spot's arm using the Spot SDK."""
 
 import time
+from typing import TYPE_CHECKING
 
-from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.client import robot_command
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 
-from spot_skills.joint_trajectory import JointTrajectory
-from spot_skills.spot_manager import SpotManager
 from spot_skills.time_stamp import TimeStamp
+
+if TYPE_CHECKING:
+    from bosdyn.api.robot_command_pb2 import RobotCommand
+
+    from spot_skills.joint_trajectory import JointTrajectory
+    from spot_skills.spot_manager import SpotManager
 
 
 class SpotArmController:

@@ -12,7 +12,6 @@ Reference:
 import time
 from typing import TYPE_CHECKING
 
-from bosdyn.client.robot import Robot
 from bosdyn.client.time_sync import TimeSyncClient, TimeSyncEndpoint
 from bosdyn.util import duration_to_seconds
 
@@ -37,10 +36,10 @@ class SpotTimeSync:
 
         self.clock_skew_s = None  # Stores the estimated robot clock skew (seconds)
 
-        self.max_round_trip_s = -1  # Maximum duration (seconds) of any round trip
-        self.max_sync_time_s = -1  # Maximum duration (seconds) a resync has taken
+        self.max_round_trip_s = -1.0  # Maximum duration (seconds) of any round trip
+        self.max_sync_time_s = -1.0  # Maximum duration (seconds) a resync has taken
 
-        self.total_sync_time_s = 0  # Total time (seconds) spent syncing with Spot
+        self.total_sync_time_s = 0.0  # Total time (seconds) spent time-syncing
         self.total_sync_count = 0  # Number of completed calls to resync()
 
         self.resync()  # Synchronize with Spot until a time-sync is established
