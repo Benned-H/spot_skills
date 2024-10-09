@@ -1,4 +1,4 @@
-"""Define a class to manage time synchronization with a Spot robot.
+"""Define a class to manage time synchronization with Spot.
 
 Note: Generally, timestamps in Protobuf messages should be specified in robot time.
     However, the RobotCommandClient automatically converts outgoing Protobuf messages
@@ -8,6 +8,8 @@ Reference:
   https://dev.bostondynamics.com/python/bosdyn-client/src/bosdyn/client/time_sync.html
   https://dev.bostondynamics.com/python/bosdyn-client/src/bosdyn/client/robot_command
 """
+
+from __future__ import annotations
 
 import time
 from typing import TYPE_CHECKING
@@ -23,9 +25,9 @@ class SpotTimeSync:
     """A wrapper to manage time synchronization with Spot."""
 
     def __init__(self, robot: Robot) -> None:
-        """Initialize a time-sync client for the given robot.
+        """Initialize a time-sync client and endpoint for the given robot.
 
-        :param      robot       Point of access for the robot's clients
+        :param      robot       Point of access for Spot's RPC clients
         """
         # Create a client and thread-safe endpoint to time-sync with Spot
         # Reference: https://dev.bostondynamics.com/search.html?q=TimeSyncClient
@@ -34,10 +36,10 @@ class SpotTimeSync:
         )
         self._time_sync_endpoint = TimeSyncEndpoint(self._time_sync_client)
 
-        self.clock_skew_s = None  # Stores the estimated robot clock skew (seconds)
+        self.clock_skew_s: float | None = None  # Estimated robot clock skew (seconds)
 
         self.max_round_trip_s = -1.0  # Maximum duration (seconds) of any round trip
-        self.max_sync_time_s = -1.0  # Maximum duration (seconds) a resync has taken
+        self.max_sync_time_s = -1.0  # Maximum duration (seconds) a time-sync has taken
 
         self.total_sync_time_s = 0.0  # Total time (seconds) spent time-syncing
         self.total_sync_count = 0  # Number of completed calls to resync()
@@ -52,21 +54,21 @@ class SpotTimeSync:
         return duration_to_seconds(self._time_sync_endpoint.round_trip_time)
 
     def get_avg_sync_time_s(self) -> float:
-        """Return the average duration (seconds) each resync with Spot takes.
+        """Return the average duration (seconds) taken by each resync with Spot.
 
         :returns    Average duration (seconds) taken by each resync with Spot
         """
         return self.total_sync_time_s / self.total_sync_count
 
     def get_time_sync_endpoint(self) -> TimeSyncEndpoint:
-        """Return the time-sync endpoint stored in this class.
+        """Return the time-sync endpoint stored by this class.
 
-        :returns    TimeSyncEndpoint object used to convert local times to robot times
+        :returns    TimeSyncEndpoint object used to convert local time to robot time
         """
         return self._time_sync_endpoint
 
     def resync(self) -> None:
-        """Ensure that a time-sync with Spot is established and/or maintained."""
+        """Ensure that a time-sync with Spot is established and maintained."""
         start_time_s = time.time()
 
         sync_established = self._time_sync_endpoint.get_new_estimate()
