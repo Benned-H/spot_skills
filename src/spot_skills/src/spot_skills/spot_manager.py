@@ -49,7 +49,7 @@ class SpotManager:
         self._robot.authenticate(username=username, password=password)
 
         # Establish a time-sync with Spot, which enables local-robot time conversion
-        self.time_sync = SpotTimeSync()
+        self.time_sync = SpotTimeSync(self._robot)
 
         self.log_info("Time sync has been established with Spot.")
         self.log_sync_info()
@@ -130,7 +130,7 @@ class SpotManager:
 
         self.log_info("Spot powered on." if power_success else "Spot power on failed.")
 
-        self.log_info("Exiting SpotManager.take_control()...")
+        self.log_info("Exiting SpotManager.take_control()...\n")
 
         return lease_alive and has_command_client and power_success
 
@@ -141,7 +141,7 @@ class SpotManager:
         """
         manager_age_s = time.time() - self._created_time_s
 
-        formatted_message = f"[SpotManager after {manager_age_s:.3f} sec] {message}"
+        formatted_message = f"[SpotManager at {manager_age_s:.3f} s] {message}"
 
         self._robot.logger.info(formatted_message)
         loginfo(formatted_message)
@@ -153,12 +153,20 @@ class SpotManager:
         round_trip_s = self.time_sync.get_round_trip_s()
         self.log_info(f"Current round trip time: {round_trip_s} seconds.")
 
-        clock_skew_s = self.time_sync.get_clock_skew_s()
+        max_round_trip_s = self.time_sync.max_round_trip_s
+        self.log_info(f"Maximum observed round trip time: {max_round_trip_s} seconds.")
+
+        clock_skew_s = self.time_sync.clock_skew_s
         self.log_info(f"Current robot clock skew from local: {clock_skew_s} seconds.")
 
         max_sync_time_s = self.time_sync.max_sync_time_s
         self.log_info(
-            f"Maximum duration a time-sync has taken: {max_sync_time_s} seconds.",
+            f"Maximum duration any time-sync has taken: {max_sync_time_s} seconds.",
+        )
+
+        avg_sync_time_s = self.time_sync.get_avg_sync_time_s()
+        self.log_info(
+            f"Average duration per resync with Spot: {avg_sync_time_s} seconds.",
         )
 
     def has_arm(self) -> bool:
@@ -191,17 +199,24 @@ class SpotManager:
 
         return JointsPoint(arm_joint_positions, arm_joint_velocities, None)
 
-    def send_robot_command(self, command: RobotCommand):
+    def send_robot_command(self, command: RobotCommand) -> int:
         """Command Spot to execute the given robot command.
 
+        Note: The RobotCommandClient.robot_command() method will automatically update
+            all timestamps in the command from local time to robot time.
+
         :param      command     Command for Spot to execute
-        :returns    ID of the issued robot command
+
+        :returns    ID (integer) of the issued robot command
         """
         has_command_client = self.command_client is not None
         assert has_command_client, "Cannot command Spot without a command client!"
 
         # Issue a command to the robot synchronously (blocks until done sending)
-        command_id: int = self.command_client.robot_command(command)
+        command_id: int = self.command_client.robot_command(
+            command,
+            timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+        )
         self.log_info(f"Issued robot command with ID: {command_id}")
 
         return command_id

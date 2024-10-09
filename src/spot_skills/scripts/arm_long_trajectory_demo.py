@@ -20,7 +20,7 @@ import rospy
 from spot_skills.joint_trajectory import JointsPoint, JointTrajectory
 from spot_skills.spot_arm_controller import SpotArmController
 from spot_skills.spot_manager import SpotManager
-from spot_skills.time_stamp import SystemClock, TimeStamp
+from spot_skills.time_stamp import TimeStamp
 
 RUN_TIME_S = 20  # Duration (seconds) to run our trajectory for
 
@@ -122,9 +122,9 @@ def main():
     spot_manager.log_sync_info()
 
     # Set the full trajectory to begin in the future
-    future_proof_s = 3.0  # Offset duration (seconds) into the future
+    future_proof_s = 1.0  # Offset duration (seconds) into the future
     start_time_s = time.time() + future_proof_s
-    ref_timestamp = TimeStamp.from_time_s(start_time_s, SystemClock.LOCAL)
+    ref_timestamp = TimeStamp.from_time_s(start_time_s)
 
     # Create and send the full trajectory
     full_trajectory = JointTrajectory(ref_timestamp, full_trajectory_points)
