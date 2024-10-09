@@ -21,10 +21,11 @@ if TYPE_CHECKING:
 class SpotArmController:
     """A wrapper to control Spot's arm using the Spot SDK."""
 
-    def __init__(self, spot_manager: SpotManager):
+    def __init__(self, spot_manager: SpotManager, max_segment_len: int = 250):
         """Initialize the controller for Spot's arm using a manager for Spot.
 
-        :param    spot_manager    Manager of the connection to the Spot
+        :param    spot_manager        Manager of the connection to the Spot
+        :param    max_segment_len     Maximum number of points in any sent trajectory
         """
         assert spot_manager.has_arm(), "Cannot control Spot's arm if Spot has no arm!"
 
@@ -35,8 +36,8 @@ class SpotArmController:
         # Declare member variable to store the ID of the most recent robot command
         self._command_id: int | None = None
 
-        # Default: Send the maximum number of points at a time (250, per Spot SDK)
-        self.max_segment_len = 10  # TODO: Raise back to 250
+        # Define the maximum number of points in any sent trajectory segment
+        self.max_segment_len = min(max_segment_len, 250)  # Ensure limit is <= 250
 
         # Define angle (radians) within which two angles are considered identical
         self.angle_proximity_rad = 0.005

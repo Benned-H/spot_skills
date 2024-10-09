@@ -59,7 +59,7 @@ def query_trajectory(t_s: float) -> JointsPoint:
     return JointsPoint(joint_positions, joint_velocities, t_s)
 
 
-def main():
+def main() -> None:
     """Use the Boston Dynamics API to command Spot's arm through a long trajectory."""
     rospy.init_node("arm_long_trajectory_demo")
 
@@ -90,7 +90,7 @@ def main():
         spot_username,
         spot_password,
     )
-    arm_controller = SpotArmController(spot_manager)
+    arm_controller = SpotArmController(spot_manager, 30)  # Limit to 30 points/segment
 
     # By now, Spot should be powered on and controllable
     spot_manager.stand_up(20)
@@ -98,7 +98,7 @@ def main():
 
     # Compute the full trajectory to be executed on Spot's arm
     dt_s = 0.2  # Timestep (seconds)
-    relative_t_s = 0  # Relative time (seconds) since trajectory started
+    relative_t_s = 0.0  # Relative time (seconds) since trajectory started
 
     full_trajectory_times_s = []
     while relative_t_s <= RUN_TIME_S:
