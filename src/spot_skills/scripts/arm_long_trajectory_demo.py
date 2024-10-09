@@ -118,8 +118,7 @@ def main():
     full_trajectory_points = [current_point, *trajectory_points]
 
     # Re-sync the local and robot time (helps us learn how long syncing takes)
-    spot_manager.time_sync.resync()
-    spot_manager.log_sync_info()
+    spot_manager.resync_and_log_info()
 
     # Set the full trajectory to begin in the future
     future_proof_s = 1.0  # Offset duration (seconds) into the future

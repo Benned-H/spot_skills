@@ -1,8 +1,13 @@
 """Define a dataclass representing timestamps relative to the Unix epoch."""
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from google.protobuf.timestamp_pb2 import Timestamp as TimestampProto
+
+if TYPE_CHECKING:
+    from typing import Self
+
 
 NSEC_PER_SEC = 10**9
 
@@ -18,18 +23,22 @@ class TimeStamp:
     time_ns: int  # Nanoseconds since the timestamp's second began
 
     @classmethod
-    def from_proto(cls, timestamp_proto: TimestampProto):
+    def from_proto(cls, timestamp_proto: TimestampProto) -> Self:
         """Construct a TimeStamp from an equivalent Protobuf message.
 
-        :param    timestamp_proto    Timestamp since the Unix epoch began
+        :param    timestamp_proto    Protobuf of timestamp since the Unix epoch began
+
+        :returns    TimeStamp constructed based on the given timestamp Protobuf
         """
         return cls(timestamp_proto.seconds, timestamp_proto.nanos)
 
     @classmethod
-    def from_time_s(cls, time_s: float):
-        """Construct a TimeStamp from a number of seconds since the Epoch.
+    def from_time_s(cls, time_s: float) -> Self:
+        """Construct a TimeStamp from a time (in seconds) since the Unix epoch.
 
         :param      time_s      Time (seconds) since the Epoch
+
+        :returns    TimeStamp constructed based on the given time (seconds)
         """
         rounded_time_s = int(time_s)
         remaining_time_ns = int((time_s - rounded_time_s) * NSEC_PER_SEC)
@@ -47,7 +56,7 @@ class TimeStamp:
         """Convert this timestamp into a Protobuf message.
 
         Note: Does not account for local-to-robot time conversion, as the robot command
-            client will automatically make this modification for us.
+            client will automatically make this conversion for us.
 
         :returns    Timestamp Protobuf message equivalent to this timestamp
         """

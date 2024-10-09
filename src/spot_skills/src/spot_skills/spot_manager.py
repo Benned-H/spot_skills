@@ -55,7 +55,7 @@ class SpotManager:
         self.time_sync = SpotTimeSync(self._robot)
 
         self.log_info("Time sync has been established with Spot.")
-        self.log_sync_info()
+        self.resync_and_log_info()
 
         # Establish member variables for clients that may be needed for Spot
         self._state_client = self._robot.ensure_client(
@@ -149,8 +149,8 @@ class SpotManager:
         self._robot.logger.info(formatted_message)
         loginfo(formatted_message)
 
-    def log_sync_info(self) -> None:
-        """Log information characterizing the time sync and communication latency."""
+    def resync_and_log_info(self) -> None:
+        """Resync with Spot and log information describing the resulting time sync."""
         self.time_sync.resync()
 
         round_trip_s = self.time_sync.get_round_trip_s()

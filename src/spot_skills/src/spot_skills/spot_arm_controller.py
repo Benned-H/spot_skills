@@ -1,5 +1,7 @@
 """Define a class to control Spot's arm using the Spot SDK."""
 
+from __future__ import annotations
+
 import time
 from typing import TYPE_CHECKING
 
@@ -30,8 +32,8 @@ class SpotArmController:
         self._spot_manager = spot_manager
         self._spot_manager.take_control()
 
-        # Establish member variables to store data about the most-recent trajectory
-        self._last_command_id = None  # ID of the most recent robot command to Spot
+        # Declare member variable to store the ID of the most recent robot command
+        self._command_id: int | None = None
 
         # Default: Send the maximum number of points at a time (250, per Spot SDK)
         self.max_segment_len = 10  # TODO: Raise back to 250
@@ -100,7 +102,7 @@ class SpotArmController:
             # Re-sync with Spot, if there's time to spare
             if spare_time_s > 2 * self._spot_manager.time_sync.max_sync_time_s:
                 self._spot_manager.log_info("Re-time-syncing with Spot...")
-                self._spot_manager.time_sync.resync()
+                self._spot_manager.resync_and_log_info()
 
             # Sleep for any remaining time, if necessary
             self._spot_manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
