@@ -9,6 +9,7 @@ from bosdyn.util import duration_to_seconds
 
 from spot_skills.joint_trajectory import JointTrajectory
 from spot_skills.spot_manager import SpotManager
+from spot_skills.time_stamp import TimeStamp
 
 
 class SpotArmController:
@@ -45,50 +46,76 @@ class SpotArmController:
 
         points_proto = trajectory_proto.points
 
-        local_ref_time_s = self._spot_manager.time_sync.timestamp_proto_to_local_s(
-            trajectory_proto.reference_time,
-        )  # Reference time (seconds) for the trajectory, relative to the local clock
-
         assert len(points_proto) <= self.max_segment_len, "Segment too long!"
 
         # Log useful information about the trajectory segment to be sent
         log_message = f"Sending trajectory segment of length {len(points_proto)}..."
         self._spot_manager.log_info(log_message)
 
-        log_message = f"Segment reference time (local): {local_ref_time_s:.2f} seconds."
+        # Find the reference time (seconds) for the trajectory
+        ref_timestamp = TimeStamp.from_proto(trajectory_proto.reference_time)
+
+        ref_time_s = ref_timestamp.to_time_s()
+        log_message = f"Segment reference time: {ref_time_s:.2f} seconds."
         self._spot_manager.log_info(log_message)
 
         first_rel_time_s = duration_to_seconds(points_proto[0].time_since_reference)
         last_rel_time_s = duration_to_seconds(points_proto[-1].time_since_reference)
 
-        log_message = f"First relative time in segment: {first_rel_time_s} seconds."
+        log_message = f"First relative time in segment: {first_rel_time_s:.2f} seconds."
         self._spot_manager.log_info(log_message)
-        log_message = f"Last relative time in segment: {last_rel_time_s} seconds."
+        log_message = f"Last relative time in segment: {last_rel_time_s:.2f} seconds."
         self._spot_manager.log_info(log_message)
 
-        self._spot_manager.log_info(f"Local clock time: {time.time():.2f} seconds.\n")
+        segment_duration_s = last_rel_time_s - first_rel_time_s
+        log_message = f"Total segment duration: {segment_duration_s:.2f} seconds."
+        self._spot_manager.log_info(log_message)
+
+        self._spot_manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
 
         # Wait to send the segment until close to when it starts
-        round_trip_s = self._spot_manager.get_round_trip_s()
+        send_early_s = 5 * self._spot_manager.time_sync.max_round_trip_s + 0.5
+        log_message = f"Want to send the segment {send_early_s:.4f} seconds early..."
+        self._spot_manager.log_info(log_message)
 
-        wait_until_before_s = round_trip_s * 0.75
+        segment_start_time_s = ref_time_s + first_rel_time_s
+        log_message = f"Segment start time: {segment_start_time_s:.2f} seconds."
+        self._spot_manager.log_info(log_message)
 
-        segment_start_time_s = local_ref_time_s + first_rel_time_s  # In local time
+        self._spot_manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
 
-        segment_starts_in_s = segment_start_time_s - time.time()  # Both in local time
-        if segment_starts_in_s > wait_until_before_s:
-            # Re-sync the robot time, if there's time
-            spare_time_s = segment_starts_in_s - wait_until_before_s
-            if spare_time_s > self._spot_manager.time_sync.max_sync_time_s:
+        segment_starts_in_s = segment_start_time_s - time.time()
+        log_message = f"Segment starts in: {segment_starts_in_s:.2f} seconds."
+        self._spot_manager.log_info(log_message)
+
+        if segment_starts_in_s > send_early_s:
+            spare_time_s = segment_starts_in_s - send_early_s
+            log_message = f"We have {spare_time_s:.4f} extra seconds to wait..."
+            self._spot_manager.log_info(log_message)
+
+            # Re-sync with Spot, if there's time to spare
+            if spare_time_s > 2 * self._spot_manager.time_sync.max_sync_time_s:
+                self._spot_manager.log_info("Re-time-syncing with Spot...")
                 self._spot_manager.time_sync.resync()
 
             # Sleep for any remaining time, if necessary
+            self._spot_manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
+
             segment_starts_in_s = segment_start_time_s - time.time()
-            if segment_starts_in_s > wait_until_before_s:
-                time.sleep(segment_starts_in_s - wait_until_before_s)
+            log_message = f"Segment starts in: {segment_starts_in_s:.2f} seconds."
+            self._spot_manager.log_info(log_message)
+
+            if segment_starts_in_s > send_early_s:
+                spare_time_s = segment_starts_in_s - send_early_s
+                log_message = f"Sleeping for {spare_time_s:.4f} seconds..."
+                self._spot_manager.log_info(log_message)
+                time.sleep(spare_time_s)
+
+        self._spot_manager.log_info("Done waiting to send this trajectory segment.")
+        self._spot_manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
 
         self._command_id = self._spot_manager.send_robot_command(command)
-        self._spot_manager.log_info("Trajectory segment sent.")
+        self._spot_manager.log_info("Trajectory segment sent.\n")
 
     def command_trajectory(self, trajectory: JointTrajectory) -> bool:
         """Command Spot to execute the given joint trajectory.
@@ -104,7 +131,7 @@ class SpotArmController:
         :returns    Boolean: Was the trajectory executed (True) or not (False)?
         """
         spot_arm_state = self._spot_manager.get_arm_state()
-        self._spot_manager.log_info(f"Spot's arm state: {spot_arm_state}")
+        self._spot_manager.log_info(f"Spot's arm state: {spot_arm_state}\n")
 
         current_angles_rad = spot_arm_state.positions_rad
         command_start_angles_rad = trajectory.points[0].positions_rad
@@ -134,7 +161,7 @@ class SpotArmController:
             self._command_id,
         )
         time.sleep(0.5)
-        self._spot_manager.log_info("Done blocking.")
+        self._spot_manager.log_info("Done blocking.\n")
 
     def deploy_arm(self) -> None:
         """Deploy Spot's arm to "ready" and wait until the arm has deployed."""
@@ -142,6 +169,7 @@ class SpotArmController:
         arm_ready = RobotCommandBuilder.arm_ready_command()
         self._command_id = self._spot_manager.send_robot_command(arm_ready)
         self.block_until_arm_arrives()
+        self._spot_manager.log_info("Arm is now ready.")
 
     def stow_arm(self) -> None:
         """Stow Spot's arm and wait until the arm has finished stowing."""
@@ -149,3 +177,4 @@ class SpotArmController:
         arm_stow = RobotCommandBuilder.arm_stow_command()
         self._command_id = self._spot_manager.send_robot_command(arm_stow)
         self.block_until_arm_arrives()
+        self._spot_manager.log_info("Arm is now stowed.")

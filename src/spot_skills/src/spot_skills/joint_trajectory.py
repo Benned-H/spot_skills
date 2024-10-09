@@ -10,8 +10,7 @@ from bosdyn.util import duration_to_seconds
 from trajectory_msgs.msg import JointTrajectory as JointTrajectoryMsg
 from trajectory_msgs.msg import JointTrajectoryPoint as JointPointMsg
 
-from spot_skills.spot_sync import SpotTimeSync
-from spot_skills.time_stamp import SystemClock, TimeStamp
+from spot_skills.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
     from bosdyn.api.arm_command_pb2 import ArmJointTrajectory, ArmJointTrajectoryPoint
@@ -96,18 +95,14 @@ class JointTrajectory:
 
         :param    trajectory_msg    Trajectory of joint points as a ROS message
         """
-        stamp_msg = trajectory_msg.header.stamp  # TODO: Confirm that ROS time is local
-        timestamp = TimeStamp(stamp_msg.secs, stamp_msg.nsecs, SystemClock.LOCAL)
+        stamp_msg = trajectory_msg.header.stamp
+        timestamp = TimeStamp(stamp_msg.secs, stamp_msg.nsecs)
 
         points = [JointsPoint.from_ros_msg(p) for p in trajectory_msg.points]
 
         return cls(timestamp, points)  # Note: Ignoring joint names from ROS message
 
-    def segment_to_robot_commands(
-        self,
-        max_segment_len: int,
-        spot_sync: SpotTimeSync,
-    ) -> list[RobotCommand]:
+    def segment_to_robot_commands(self, max_segment_len: int) -> list[RobotCommand]:
         """Convert this JointTrajectory into a list of robot commands for Spot.
 
         Each command will contain a single "segment" of the overall trajectory, obeying
@@ -118,7 +113,6 @@ class JointTrajectory:
         TODO: Could raise or lower the output commands' velocity/acceleration limits
 
         :param      max_segment_len     Maximum allowed segment length (# points)
-        :param      spot_sync           Maintains the time-sync with Spot
 
         :return     List of RobotCommand objects ready to be sent to Spot
         """
@@ -126,7 +120,7 @@ class JointTrajectory:
         velocities = [point.velocities_radps for point in self.points]
         times = [point.time_from_start_s for point in self.points]
 
-        timestamp_proto = spot_sync.timestamp_to_proto(self.reference_timestamp)
+        timestamp_proto = self.reference_timestamp.to_proto()
 
         # Segment the trajectory as described in this method's docstring
 
