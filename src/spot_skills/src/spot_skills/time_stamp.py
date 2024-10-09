@@ -26,7 +26,7 @@ class TimeStamp:
     def from_proto(cls, timestamp_proto: TimestampProto) -> Self:
         """Construct a TimeStamp from an equivalent Protobuf message.
 
-        :param    timestamp_proto    Protobuf of timestamp since the Unix epoch began
+        :param    timestamp_proto   Protobuf of a timestamp relative to the Unix epoch
 
         :returns    TimeStamp constructed based on the given timestamp Protobuf
         """

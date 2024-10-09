@@ -11,6 +11,8 @@ from bosdyn.util import duration_to_seconds
 from spot_skills.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
+    from typing import Self
+
     from bosdyn.api.arm_command_pb2 import ArmJointTrajectory, ArmJointTrajectoryPoint
     from bosdyn.api.robot_command_pb2 import RobotCommand
     from trajectory_msgs.msg import JointTrajectory as JointTrajectoryMsg
@@ -29,10 +31,12 @@ class JointsPoint:
     time_from_start_s: float  # Duration (seconds) since the start of the trajectory
 
     @classmethod
-    def from_proto(cls, point_proto: ArmJointTrajectoryPoint):
+    def from_proto(cls, point_proto: ArmJointTrajectoryPoint) -> Self:
         """Construct a JointsPoint from an equivalent Protobuf message.
 
-        :param    point_proto    Protobuf message representing an arm's joints' state
+        :param      point_proto     Protobuf message specifying an arm's joints' state
+
+        :returns    JointsPoint constructed based on the Protobuf trajectory point
         """
         pos = point_proto.position  # An arm_command_pb2.ArmJointPosition
         vel = point_proto.velocity  # An arm_command_pb2.ArmJointVelocity
@@ -52,10 +56,12 @@ class JointsPoint:
         return cls(angles_rad, velocities_radps, time_since_start_s)
 
     @classmethod
-    def from_ros_msg(cls, point_msg: JointPointMsg):
+    def from_ros_msg(cls, point_msg: JointPointMsg) -> Self:
         """Construct a JointsPoint from an equivalent ROS message.
 
-        :param    point_msg    ROS message representing an arm's joints' state
+        :param      point_msg    ROS message representing an arm's joints' state
+
+        :returns    JointsPoint constructed based on the given ROS message
         """
         time_from_start_s = point_msg.time_from_start.to_sec()
         return cls(point_msg.positions, point_msg.velocities, time_from_start_s)
@@ -76,10 +82,12 @@ class JointTrajectory:
     points: list[JointsPoint]  # Points in the trajectory
 
     @classmethod
-    def from_proto(cls, trajectory_proto: ArmJointTrajectory):
+    def from_proto(cls, trajectory_proto: ArmJointTrajectory) -> Self:
         """Construct a JointTrajectory from an equivalent Protobuf message.
 
-        :param    trajectory_proto    Trajectory of joint points as a Protobuf message
+        :param      trajectory_proto    Trajectory of joint points as a Protobuf message
+
+        :returns    JointTrajectory constructed based on the given Protobuf trajectory
         """
         timestamp = TimeStamp.from_proto(trajectory_proto.reference_time)
 
@@ -90,10 +98,12 @@ class JointTrajectory:
         return cls(timestamp, points)
 
     @classmethod
-    def from_ros_msg(cls, trajectory_msg: JointTrajectoryMsg):
+    def from_ros_msg(cls, trajectory_msg: JointTrajectoryMsg) -> Self:
         """Construct a JointTrajectory from an equivalent ROS message.
 
-        :param    trajectory_msg    Trajectory of joint points as a ROS message
+        :param      trajectory_msg    Trajectory of joint points as a ROS message
+
+        :returns    JointTrajectory constructed based on the given ROS message
         """
         stamp_msg = trajectory_msg.header.stamp
         timestamp = TimeStamp(stamp_msg.secs, stamp_msg.nsecs)
