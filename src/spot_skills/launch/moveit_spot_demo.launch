@@ -19,11 +19,14 @@
     <arg name="moveit_controller_manager" default="fake" if="$(arg simulated_demo)"/>
     <arg name="moveit_controller_manager" default="simple" unless="$(arg simulated_demo)"/>
 
-    <arg name="debug" default="false" /> <!-- Default not in debug mode -->
+    <!-- Default not in debug mode -->
+    <arg name="debug" default="false" />
 
     <!-- Launch the core nodes MoveIt uses to control a robot (simulated or real) -->
     <include file="$(dirname)/moveit_core.launch" pass_all_args="true">
-        <arg name="pipeline" default="ompl" /> <!-- Default planning pipeline: OMPL -->
+
+        <!-- Default planning pipeline: OMPL -->
+        <arg name="pipeline" default="ompl" />
 
         <!-- Load/override the robot description (URDF) by default -->
         <arg name="load_robot_description" default="true" />
@@ -42,9 +45,8 @@
 
         <!-- Default: Assume Spot's name is "snouter" - Override using all-lowercase -->
         <arg name="spot_name" value="snouter" />
-        <arg name="spot_secrets_yaml"
-            value="$(find spot_skills)/secrets/$(arg spot_name)_rosparams.yaml" />
-        
+        <arg name="spot_secrets_yaml" value="$(find spot_skills)/secrets/$(arg spot_name)_rosparams.yaml" />
+
         <!-- Load the username, password, and IP used to connect to Spot -->
         <rosparam command="load" file="$(arg spot_secrets_yaml)" ns="spot" />
 
@@ -55,14 +57,14 @@
             <!-- Load Spot's URDF/SRDF using MoveIt, not the Spot driver -->
             <arg name="load_robot_description" value="false" />
         </include>
-        
+
         <!-- Launch a node to map Spot's joint states into link transforms -->
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
-    
+
     </group>
 
     <!-- Run Rviz using a config file designed for this demo -->
-     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" />
 
     <!-- Launch the Python node that prompts MoveIt to generate motion plans -->
     <node name="control_spot_via_moveit" pkg="spot_skills" type="control_spot_via_moveit.py" output="screen" />
