@@ -1,9 +1,9 @@
 {
-  "name": "'Just Spot SDK' Dev Container",
+  "name": "Spot-MoveIt Dev Container",
   "dockerComposeFile": ["../../compose.yaml"],
-  "service": "spot-sdk",
-  "runServices": ["spot-sdk"],
-  "workspaceFolder": "/spot_sdk",
+  "service": "spot-moveit",
+  "runServices": ["spot-moveit"],
+  "workspaceFolder": "/docker",
   "customizations": {
     "vscode": {
       "settings": {
