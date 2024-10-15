@@ -33,7 +33,8 @@ def create_pose(
     :param      pitch_rad       Pitch angle (radians) about the y-axis
     :param      yaw_rad         Yaw angle (radians) about the z-axis
 
-    To specify angles in degrees, use the following alternative keyword arguments:
+    To specify angles in degrees, use the following alternative keyword arguments.
+        Degree keywords will override the radian arguments if both are provided.
 
     :param      **roll_deg      Roll angle (degrees) about the x-axis
     :param      **pitch_deg     Pitch angle (degrees) about the y-axis

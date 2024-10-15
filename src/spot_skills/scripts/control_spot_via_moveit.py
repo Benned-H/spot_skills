@@ -5,57 +5,57 @@
 import sys
 
 import geometry_msgs.msg
-import moveit_commander
 import rospy
+from moveit_commander import MoveGroupCommander, roscpp_initialize
 
 from spot_skills.make_geometry_msgs import create_pose, stamp_pose
 
 
 def main() -> None:
-    """Stream joint angles from MoveIt motion plans to control Spot's arm."""
+    """Use MoveIt to generate motion plans to be executed on Spot's arm."""
     ### Set up MoveIt and the 'arm' move group used to control Spot's arm ###
-    moveit_commander.roscpp_initialize(sys.argv)
+    roscpp_initialize(sys.argv)
     rospy.init_node("spot_moveit_controller")
 
     # Create a publisher to display target poses in RViz
     target_pose_publisher = rospy.Publisher(
-        "/spot_arm_target_pose",
+        "end_effector_target_pose",
         geometry_msgs.msg.PoseStamped,
         queue_size=1,
     )
 
     # MoveGroupCommander Reference: https://tinyurl.com/move-group-commander
     group_name = "arm"
-    move_group = moveit_commander.MoveGroupCommander(group_name)
+    move_group = MoveGroupCommander(group_name)
 
     # Ensure that the move group expects poses in Spot's body frame
+    ref_frame_before = move_group.get_pose_reference_frame()
+    rospy.loginfo(f"Move group '{group_name}' has reference frame: {ref_frame_before}")
+
     body_frame_name = "body"
-
-    rospy.loginfo(
-        f"Move group '{group_name}' has the reference frame: "
-        f"{move_group.get_pose_reference_frame()}",
-    )
-
     move_group.set_pose_reference_frame(body_frame_name)
-    rospy.loginfo(f"Updated reference frame: {move_group.get_pose_reference_frame()}")
+
+    ref_frame_after = move_group.get_pose_reference_frame()
+
+    rospy.loginfo(f"Move group '{group_name}' has reference frame: {ref_frame_after}")
 
     ### Define the path we'll move Spot's end-effector back-and-forth along ###
 
     # Reference: Spot + Spot Arm Information for Use (v1.0) (pg. 17-18)
     forward_m = 0.5  # Average distance forward (meters) in Spot's body frame
-    x_varies_m = 0.05  # Distance (m) forward/backward the path varies over
+    x_variation_m = 0.05  # Offset (m) forward/backward the path varies over
 
     # Set path's center as farther forward than its endpoints (so it's non-linear)
-    center_x_m = forward_m + x_varies_m
-    endpoint_x_m = forward_m - x_varies_m
+    center_x_m = forward_m + x_variation_m  # Push "forward" along x
+    endpoint_x_m = forward_m - x_variation_m  # Pull "back" along x
 
     to_side_m = 0.6  # Maximum extent of the end-effector to the side (meters)
-    height_m = 0.9  # Height from floor (meters)
 
-    # TODO: What does the real robot say its body height is? Use that instead!
+    # TODO: Use robot's actual body height (somehow) instead of this estimate!
+    ee_from_floor_m = 0.9  # Height (meters) of the end-effector from the floor
+    height_of_spot_body_m = 0.54  # Height (m) of Spot's body frame from floor
 
-    body_frame_height_m = 0.54  # Nominal height of Spot's body frame from the ground
-    z_in_body_frame = height_m - body_frame_height_m  # Path's z in Spot's body frame
+    z_in_body_frame = ee_from_floor_m - height_of_spot_body_m  # Path's z in body frame
 
     # Specify end-effector (ee) target poses in Spot's body frame
     # Assume: Spot may begin at an arbitrary (x,y) location in the global frame
@@ -63,10 +63,10 @@ def main() -> None:
     center_ee_pose = create_pose((center_x_m, 0, z_in_body_frame))
     right_ee_pose = create_pose((endpoint_x_m, -to_side_m, z_in_body_frame))
 
-    target_poses = [center_ee_pose, left_ee_pose, center_ee_pose, right_ee_pose]
+    cycle_target_poses = [center_ee_pose, left_ee_pose, center_ee_pose, right_ee_pose]
     target_pose_idx = 0
 
-    rospy.loginfo(f"Created list of target poses: {target_poses}")
+    rospy.loginfo(f"List of target poses to cycle through: {cycle_target_poses}")
 
     ### Begin alternating Spot's arm between the target poses ###
 
@@ -74,7 +74,7 @@ def main() -> None:
     rate = rospy.Rate(switch_hz)
 
     while not rospy.is_shutdown():
-        curr_target_pose = target_poses[target_pose_idx]
+        curr_target_pose = cycle_target_poses[target_pose_idx]
         stamped_target_pose = stamp_pose(curr_target_pose, body_frame_name)
         target_pose_publisher.publish(stamped_target_pose)
 
@@ -91,9 +91,9 @@ def main() -> None:
         else:
             rospy.loginfo(f"Planning failed with error {error}!")
 
-        target_pose_idx = (target_pose_idx + 1) % len(target_poses)  # Increment, wrap
+        target_pose_idx = (target_pose_idx + 1) % len(cycle_target_poses)
 
-        rate.sleep()  # Slow change of target poses to specified rate
+        rate.sleep()  # Wait long enough to produce the specified rate (0.2 Hz)
 
 
 if __name__ == "__main__":
