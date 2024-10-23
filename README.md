@@ -19,9 +19,11 @@ git submodule update --init --recursive
 ## Docker Commands
 
 This repository uses Docker to standardize its workspace across machines. The `compose.yaml` defines a Docker service for several development use cases, varying across the inclusion or exclusion of ROS 1 Noetic and MoveIt 1, the Spot SDK, and GPU support:
-- *ROS 1 Noetic with MoveIt 1 (without GPU)* - `noetic-moveit`
-- *GPU-enabled ROS 1 Noetic with MoveIt 1* - `noetic-moveit-gpu`
-- *Spot SDK* - `spot-sdk`
+
+- **ROS 1 Noetic with MoveIt 1 (w/o GPU)** - `noetic-moveit`
+- **GPU-enabled ROS 1 Noetic with MoveIt 1** - `noetic-moveit-gpu`
+- **Spot SDK** - `spot-sdk`
+- **Spot SDK with ROS 1 Noetic and MoveIt 1 (w/o GPU)** - `spot-moveit`
 
 To select a service, set the `SERVICE_NAME` environment variable accordingly, for example:
 
@@ -47,12 +49,14 @@ docker compose exec $SERVICE_NAME bash
 ## Working with the Spot ROS 1 Driver
 
 Before launching the Spot driver, navigate to `/docker/spot_skills` in the container, then run:
+
 ```bash
 rosdep install -y --from-paths src --ignore-src --rosdistro noetic
 pip3 install -e src/spot_ros/spot_wrapper/
 ```
 
 Then, run each of these commands:
+
 ```bash
 catkin clean
 catkin build
@@ -61,7 +65,9 @@ source devel/setup.bash
 
 ## Example Demonstrations
 
-**MoveIt controls a simulated Spot's arm** - Run the following command after sourcing `devel/setup.bash` in the `/docker/spot_skills` directory:
+### Control Spot's Arm using MoveIt
+
+By default, this demonstration runs in simulation. To do so, run the following command after sourcing `devel/setup.bash` in the `/docker/spot_skills` directory:
 
 ```bash
 roslaunch spot_skills moveit_spot_demo.launch
