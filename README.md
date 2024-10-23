@@ -58,3 +58,11 @@ catkin clean
 catkin build
 source devel/setup.bash
 ```
+
+## Example Demonstrations
+
+**MoveIt controls a simulated Spot's arm** - Run the following command after sourcing `devel/setup.bash` in the `/docker/spot_skills` directory:
+
+```bash
+roslaunch spot_skills moveit_spot_demo.launch
+```
