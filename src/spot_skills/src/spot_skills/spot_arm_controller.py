@@ -12,10 +12,21 @@ from bosdyn.util import duration_to_seconds
 from spot_skills.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
+    from actionlib import SimpleActionServer
     from bosdyn.api.robot_command_pb2 import RobotCommand
 
     from spot_skills.joint_trajectory import JointTrajectory
     from spot_skills.spot_manager import SpotManager
+
+from enum import Enum
+
+
+class ArmCommandOutcome(Enum):
+    """Enumerates the possible outcomes from a trajectory command for Spot's arm."""
+
+    INVALID_START = -1  # Indicates that the command didn't begin where Spot's arm is
+    SUCCESS = 0  # Indicates successful trajectory execution
+    PREEMPTED = 1  # Indicates that the ROS action client canceled the trajectory
 
 
 class SpotArmController:
@@ -128,8 +139,12 @@ class SpotArmController:
         self._command_id = self._manager.send_robot_command(command)
         self._manager.log_info("Trajectory segment sent.\n")
 
-    def command_trajectory(self, trajectory: JointTrajectory) -> bool:
-        """Command Spot to execute the given joint trajectory.
+    def command_trajectory(
+        self,
+        trajectory: JointTrajectory,
+        action_server: SimpleActionServer | None = None,
+    ) -> ArmCommandOutcome:
+        """Command Spot's arm to execute the given joint trajectory.
 
         We can only send a maximum of 250 points at a time (per Spot SDK). Therefore,
             we create "segments" of any trajectories longer than this limit.
@@ -137,9 +152,13 @@ class SpotArmController:
         If Spot's arm is not sufficiently close to the starting configuration, the
             trajectory is considered invalid and will not be executed.
 
-        :param    trajectory    Trajectory of joint (position, velocity) points
+        The action server, if provided, is used to check whether the trajectory request
+            has been "preempted" (i.e., canceled) by the requesting client.
 
-        :returns    Boolean: Was the trajectory executed (True) or not (False)?
+        :param   trajectory      Trajectory of joint (position, velocity) points
+        :param   action_server   Optional action server used to check for cancellation
+
+        :returns    Enum member indicating the outcome of the command
         """
         spot_arm_state = self._manager.get_arm_state()
         self._manager.log_info(f"Spot's arm state: {spot_arm_state}\n")
@@ -156,16 +175,27 @@ class SpotArmController:
                 self._manager.log_info(
                     f"Command initial joint angle: {cmd_rad} radians.",
                 )
-                return False
+                return ArmCommandOutcome.INVALID_START
 
         robot_commands = trajectory.segment_to_robot_commands(self.max_segment_len)
 
-        for segment_command in robot_commands:
-            self.send_segment_command(segment_command)
+        if action_server is None:  # Simpler case, where ROS can't preempt the command
+            for segment_command in robot_commands:
+                self.send_segment_command(segment_command)
+        else:  # Use the action server to check that the trajectory is not canceled
+            for segment_command in robot_commands:
+                if action_server.is_preempt_requested():  # Trajectory canceled!
+                    self._manager.log_info("Action has been preempted.")
+                    action_server.set_preempted()
+                    self.block_until_arm_arrives()  # Finish the current segment
+                    return ArmCommandOutcome.PREEMPTED
+
+                # Otherwise, execute the next segment of the trajectory
+                self.send_segment_command(segment_command)
 
         self.block_until_arm_arrives()  # Give Spot time to finish all segments
 
-        return True
+        return ArmCommandOutcome.SUCCESS
 
     def block_until_arm_arrives(self) -> None:
         """Block until Spot's arm arrives at the current command ID's goal."""

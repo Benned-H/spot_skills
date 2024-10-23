@@ -18,6 +18,7 @@ import time
 import rospy
 
 from spot_skills.joint_trajectory import JointsPoint, JointTrajectory
+from spot_skills.ros_utilities import get_ros_params
 from spot_skills.spot_arm_controller import SpotArmController
 from spot_skills.spot_manager import SpotManager
 from spot_skills.time_stamp import TimeStamp
@@ -64,23 +65,8 @@ def main() -> None:
     rospy.init_node("arm_long_trajectory_demo")
 
     # Attempt to load Spot's username, password, and IP from ROS parameters
-    spot_username = None
-    username_param = "/spot/username"
-    if rospy.has_param(username_param):
-        spot_username = rospy.get_param(username_param)
-    assert spot_username is not None, "Cannot connect to Spot without a username!"
-
-    spot_password = None
-    password_param = "/spot/password"
-    if rospy.has_param(password_param):
-        spot_password = rospy.get_param(password_param)
-    assert spot_password is not None, "Cannot connect to Spot without a password!"
-
-    spot_hostname = None
-    hostname_param = "/spot/hostname"
-    if rospy.has_param(hostname_param):
-        spot_hostname = rospy.get_param(hostname_param)
-    assert spot_hostname is not None, "Cannot connect to Spot without its hostname!"
+    spot_ros_params = ["/spot/username", "/spot/password", "/spot/hostname"]
+    spot_username, spot_password, spot_hostname = get_ros_params(spot_ros_params)
 
     # Create a manager for Spot and a controller for Spot's arm
     sdk_client_name = "ArmJointLongTrajectoryClient"
