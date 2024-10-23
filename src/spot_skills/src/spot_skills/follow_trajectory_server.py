@@ -86,8 +86,5 @@ class SpotFollowJointTrajectoryServer:
             self._action_server.set_aborted(self._result)
 
         elif outcome == ArmCommandOutcome.PREEMPTED:
-            self._result = FollowJointTrajectoryActionResult(
-                outcome,
-                "Trajectory preempted.",
-            )
-            self._action_server.set_preempted(self._result)
+            self._result = None
+            self._action_server.set_preempted()

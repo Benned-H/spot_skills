@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from bosdyn.client import robot_command
@@ -17,8 +18,6 @@ if TYPE_CHECKING:
 
     from spot_skills.joint_trajectory import JointTrajectory
     from spot_skills.spot_manager import SpotManager
-
-from enum import Enum
 
 
 class ArmCommandOutcome(Enum):
@@ -186,7 +185,6 @@ class SpotArmController:
             for segment_command in robot_commands:
                 if action_server.is_preempt_requested():  # Trajectory canceled!
                     self._manager.log_info("Action has been preempted.")
-                    action_server.set_preempted()
                     self.block_until_arm_arrives()  # Finish the current segment
                     return ArmCommandOutcome.PREEMPTED
 
