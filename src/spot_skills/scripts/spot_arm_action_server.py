@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
-"""Provide an action server to control Spot's arm using a joint trajectory."""
+"""Create an action server to control Spot's arm using a joint trajectory."""
 
 import rospy
 import std_msgs.msg
 
 from spot_skills.follow_trajectory_server import SpotFollowJointTrajectoryServer
-from spot_skills.ros_utilities import BoolCallbackWrapper, get_ros_params
+from spot_skills.ros_utilities import get_ros_params
 from spot_skills.spot_arm_controller import SpotArmController
 from spot_skills.spot_manager import SpotManager
 
