@@ -11,17 +11,11 @@ from spot_skills.spot_arm_controller import SpotArmController
 from spot_skills.spot_manager import SpotManager
 
 
-def main() -> None:
-    """Create a ROS node for the action server once Spot is ready, then spin."""
-    rospy.init_node("spot_follow_joint_trajectory")
+def robot_ready_callback() -> None:
+    """Create the action server for Spot's arm once the robot is ready.
 
-    # Wait for the signal that Spot is ready to be controlled
-    wait_for_bool = BoolCallbackWrapper("spot/robot_ready")
-    loop_rate = rospy.Rate(5)  # Loop at 5 Hz
-
-    while not (rospy.is_shutdown() or wait_for_bool.received_true):
-        loop_rate.sleep()
-
+    This function is assigned as a callback on the "spot/robot_ready" ROS topic.
+    """
     # Attempt to load Spot's IP, username, and password from ROS parameters
     spot_ros_params = ["/spot/hostname", "/spot/username", "/spot/password"]
     spot_hostname, spot_username, spot_password = get_ros_params(spot_ros_params)
@@ -40,6 +34,19 @@ def main() -> None:
     _ = SpotFollowJointTrajectoryServer(rospy.get_name(), arm_controller)
 
     rospy.on_shutdown(spot_manager.shutdown)
+    rospy.spin()
+
+
+def main() -> None:
+    """Create a ROS node for the action server once Spot is ready, then spin."""
+    rospy.init_node("spot_follow_joint_trajectory")
+
+    ready_sub = rospy.Subscriber(
+        "spot/robot_ready",
+        std_msgs.msg.Bool,
+        robot_ready_callback,
+    )
+
     rospy.spin()
 
 
