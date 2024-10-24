@@ -89,7 +89,7 @@ roslaunch spot_skills moveit_spot_demo.launch
 
 To launch the demonstration on the real robot, complete the following steps:
 
-1. Using the tablet, teleoperate the Spot to a free region.
+1. Using the tablet, teleoperate Spot to an open area free of obstacles.
 2. Verify that you can ping Spot using the following command, with `<SPOT_IP>` filled in using the `hostname` value from the corresponding file in `spot_skills/secrets`.
 
 ```bash
