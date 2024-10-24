@@ -80,7 +80,7 @@ def main() -> None:
 
     # By now, Spot should be powered on and controllable
     spot_manager.stand_up(20)
-    arm_controller.deploy_arm()
+    spot_manager.deploy_arm()
 
     # Compute the full trajectory to be executed on Spot's arm
     dt_s = 0.2  # Timestep (seconds)
@@ -115,12 +115,8 @@ def main() -> None:
     full_trajectory = JointTrajectory(ref_timestamp, full_trajectory_points)
     arm_controller.command_trajectory(full_trajectory)
 
-    # We're done executing our trajectory, so stow the arm
-    arm_controller.stow_arm()
-
-    # Send a "safe power off" command, then return Spot's lease
-    spot_manager.safely_power_off()
-    spot_manager.release_control()
+    # We're done executing our trajectory, so we can shut down Spot
+    spot_manager.shutdown()
 
     rospy.loginfo("Finished running the long joint trajectory.")
     rospy.spin()  # Keep the node alive for debugging purposes
