@@ -38,7 +38,7 @@ def robot_ready_callback() -> None:
 
 
 def main() -> None:
-    """Create a ROS node for the action server once Spot is ready, then spin."""
+    """Wait to create the action server until notified that Spot is ready."""
     rospy.init_node("spot_follow_joint_trajectory")
 
     ready_sub = rospy.Subscriber(

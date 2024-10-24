@@ -2,7 +2,7 @@
 <launch>
 
     <!-- Default: Assume Spot's name is "snouter" - To override, use all-lowercase -->
-    <arg name="spot_name" value="snouter" />
+    <arg name="spot_name" default="snouter" />
     <arg name="spot_secrets_yaml" value="$(find spot_skills)/secrets/$(arg spot_name)_rosparams.yaml" />
 
     <!-- Provides the username, password, and IP used to connect to Spot -->
