@@ -6,8 +6,6 @@ import time
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from bosdyn.client import robot_command
-from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 
 from spot_skills.time_stamp import TimeStamp
@@ -29,7 +27,7 @@ class ArmCommandOutcome(Enum):
 
 
 class SpotArmController:
-    """A wrapper to control Spot's arm using the Spot SDK."""
+    """A wrapper for the logic used to control Spot's arm using the Spot SDK."""
 
     def __init__(self, spot_manager: SpotManager, max_segment_len: int = 250):
         """Initialize the controller for Spot's arm using a manager for Spot.
@@ -185,38 +183,15 @@ class SpotArmController:
             for segment_command in robot_commands:
                 if action_server.is_preempt_requested():  # Trajectory canceled!
                     self._manager.log_info("Action has been preempted.")
-                    self.block_until_arm_arrives()  # Finish the current segment
+
+                    # Wait until Spot finishes the current segment
+                    self._manager.block_until_arm_arrives(self._command_id)
                     return ArmCommandOutcome.PREEMPTED
 
                 # Otherwise, execute the next segment of the trajectory
                 self.send_segment_command(segment_command)
 
-        self.block_until_arm_arrives()  # Give Spot time to finish all segments
+        # Give Spot time to finish all segments
+        self._manager.block_until_arm_arrives(self._command_id)
 
         return ArmCommandOutcome.SUCCESS
-
-    def block_until_arm_arrives(self) -> None:
-        """Block until Spot's arm arrives at the current command ID's goal."""
-        self._manager.log_info("Blocking until arm arrives...")
-        robot_command.block_until_arm_arrives(
-            self._manager.command_client,
-            self._command_id,
-        )
-        time.sleep(0.5)
-        self._manager.log_info("Done blocking.\n")
-
-    def deploy_arm(self) -> None:
-        """Deploy Spot's arm to "ready" and wait until the arm has deployed."""
-        self._manager.log_info("Deploying Spot's arm to the 'ready' position...")
-        arm_ready = RobotCommandBuilder.arm_ready_command()
-        self._command_id = self._manager.send_robot_command(arm_ready)
-        self.block_until_arm_arrives()
-        self._manager.log_info("Arm is now ready.")
-
-    def stow_arm(self) -> None:
-        """Stow Spot's arm and wait until the arm has finished stowing."""
-        self._manager.log_info("Stowing Spot's arm...")
-        arm_stow = RobotCommandBuilder.arm_stow_command()
-        self._command_id = self._manager.send_robot_command(arm_stow)
-        self.block_until_arm_arrives()
-        self._manager.log_info("Arm is now stowed.")

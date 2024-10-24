@@ -32,7 +32,7 @@ class SpotFollowJointTrajectoryServer:
         self._action_server = SimpleActionServer(
             self._action_name,
             FollowJointTrajectoryAction,
-            execute_cb=self.callback,
+            execute_cb=self.execute_callback,
             auto_start=False,
         )
         self._action_server.start()

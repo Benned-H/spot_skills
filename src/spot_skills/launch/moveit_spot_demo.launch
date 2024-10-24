@@ -1,8 +1,8 @@
 <!-- Launch nodes to demonstrate MoveIt motion plans controlling Spot's arm -->
 <launch>
 
-    <!-- The demo can be simulated ("true"; default) or on the robot ("false") -->
-    <arg name="simulated_demo" default="true" />
+    <!-- Should the demo be simulated (default) or on the real robot? -->
+    <arg name="real_robot" default="false" />
 
     <!-- Choose MoveIt's controller manager: fake, simple, or ros_control
 
@@ -16,8 +16,8 @@
      Reference: https://tinyurl.com/moveit-noetic-controllers
 
      Simulation: Use "fake" controller manager | Real robot: Use "simple" -->
-    <arg name="moveit_controller_manager" default="fake" if="$(arg simulated_demo)"/>
-    <arg name="moveit_controller_manager" default="simple" unless="$(arg simulated_demo)"/>
+    <arg name="moveit_controller_manager" value="fake" unless="$(arg real_robot)"/>
+    <arg name="moveit_controller_manager" value="simple" if="$(arg real_robot)"/>
 
     <!-- Default not in debug mode -->
     <arg name="debug" default="false" />
@@ -28,8 +28,8 @@
         <!-- Default planning pipeline: OMPL -->
         <arg name="pipeline" default="ompl" />
 
-        <!-- Load/override the robot description (URDF) by default -->
-        <arg name="load_robot_description" default="true" />
+        <!-- Load/override the robot description (URDF) using MoveIt -->
+        <arg name="load_robot_description" value="true" />
 
         <!-- Set execution mode for fake execution controllers
             Options: interpolate, via points, or last point
@@ -41,10 +41,10 @@
     </include>
 
     <!-- If we're running the demo on Spot, launch the necessary nodes -->
-    <group unless="$(arg simulated_demo)">
+    <group if="$(arg real_robot)">
 
         <!-- Default: Assume Spot's name is "snouter" - Override using all-lowercase -->
-        <arg name="spot_name" value="snouter" />
+        <arg name="spot_name" default="snouter" />
         <arg name="spot_secrets_yaml" value="$(find spot_skills)/secrets/$(arg spot_name)_rosparams.yaml" />
 
         <!-- Load the username, password, and IP used to connect to Spot -->
@@ -61,12 +61,15 @@
         <!-- Launch a node to map Spot's joint states into link transforms -->
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
 
+        <!-- Launch an action server to forward MoveIt trajectories to Spot's arm -->
+        <node name="spot_arm_action_server" pkg="spot_skills" type="spot_arm_action_server.py" output="screen" />
+
     </group>
 
     <!-- Run Rviz using a config file designed for this demo -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" />
 
     <!-- Launch the Python node that prompts MoveIt to generate motion plans -->
-    <node name="control_spot_via_moveit" pkg="spot_skills" type="control_spot_via_moveit.py" output="screen" />
+    <!-- <node name="generate_moveit_plans" pkg="spot_skills" type="generate_moveit_plans.py" output="screen" /> -->
 
 </launch>

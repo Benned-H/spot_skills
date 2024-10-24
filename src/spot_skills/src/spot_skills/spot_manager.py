@@ -1,22 +1,24 @@
 """Define a class to manage a sustained connection to a Spot robot."""
 
 import time
-from typing import TYPE_CHECKING
 
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
+from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
-from bosdyn.client.robot_command import RobotCommandClient, blocking_stand
+from bosdyn.client.robot_command import (
+    RobotCommandBuilder,
+    RobotCommandClient,
+    blocking_stand,
+)
+from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_command
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from rospy import loginfo
 
 from spot_skills.joint_trajectory import JointsPoint
 from spot_skills.spot_sync import SpotTimeSync
-
-if TYPE_CHECKING:
-    from bosdyn.api.robot_command_pb2 import RobotCommand
 
 
 class SpotManager:
@@ -66,7 +68,7 @@ class SpotManager:
         # Define a client to query Spot's e-stop status
         self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
 
-        # Define a client to obtain control of Spot (i.e., Spot's "lease")
+        # Define a client to later obtain control of Spot (i.e., Spot's "lease")
         self._lease_client = self._robot.ensure_client(LeaseClient.default_service_name)
         self._lease_keeper = None  # Stores a lease and keeps it alive once obtained
 
@@ -223,6 +225,32 @@ class SpotManager:
         blocking_stand(self.command_client, timeout_sec=timeout_s)
         self.log_info("Robot standing.")
 
+    def block_until_arm_arrives(self, command_id: int) -> None:
+        """Block until Spot's arm arrives at the identified command's goal.
+
+        :param      command_id      ID of a robot command for Spot's arm
+        """
+        self.log_info("Blocking until arm arrives...")
+        bd_block_arm_command(self.command_client, command_id)
+        time.sleep(0.5)
+        self.log_info("Done blocking.\n")
+
+    def deploy_arm(self) -> None:
+        """Deploy Spot's arm to "ready" and wait until the arm has deployed."""
+        self.log_info("Deploying Spot's arm to the 'ready' position...")
+        arm_ready = RobotCommandBuilder.arm_ready_command()
+        command_id = self.send_robot_command(arm_ready)
+        self.block_until_arm_arrives(command_id)
+        self.log_info("Arm is now ready.")
+
+    def stow_arm(self) -> None:
+        """Stow Spot's arm and wait until the arm has finished stowing."""
+        self.log_info("Stowing Spot's arm...")
+        arm_stow = RobotCommandBuilder.arm_stow_command()
+        command_id = self.send_robot_command(arm_stow)
+        self.block_until_arm_arrives(command_id)
+        self.log_info("Arm is now stowed.")
+
     def release_control(self) -> None:
         """Release control of Spot so that other clients can control Spot."""
         self.log_info("Releasing control of Spot...")
@@ -233,3 +261,12 @@ class SpotManager:
         self._robot.power_off(cut_immediately=False, timeout_sec=20)
         assert not self._robot.is_powered_on(), "Robot power off failed."
         self.log_info("Robot safely powered off.")
+
+    def shutdown(self) -> None:
+        """Shut-down Spot by stowing the arm, powering off, and releasing control."""
+        self.log_info("Shutting down Spot manager...")
+
+        if self._lease_keeper is not None and self._lease_keeper.is_alive():
+            self.stow_arm()
+            self.safely_power_off()  # Send a "safe power off" command
+            self.release_control()  # Return Spot's lease

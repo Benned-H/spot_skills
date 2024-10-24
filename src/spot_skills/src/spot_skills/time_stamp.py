@@ -1,5 +1,7 @@
 """Define a dataclass representing timestamps relative to the Unix epoch."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
