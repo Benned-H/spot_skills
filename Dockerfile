@@ -99,10 +99,15 @@ RUN python3 -m pip install --upgrade pip && \
     bosdyn-choreography-client==${SPOT_SDK_VERSION} \
     bosdyn-orbit==${SPOT_SDK_VERSION}
 
-# Catch-all: Final `apt-get install` for any tools needed to work with Spot (saves rebuild time)
+# Catch-all: Final `apt-get install` for any tools needed to work with Spot
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
     apt-get install -y --no-install-recommends iputils-ping
+
+# Set up the entrypoint script
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
 
 # Finalize the default working directory for the image
 WORKDIR /docker/spot_sdk
