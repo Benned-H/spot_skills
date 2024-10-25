@@ -15,7 +15,7 @@ check_directory() {
 # Install spot_wrapper if not already installed
 install_spot_wrapper() {
     echo "Checking for spot_wrapper installation..."
-    if ! python3 -c "import spot_wrapper" &>/dev/null; then
+    if ! python3 -c "import spot_wrapper"; then
         echo "spot_wrapper not found. Installing..."
         pip3 install -e "$WRAPPER_DIR/spot_wrapper" || {
             echo "Failed to install spot_wrapper."
@@ -30,12 +30,12 @@ install_spot_wrapper() {
 install_ros_dependencies() {
     echo "Checking for ROS dependencies..."
     cd "$SKILLS_DIR" || exit 1
-    if rosdep check --from-paths src --ignore-src &>/dev/null; then
+    if rosdep check --from-paths src --ignore-src >/dev/null 2>&1; then
         echo "ROS dependencies are already installed."
     else
         echo "Installing ROS dependencies..."
-        rosdep install --from-paths src --ignore-src -r -y || {
-            echo "Failed to install ROS dependencies."
+        rosdep install --from-paths src --ignore-src -y || {
+            echo "Failed to install ROS dependencies"
             exit 1
         }
     fi
@@ -46,6 +46,7 @@ check_directory "$WRAPPER_DIR"
 check_directory "$SKILLS_DIR"
 
 # Execute installation functions
+apt-get update >/dev/null 2>&1
 install_spot_wrapper
 install_ros_dependencies
 
