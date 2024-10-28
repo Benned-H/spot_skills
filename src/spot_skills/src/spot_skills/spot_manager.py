@@ -6,7 +6,14 @@ from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.estop import EstopClient
-from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
+from bosdyn.client.lease import (
+    LeaseClient,
+    LeaseKeepAlive,
+    LeaseNotOwnedByWallet,
+    LeaseWallet,
+    NoSuchLease,
+)
+from bosdyn.client.lease_resource_hierarchy import ResourceHierarchy
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
     RobotCommandClient,
@@ -69,7 +76,9 @@ class SpotManager:
         self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
 
         # Define a client to later obtain control of Spot (i.e., Spot's "lease")
-        self._lease_client = self._robot.ensure_client(LeaseClient.default_service_name)
+        self._lease_client: LeaseClient = self._robot.ensure_client(
+            LeaseClient.default_service_name,
+        )
         self._lease_keeper = None  # Stores a lease and keeps it alive once obtained
 
         assert self.wait_while_estopped()  # Wait until Spot isn't e-stopped
@@ -98,22 +107,53 @@ class SpotManager:
         self.log_info(f"Spot remained e-stopped after {timeout_s} seconds.")
         return False
 
-    def take_control(self) -> bool:
-        """Prepare to control Spot and ensure that Spot is powered on.
+    def log_lease_info(self) -> None:
+        """Log information regarding all leases the SpotManager may have acquired."""
+        self.log_info("Logging current lease information...")
+
+        list_leases = self._lease_client.list_leases()
+        self.log_info(f"List of leases: {list_leases}")
+
+        wallet: LeaseWallet = self._lease_client.lease_wallet
+
+        possible_resources = ["body", "gripper", "arm", "mobility", "fan", "full-arm"]
+
+        for resource in possible_resources:
+            try:
+                status = wallet.get_lease_state(resource).lease_status
+                self.log_info(f"Status of lease '{resource}': {status}.")
+            except NoSuchLease:
+                self.log_info(f"Couldn't get status of lease '{resource}'.")
+
+            try:
+                lease = wallet.get_lease(resource)
+                self.log_info(f"Lease named {resource}: {lease}")
+            except:
+                self.log_info(f"Lease named {resource} threw an error!")
+
+    def take_control(self, resource: str = "body") -> bool:
+        """Request control of a resource from Spot and ensure Spot is powered on.
 
         In detail, this method performs these steps:
-            1. Attempt to acquire Spot's lease and store it in a member variable
+            1. Attempt to acquire the resource's lease and then keep it alive
             2. Attempt to power on Spot, if necessary
+
+        :params     resource    Name of the resource for which to acquire a lease
 
         :returns    Boolean indicating if all attempted operations were successful
         """
-        # 1. Attempt to acquire Spot's lease and keep it alive
-        self._lease_client.acquire(resource="body")
-        self._lease_keeper = LeaseKeepAlive(
-            self._lease_client,
-            must_acquire=True,
-            return_at_exit=True,
-        )
+        # 1. Attempt to acquire a lease from Spot and keep it alive
+        if self._lease_keeper is None:
+            self.log_info(f"Acquiring resource '{resource}'...")
+            self._lease_client.acquire(resource=resource)
+            self._lease_keeper = LeaseKeepAlive(
+                lease_client=self._lease_client,
+                resource=resource,
+                must_acquire=True,
+                return_at_exit=True,
+            )
+            self.log_info("Lease acquired. Logging info for debugging...")
+            self.log_lease_info()
 
         # 2. If needed, attempt to power on Spot
         if not self._robot.is_powered_on():
@@ -255,6 +295,7 @@ class SpotManager:
         """Release control of Spot so that other clients can control Spot."""
         self.log_info("Releasing control of Spot...")
         self._lease_keeper.shutdown()  # Blocks until complete
+        self._lease_keeper = None
 
     def safely_power_off(self) -> None:
         """Power Spot off by issuing a "safe power off" command."""
@@ -263,7 +304,7 @@ class SpotManager:
         self.log_info("Robot safely powered off.")
 
     def shutdown(self) -> None:
-        """Shut-down Spot by stowing the arm, powering off, and releasing control."""
+        """Shut-down by stowing the arm, sitting, powering off, and releasing Spot."""
         self.log_info("Shutting down Spot manager...")
 
         if self._lease_keeper is not None and self._lease_keeper.is_alive():

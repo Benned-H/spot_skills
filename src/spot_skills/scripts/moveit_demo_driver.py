@@ -24,10 +24,11 @@ def main() -> None:
         username=spot_username,
         password=spot_password,
     )
-    spot_manager.take_control()  # Take lease and ensure Spot is powered on
+
+    # TODO: Remove the take_control and instead call ROS actions!
+    spot_manager.take_control()  # Take full-body lease and ensure Spot is powered on
     spot_manager.stand_up(20)
     spot_manager.deploy_arm()
-    spot_manager.release_control()
 
     # Alert the action server that the physical robot is ready
     ready_msg = std_msgs.msg.Bool(data=True)

@@ -6,17 +6,14 @@ import sys
 
 import geometry_msgs.msg
 import rospy
+import std_msgs.msg
 from moveit_commander import MoveGroupCommander, roscpp_initialize
 
 from spot_skills.make_geometry_msgs import create_pose, stamp_pose
 
 
-def main() -> None:
-    """Use MoveIt to generate motion plans to be executed on Spot's arm."""
-    ### Set up MoveIt and the 'arm' move group used to control Spot's arm ###
-    roscpp_initialize(sys.argv)
-    rospy.init_node("moveit_plan_generator")
-
+def robot_ready_callback(msg: std_msgs.msg.Bool) -> None:
+    """Wait to send commands to MoveIt until the robot is ready."""
     # Create a publisher to display target poses in RViz
     target_pose_publisher = rospy.Publisher(
         "end_effector_target_pose",
@@ -26,7 +23,7 @@ def main() -> None:
 
     # MoveGroupCommander Reference: https://tinyurl.com/move-group-commander
     group_name = "arm"
-    move_group = MoveGroupCommander(group_name, wait_for_servers=10)
+    move_group = MoveGroupCommander(group_name, wait_for_servers=180)
 
     # Ensure that the move group expects poses in Spot's body frame
     ref_frame_before = move_group.get_pose_reference_frame()
@@ -90,6 +87,21 @@ def main() -> None:
         target_pose_idx = (target_pose_idx + 1) % len(cycle_target_poses)
 
         rate.sleep()  # Wait long enough to produce the specified rate (0.2 Hz)
+
+
+def main() -> None:
+    """Use MoveIt to generate motion plans to be executed on Spot's arm."""
+    ### Set up MoveIt and the 'arm' move group used to control Spot's arm ###
+    roscpp_initialize(sys.argv)
+    rospy.init_node("moveit_plan_generator")
+
+    _ = rospy.Subscriber(
+        "spot/robot_ready",
+        std_msgs.msg.Bool,
+        robot_ready_callback,
+    )
+
+    rospy.spin()
 
 
 if __name__ == "__main__":
