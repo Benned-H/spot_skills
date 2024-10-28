@@ -108,6 +108,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bash"]
 
 # Finalize the default working directory for the image
 WORKDIR /docker/spot_sdk
