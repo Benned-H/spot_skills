@@ -13,7 +13,6 @@ from bosdyn.client.lease import (
     LeaseWallet,
     NoSuchLease,
 )
-from bosdyn.client.lease_resource_hierarchy import ResourceHierarchy
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
     RobotCommandClient,
@@ -128,8 +127,8 @@ class SpotManager:
             try:
                 lease = wallet.get_lease(resource)
                 self.log_info(f"Lease named {resource}: {lease}")
-            except:
-                self.log_info(f"Lease named {resource} threw an error!")
+            except LeaseNotOwnedByWallet:
+                self.log_info(f"Lease named {resource} was not owned!")
 
     def take_control(self, resource: str = "body") -> bool:
         """Request control of a resource from Spot and ensure Spot is powered on.

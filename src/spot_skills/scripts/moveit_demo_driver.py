@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Initialize and shut-down the real robot for the MoveIt demo."""
+"""Send ROS service and action requests to drive the MoveIt demo."""
 
 import rospy
 import std_msgs.msg
@@ -12,7 +12,8 @@ from spot_skills.spot_manager import SpotManager
 def main() -> None:
     """Set up the robot to conduct the real-world MoveIt-Spot demo."""
     rospy.init_node("moveit_demo_driver")
-    ready_pub = rospy.Publisher("spot/robot_ready", std_msgs.msg.Bool, queue_size=1)
+
+    # First, request that Spot stands up
 
     # Use a Spot manager to power on and stand up Spot
     spot_ros_params = ["/spot/username", "/spot/password", "/spot/hostname"]
