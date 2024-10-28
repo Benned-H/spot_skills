@@ -62,7 +62,7 @@
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
 
         <!-- Launch an action server to forward MoveIt trajectories to Spot's arm -->
-        <node name="spot_arm_action_server" pkg="spot_skills" type="spot_arm_action_server.py" output="screen" />
+        <node name="follow_joint_trajectory" pkg="spot_skills" type="spot_arm_action_server.py" output="screen" ns="spot_arm_controller"/>
 
     </group>
 

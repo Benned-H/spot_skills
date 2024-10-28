@@ -37,9 +37,7 @@ class SpotArmController:
         """
         assert spot_manager.has_arm(), "Cannot control Spot's arm if Spot has no arm!"
 
-        # Ensure we can control Spot, and that Spot is powered on
         self._manager = spot_manager
-        self._manager.take_control()
 
         # Declare member variable to store the ID of the most recent robot command
         self._command_id: int | None = None
@@ -176,6 +174,7 @@ class SpotArmController:
 
         robot_commands = trajectory.segment_to_robot_commands(self.max_segment_len)
 
+        preempted = False
         if action_server is None:  # Simpler case, where ROS can't preempt the command
             for segment_command in robot_commands:
                 self.send_segment_command(segment_command)
@@ -183,15 +182,13 @@ class SpotArmController:
             for segment_command in robot_commands:
                 if action_server.is_preempt_requested():  # Trajectory canceled!
                     self._manager.log_info("Action has been preempted.")
-
-                    # Wait until Spot finishes the current segment
-                    self._manager.block_until_arm_arrives(self._command_id)
-                    return ArmCommandOutcome.PREEMPTED
+                    preempted = True
+                    break  # Stop sending trajectory segments
 
                 # Otherwise, execute the next segment of the trajectory
                 self.send_segment_command(segment_command)
 
-        # Give Spot time to finish all segments
+        # Wait until Spot finishes executing the last segment sent
         self._manager.block_until_arm_arrives(self._command_id)
 
-        return ArmCommandOutcome.SUCCESS
+        return ArmCommandOutcome.PREEMPTED if preempted else ArmCommandOutcome.SUCCESS
