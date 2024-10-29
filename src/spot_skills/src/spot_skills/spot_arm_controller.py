@@ -24,6 +24,7 @@ class ArmCommandOutcome(Enum):
     INVALID_START = -1  # Indicates that the command didn't begin where Spot's arm is
     SUCCESS = 0  # Indicates successful trajectory execution
     PREEMPTED = 1  # Indicates that the ROS action client canceled the trajectory
+    ARM_LOCKED = 2  # Indicates that the ArmController cannot yet control Spot's arm
 
 
 class SpotArmController:
@@ -48,11 +49,21 @@ class SpotArmController:
         # Define angle (radians) within which two angles are considered identical
         self.angle_proximity_rad = 0.005
 
+        # Begin with the arm controller unable to affect Spot's arm
+        self._locked = True
+
+    def unlock_arm(self) -> None:
+        """Explicitly unlock Spot's arm, allowing the ArmController to control it."""
+        self._locked = False
+
     def send_segment_command(self, command: RobotCommand) -> None:
         """Command Spot to execute a trajectory segment, given as a robot command.
 
         :param      command     Robot command containing a short trajectory segment
         """
+        if self._locked:
+            return
+
         trajectory_proto = (
             command.synchronized_command.arm_command.arm_joint_move_command.trajectory
         )  # An ArmJointTrajectory
@@ -155,6 +166,9 @@ class SpotArmController:
 
         :returns    Enum member indicating the outcome of the command
         """
+        if self._locked:
+            return ArmCommandOutcome.ARM_LOCKED
+
         spot_arm_state = self._manager.get_arm_state()
         self._manager.log_info(f"Spot's arm state: {spot_arm_state}\n")
 

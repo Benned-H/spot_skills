@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import rospy
-import std_msgs.msg
+import std_srvs.srv
 
 
 def get_ros_params(ros_param_names: list[str]) -> list:
@@ -21,3 +21,17 @@ def get_ros_params(ros_param_names: list[str]) -> list:
         param_values.append(rospy.get_param(param_name))
 
     return param_values
+
+
+def trigger_service(service_name: str) -> None:
+    """Call the named ROS service of the std_srvs.srv.Trigger type.
+
+    :param      service_name    Name of the std_srvs.srv.Trigger service to be called
+    """
+    rospy.wait_for_service(service_name)
+    service_caller = rospy.ServiceProxy(service_name, std_srvs.srv.Trigger)
+    try:
+        response = service_caller()
+        rospy.loginfo(f"[{service_name}] Service response: {response}")
+    except rospy.ServiceException as exc:
+        rospy.logerr(f"[{service_name}] Could not communicate with service: {exc}")
