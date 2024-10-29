@@ -13,15 +13,12 @@ from bosdyn.client.lease import (
     LeaseWallet,
     NoSuchLease,
 )
-from bosdyn.client.robot_command import (
-    RobotCommandBuilder,
-    RobotCommandClient,
-    blocking_stand,
-)
+from bosdyn.client.robot_command import RobotCommandBuilder, RobotCommandClient
 from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_command
+from bosdyn.client.robot_command import blocking_stand
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
-from rospy import loginfo
+from rospy import loginfo as ros_loginfo
 
 from spot_skills.joint_trajectory import JointsPoint
 from spot_skills.spot_sync import SpotTimeSync
@@ -30,7 +27,13 @@ from spot_skills.spot_sync import SpotTimeSync
 class SpotManager:
     """A wrapper to ensure that Spot is safely connected and controllable."""
 
-    def __init__(self, client_name: str, hostname: str, username: str, password: str):
+    def __init__(
+        self,
+        client_name: str,
+        hostname: str,
+        username: str,
+        password: str,
+    ) -> None:
         """Initialize the Spot manager by connecting to Spot.
 
         The robot's hostname can be:
@@ -160,7 +163,7 @@ class SpotManager:
             self._robot.power_on(timeout_sec=20)
 
         # Verify that the attempted operations succeeded
-        lease_alive = self._lease_keeper.is_alive()
+        lease_alive = self._lease_keeper is not None and self._lease_keeper.is_alive()
         power_success = self._robot.is_powered_on()
 
         self.log_info("Spot powered on." if power_success else "Spot power on failed.")
@@ -179,7 +182,7 @@ class SpotManager:
         formatted_message = f"[SpotManager at {manager_age_s:.3f} s] {message}"
 
         self._robot.logger.info(formatted_message)
-        loginfo(formatted_message)
+        ros_loginfo(formatted_message)
 
     def resync_and_log(self) -> None:
         """Resync with Spot and log information describing the resulting time sync."""
@@ -225,17 +228,17 @@ class SpotManager:
         ]  # Use the joint names as sent from Spot directly (differs from URDF names)
         # See Lines 64-84 of spot_ros/spot_driver/src/spot_driver/ros_helpers.py
 
-        arm_joint_positions = [None] * len(arm_joint_names_from_spot)
-        arm_joint_velocities = [None] * len(arm_joint_names_from_spot)
+        joint_positions = [float("nan")] * len(arm_joint_names_from_spot)
+        joint_velocities = [float("nan")] * len(arm_joint_names_from_spot)
         # Note: Ignoring arm joints' accelerations
 
         for joint in robot_state.kinematic_state.joint_states:
             if joint.name in arm_joint_names_from_spot:
                 joint_idx = arm_joint_names_from_spot.index(joint.name)
-                arm_joint_positions[joint_idx] = joint.position.value
-                arm_joint_velocities[joint_idx] = joint.velocity.value
+                joint_positions[joint_idx] = joint.position.value
+                joint_velocities[joint_idx] = joint.velocity.value
 
-        return JointsPoint(arm_joint_positions, arm_joint_velocities, None)
+        return JointsPoint(joint_positions, joint_velocities, 0.0)
 
     def send_robot_command(self, command: RobotCommand) -> int:
         """Command Spot to execute the given robot command.
@@ -292,9 +295,10 @@ class SpotManager:
 
     def release_control(self) -> None:
         """Release control of Spot so that other clients can control Spot."""
-        self.log_info("Releasing control of Spot...")
-        self._lease_keeper.shutdown()  # Blocks until complete
-        self._lease_keeper = None
+        if self._lease_keeper is not None:
+            self.log_info("Releasing control of Spot...")
+            self._lease_keeper.shutdown()  # Blocks until complete
+            self._lease_keeper = None
 
     def safely_power_off(self) -> None:
         """Power Spot off by issuing a "safe power off" command."""
