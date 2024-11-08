@@ -13,9 +13,12 @@ from bosdyn.client.lease import (
     LeaseWallet,
     NoSuchLease,
 )
-from bosdyn.client.robot_command import RobotCommandBuilder, RobotCommandClient
+from bosdyn.client.robot_command import (
+    RobotCommandBuilder,
+    RobotCommandClient,
+    blocking_stand,
+)
 from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_command
-from bosdyn.client.robot_command import blocking_stand
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from rospy import loginfo as ros_loginfo

@@ -131,7 +131,7 @@ Once the trajectory is complete, Spot should stow its arm, sit down, power off, 
 ### Control Spot's Arm using MoveIt
 
 In this demonstration, we use MoveIt to move Spot's arm left-and-right in a repeating path.
-The demo can be run in simulation (default) or on the real robot.
+The demo can be run in simulation (default) or on the real robot (work in progress).
 
 **Simulated Version** - To run this demo in simulation, open a terminal into Docker and follow
 the **Docker Demo Setup** instructions above. Then, run the command:
@@ -146,29 +146,3 @@ back-and-forth, MoveIt creates motion plans to the target, which are then used t
 control the simulated Spot's arm. An example screenshot from the demo is shown below.
 
 ![Simulated Spot moving its arm to an end-effector target (shown as RGB axes).](docs/sim-moveit-spot.png "Spot's Arm Moving to an End-Effector Target")
-
-**Real Robot Version** - To run this demo using a real robot, perform the following steps:
-
-1. Use the tablet to teleoperate Spot to an open area free of obstacles.
-   Make sure there's space in front of Spot for Spot's arm to fully extend.
-
-2. Use the tablet to make Spot sit, which may be hidden under the _Stand_ menu. Then,
-   release tablet control of Spot by entering the _Power Button_ menu (top of the
-   screen), then tapping _Advanced_, and selecting **Release Control**.
-
-   - _Check_: Are Spot's front lights now flashing rainbow?
-
-3. On your computer, make sure you've followed the **Docker Demo Setup** instructions above.
-   We will need one terminal tab opened into Docker.
-
-4. We need to tell ROS which Spot we're using. Run the following command in the first tab, with `spot_name` substituted for the Spot you're using (e.g., `snouter`):
-
-```bash
-export SPOT_NAME=spot_name
-```
-
-5. Now, launch the real-robot demo using the following command:
-
-```bash
-roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=$SPOT_NAME
-```

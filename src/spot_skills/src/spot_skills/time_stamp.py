@@ -10,7 +10,6 @@ from google.protobuf.timestamp_pb2 import Timestamp as TimestampProto
 if TYPE_CHECKING:
     from typing import Self
 
-
 NSEC_PER_SEC = 10**9
 
 
