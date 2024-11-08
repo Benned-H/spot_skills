@@ -1,0 +1,56 @@
+<!-- Launch nodes to demonstrate MoveIt motion plans controlling Spot's arm -->
+<launch>
+
+    <!-- Should the demo be simulated (default) or on the real robot? -->
+    <arg name="real_robot" default="false" />
+
+    <!-- Choose MoveIt's controller manager: fake, simple, or ros_control
+
+     - fake - Provides fake trajectory execution, when we don't have a real robot
+
+     - simple - Interfaces with any low-level controller supporting either the
+        JointTrajectoryController or GripperActionController API from the ROS controllers package
+
+     - ros_control - Directly interfaces with the ROS Controller Manager
+    
+     Reference: https://tinyurl.com/moveit-noetic-controllers
+
+     Simulation: Use "fake" controller manager | Real robot: Use "simple" -->
+    <arg name="moveit_controller_manager" value="fake" unless="$(arg real_robot)"/>
+    <arg name="moveit_controller_manager" value="simple" if="$(arg real_robot)"/>
+
+    <!-- Default not in debug mode -->
+    <arg name="debug" default="false" />
+
+    <!-- Launch the core nodes MoveIt uses to control a robot (simulated or real) -->
+    <include file="$(dirname)/moveit_core.launch" pass_all_args="true">
+
+        <!-- Default planning pipeline: OMPL -->
+        <arg name="pipeline" default="ompl" />
+
+        <!-- Load/override the robot description (URDF) using MoveIt -->
+        <arg name="load_robot_description" value="true" />
+
+        <!-- Set execution mode for fake execution controllers
+            Options: interpolate, via points, or last point
+            Reference: https://tinyurl.com/noetic-fake-controller-manager -->
+        <arg name="fake_execution_type" default="interpolate" />
+
+        <!-- Default: Don't provide a GUI for manual control of the robot joint states -->
+        <arg name="joints_gui" default="false" />
+    </include>
+
+    <!-- If we're running the demo on Spot, launch the necessary nodes -->
+    <group if="$(arg real_robot)">
+
+        <!-- TODO: Add nodes for real-world demo in another branch -->
+
+    </group>
+
+    <!-- Run Rviz using a config file designed for this demo -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" />
+
+    <!-- Launch the Python node that prompts MoveIt to generate motion plans -->
+    <node name="generate_moveit_plans" pkg="spot_skills" type="generate_moveit_plans.py" output="screen" />
+
+</launch>
