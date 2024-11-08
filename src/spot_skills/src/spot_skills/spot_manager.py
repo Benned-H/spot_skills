@@ -130,12 +130,6 @@ class SpotManager:
             except NoSuchLease:
                 self.log_info(f"Couldn't get status of lease '{resource}'.")
 
-            try:
-                lease = wallet.get_lease(resource)
-                self.log_info(f"Lease named {resource}: {lease}")
-            except LeaseNotOwnedByWallet:
-                self.log_info(f"Lease named {resource} was not owned!")
-
     def take_control(self, resource: str = "body") -> bool:
         """Request control of a resource from Spot and ensure Spot is powered on.
 
