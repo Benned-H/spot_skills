@@ -74,7 +74,7 @@ VOLUME /moveit_ws
 RUN echo "source /moveit_ws/devel/setup.bash" >> ~/.bashrc
 
 # Finalize the default working directory for the image
-WORKDIR /spot_skills
+WORKDIR /docker/spot_skills
 
 # For the next stage, renew the ARG specifying the image onto which the Spot SDK is installed
 ARG INSTALL_SPOT_SDK_ONTO
@@ -84,12 +84,12 @@ FROM ${INSTALL_SPOT_SDK_ONTO} AS spot-sdk
 ARG SPOT_SDK_VERSION
 
 # Clone the Spot SDK from GitHub
-WORKDIR /spot_sdk
+WORKDIR /docker/spot_sdk
 RUN git config --global http.sslVerify "false" && \
     git clone --depth 1 --branch "v${SPOT_SDK_VERSION}" \
         https://github.com/boston-dynamics/spot-sdk.git && \
     git config --global http.sslVerify "true"
-VOLUME /spot_sdk
+VOLUME /docker/spot_sdk
 
 # Install the Boston Dynamics Python packages (needed to work with Spot)
 RUN python3 -m pip install --upgrade pip && \
@@ -99,12 +99,16 @@ RUN python3 -m pip install --upgrade pip && \
     bosdyn-choreography-client==${SPOT_SDK_VERSION} \
     bosdyn-orbit==${SPOT_SDK_VERSION}
 
-# Catch-all: Final `apt-get install` for any tools needed to work with Spot (saves rebuild time)
+# Catch-all: Final `apt-get install` for any tools needed to work with Spot
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
-    apt-get install -y --no-install-recommends iputils-ping && \
-    # Clean up layer after using apt-get update
-    rm -rf /var/lib/apt/lists/* && apt-get clean
+    apt-get install -y --no-install-recommends iputils-ping
+
+# Set up the entrypoint script
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bash"]
 
 # Finalize the default working directory for the image
-WORKDIR /spot_sdk
+WORKDIR /docker/spot_sdk
