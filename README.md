@@ -131,7 +131,7 @@ Once the trajectory is complete, Spot should stow its arm, sit down, power off, 
 ### Control Spot's Arm using MoveIt
 
 In this demonstration, we use MoveIt to move Spot's arm left-and-right in a repeating path.
-The demo can be run in simulation (default) or on the real robot (work in progress).
+The demo can be run in simulation (default) or on the real robot (WIP).
 
 **Simulated Version** - To run this demo in simulation, open a terminal into Docker and follow
 the **Docker Demo Setup** instructions above. Then, run the command:
