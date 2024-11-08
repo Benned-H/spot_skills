@@ -43,26 +43,7 @@
     <!-- If we're running the demo on Spot, launch the necessary nodes -->
     <group if="$(arg real_robot)">
 
-        <!-- Default: Assume Spot's name is "snouter" - Override using all-lowercase -->
-        <arg name="spot_name" default="snouter" />
-        <arg name="spot_secrets_yaml" value="$(find spot_skills)/secrets/$(arg spot_name)_rosparams.yaml" />
-
-        <!-- Load the username, password, and IP used to connect to Spot -->
-        <rosparam command="load" file="$(arg spot_secrets_yaml)" ns="spot" />
-
-        <!-- Launch the Spot ROS 1 driver using its primary launch file -->
-        <include file="$(find spot_driver)/launch/driver.launch">
-            <arg name="spot_secrets_yaml" value="$(arg spot_secrets_yaml)" />
-
-            <!-- Load Spot's URDF/SRDF using MoveIt, not the Spot driver -->
-            <arg name="load_robot_description" value="false" />
-        </include>
-
-        <!-- Launch a node to map Spot's joint states into link transforms -->
-        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
-
-        <!-- Launch an action server to forward MoveIt trajectories to Spot's arm -->
-        <node name="follow_joint_trajectory" pkg="spot_skills" type="spot_arm_action_server.py" output="screen" ns="spot_arm_controller"/>
+        <!-- TODO: Add nodes for real-world demo in another branch -->
 
     </group>
 
