@@ -114,6 +114,7 @@ def main() -> None:
 
     # Create and send the full trajectory
     full_trajectory = JointTrajectory(ref_timestamp, full_trajectory_points)
+    arm_controller.unlock_arm()
     arm_controller.command_trajectory(full_trajectory)
 
     # We're done executing our trajectory, so we can shut down Spot
