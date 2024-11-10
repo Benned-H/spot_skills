@@ -44,7 +44,7 @@ class SpotTimeSync:
         self.total_sync_time_s = 0.0  # Total time (seconds) spent time-syncing
         self.total_sync_count = 0  # Number of completed calls to resync()
 
-        self.resync()  # Synchronize with Spot until a time-sync is established
+        self.resync(100)  # Synchronize with Spot until a time-sync is established
 
     def get_round_trip_s(self) -> float:
         """Return the current round trip time (seconds) to communicate with Spot.
@@ -67,14 +67,17 @@ class SpotTimeSync:
         """
         return self._time_sync_endpoint
 
-    def resync(self) -> None:
-        """Ensure that a time-sync with Spot is established and maintained."""
+    def resync(self, max_samples: int = 25) -> None:
+        """Ensure that a time-sync with Spot is established and maintained.
+
+        :param      max_samples     Maximum number of times to attempt the time-sync
+        """
         start_time_s = time.time()
 
         sync_established = self._time_sync_endpoint.get_new_estimate()
 
         if not sync_established:
-            sync_success = self._time_sync_endpoint.establish_timesync()
+            sync_success = self._time_sync_endpoint.establish_timesync(max_samples)
             assert sync_success, "Could not establish a time sync with Spot!"
 
         # Update member variables based on the new sync information

@@ -5,8 +5,9 @@
 import sys
 
 import geometry_msgs.msg
+import moveit_commander
+import moveit_msgs.msg
 import rospy
-from moveit_commander import MoveGroupCommander, roscpp_initialize
 
 from spot_skills.make_geometry_msgs import create_pose, stamp_pose
 
@@ -14,8 +15,15 @@ from spot_skills.make_geometry_msgs import create_pose, stamp_pose
 def main() -> None:
     """Use MoveIt to generate motion plans to be executed on Spot's arm."""
     ### Set up MoveIt and the 'arm' move group used to control Spot's arm ###
-    roscpp_initialize(sys.argv)
+    moveit_commander.roscpp_initialize(sys.argv)
     rospy.init_node("moveit_plan_generator")
+
+    # RobotCommander Reference: https://tinyurl.com/noetic-robot-commander
+    robot = moveit_commander.RobotCommander()
+    curr_state = robot.get_current_state()
+    rospy.loginfo(f"Current robot state: {curr_state}")
+
+    scene = moveit_commander.PlanningSceneInterface()
 
     # Create a publisher to display target poses in RViz
     target_pose_publisher = rospy.Publisher(
@@ -26,7 +34,7 @@ def main() -> None:
 
     # MoveGroupCommander Reference: https://tinyurl.com/move-group-commander
     group_name = "arm"
-    move_group = MoveGroupCommander(group_name, wait_for_servers=180)
+    move_group = moveit_commander.MoveGroupCommander(group_name, wait_for_servers=180)
 
     # Ensure that the move group expects poses in Spot's body frame
     ref_frame_before = move_group.get_pose_reference_frame()
@@ -38,6 +46,12 @@ def main() -> None:
     ref_frame_after = move_group.get_pose_reference_frame()
 
     rospy.loginfo(f"Move group '{group_name}' has reference frame: {ref_frame_after}")
+
+    display_trajectory_publisher = rospy.Publisher(
+        "/move_group/display_planned_path",
+        moveit_msgs.msg.DisplayTrajectory,
+        queue_size=20,
+    )
 
     ### Define the path we'll move Spot's end-effector back-and-forth along ###
 
@@ -66,7 +80,7 @@ def main() -> None:
 
     ### Begin alternating Spot's arm between the target poses ###
 
-    switch_hz = 0.2  # Shift end-effector pose every 5 seconds
+    switch_hz = 0.1  # Shift end-effector pose every 10 seconds
     rate = rospy.Rate(switch_hz)
 
     while not rospy.is_shutdown():
@@ -81,6 +95,11 @@ def main() -> None:
         success, trajectory, _, error = move_group.plan()
         move_group.clear_pose_targets()  # Clear pose targets after planning
 
+        display_trajectory = moveit_msgs.msg.DisplayTrajectory()
+        display_trajectory.trajectory_start = robot.get_current_state()
+        display_trajectory.trajectory.append(trajectory)
+        display_trajectory_publisher.publish(display_trajectory)
+
         if success:  # If planning succeeded, execute the planned trajectory
             move_group.execute(trajectory, wait=True)  # Blocks until done
             move_group.stop()  # Ensure there's no residual movement
@@ -89,7 +108,7 @@ def main() -> None:
 
         target_pose_idx = (target_pose_idx + 1) % len(cycle_target_poses)
 
-        rate.sleep()  # Wait long enough to produce the specified rate (0.2 Hz)
+        rate.sleep()  # Wait long enough to produce the specified rate
 
 
 if __name__ == "__main__":

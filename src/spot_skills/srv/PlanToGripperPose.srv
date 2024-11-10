@@ -1,0 +1,6 @@
+# This service uses motion planning to move the end-effector to the given pose.
+geometry_msgs/PoseStamped target_gripper_pose
+---
+bool plan_success       # Indicates whether motion planning succeeded
+bool execution_success  # Indicates whether the plan could be executed
+string message          # Additional human-readable clarification

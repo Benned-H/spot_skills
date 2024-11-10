@@ -14,6 +14,8 @@ def main() -> None:
     # First, request that Spot stands up
     trigger_service("spot/stand")
 
+    input("Press [enter] to continue...")
+
     # Then, permit ROS control of Spot's arm (i.e., begin executing motion plans)
     trigger_service("spot/unlock_arm")
 

@@ -160,7 +160,7 @@ include_directories(
 catkin_install_python(PROGRAMS
   scripts/generate_moveit_plans.py
   scripts/arm_long_trajectory_demo.py
-  scripts/spot_arm_node.py
+  scripts/spot_wrapper_node.py
   scripts/moveit_demo_driver.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

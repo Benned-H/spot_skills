@@ -6,7 +6,8 @@ from actionlib import SimpleActionServer
 from control_msgs.msg import (
     FollowJointTrajectoryAction,
     FollowJointTrajectoryActionGoal,
-    FollowJointTrajectoryActionResult,
+    GripperCommandAction,
+    GripperCommandActionGoal,
 )
 
 from spot_skills.joint_trajectory import JointTrajectory
@@ -32,10 +33,32 @@ class SpotROS1Wrapper:
 
         max_segment_len = 30  # Limit the points/segment in ArmController trajectories
         self._arm_controller = SpotArmController(self._manager, max_segment_len)
-        self._arm_locked = True  # Begin without ROS control of Spot's arm
 
         self._manager.log_info("Manager and ArmController created. Taking lease...")
         self._manager.take_control()
+
+        # Initialize all ROS action servers provided by the class
+        # Launch action servers before services because MoveIt is waiting for them!
+        self._arm_action_name = "spot_arm_controller/follow_joint_trajectory"
+        self._arm_action_server = SimpleActionServer(
+            self._arm_action_name,
+            FollowJointTrajectoryAction,
+            execute_cb=self.arm_action_callback,
+            auto_start=False,
+        )
+        self._arm_action_server.start()
+        rospy.loginfo(f"[{self._arm_action_name}] Action server has started.")
+
+        # TODO: [ERROR] [...]: Parallel Gripper requires exactly two joints
+        self._gripper_action_name = "gripper_controller/gripper_action"
+        self._gripper_action_server = SimpleActionServer(
+            self._gripper_action_name,
+            GripperCommandAction,
+            execute_cb=self.gripper_action_callback,
+            auto_start=False,
+        )
+        self._gripper_action_server.start()
+        rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
 
         # Initialize all ROS services provided by the class
         self._stand_service = rospy.Service(
@@ -55,17 +78,6 @@ class SpotROS1Wrapper:
             std_srvs.srv.Trigger,
             self.handle_stow_arm,
         )
-
-        # Initialize all ROS action servers provided by the class
-        self._arm_action_name = "spot_arm_controller/follow_joint_trajectory"
-        self._arm_action_server = SimpleActionServer(
-            self._arm_action_name,
-            FollowJointTrajectoryAction,
-            execute_cb=self.arm_action_callback,
-            auto_start=False,
-        )
-        self._arm_action_server.start()
-        rospy.loginfo(f"[{self._arm_action_name}] Action server has started.")
 
     def shutdown(self) -> None:
         """Shut-down the ROS wrapper to Spot by safely powering off Spot."""
@@ -96,7 +108,7 @@ class SpotROS1Wrapper:
         :returns    Response conveying that Spot's arm has been unlocked
         """
         del request_msg
-        self._arm_locked = False
+        self._arm_controller.unlock_arm()
         return std_srvs.srv.TriggerResponse(True, "Spot's arm is now unlocked.")
 
     def handle_stow_arm(
@@ -155,27 +167,47 @@ class SpotROS1Wrapper:
             self._arm_action_server,
         )
 
+        # Construct the result message based on the controller's outcome
+        result = self._arm_action_server.get_default_result()
+
         # Update the ROS action server based on the outcome of the trajectory
         if outcome == ArmCommandOutcome.SUCCESS:
-            result = FollowJointTrajectoryActionResult(outcome, "Success!")
+            result.error_code = 0  # SUCCESSFUL = 0
+            result.error_string = "Success!"
             self._arm_action_server.set_succeeded(result)
 
         elif outcome == ArmCommandOutcome.INVALID_START:
-            result = FollowJointTrajectoryActionResult(
-                -1,  # Represents INVALID_GOAL error code
-                (
-                    "Trajectory could not be executed because it did not begin "
-                    "from the current configuration of Spot's arm."
-                ),
+            result.error_code = -1  # INVALID_GOAL = -1
+            result.error_string = (
+                "Could not execute trajectory starting at an arm "
+                "configuration far from Spot's current arm configuration."
             )
             self._arm_action_server.set_aborted(result)
 
         elif outcome == ArmCommandOutcome.ARM_LOCKED:
-            result = FollowJointTrajectoryActionResult(
-                -1,  # Represents INVALID_GOAL error code
-                ("Trajectory could not be executed because Spot's arm remains locked."),
+            result.error_code = -1  # INVALID_GOAL = -1
+            result.error_string = (
+                "Trajectory could not be executed because Spot's arm remains locked."
             )
             self._arm_action_server.set_aborted(result)
 
         elif outcome == ArmCommandOutcome.PREEMPTED:
-            self._arm_action_server.set_preempted()
+            self._arm_action_server.set_preempted(text="Trajectory was preempted.")
+
+    def gripper_action_callback(self, goal: GripperCommandActionGoal) -> None:
+        """Handle a new goal for the GripperCommand action server.
+
+        Nothing will happen unless Spot's arm has been unlocked.
+
+        :param      goal        Command for Spot's gripper
+        """
+        position_rad = goal.command.position
+        max_effort = goal.command.max_effort
+
+        self._manager.log_info(
+            f"Received GripperCommand({position_rad} rad, {max_effort} maximum effort)",
+        )
+
+        # TODO: Actually control Spot's gripper!
+
+        self._gripper_action_server.set_aborted(text="Action not yet implemented!")
