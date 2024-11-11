@@ -1,0 +1,11 @@
+# Poses are specified as XYZ, then fixed-frame RPY (rad)
+- mug1:
+    type: mug
+    frame: "table1/top" # Pose specified w.r.t. center-top frame of the table
+    pose: [0.2, 0.1, 0, 0, 0, -0.2618]
+    mesh_filepath: "spot_skills/domains/meshes/mug/model.dae"
+
+- table1:
+    type: table
+    pose: [0, 0, 0, 0, 0, 0]
+    mesh_filepath: "spot_skills/domains/meshes/table/model.dae"
