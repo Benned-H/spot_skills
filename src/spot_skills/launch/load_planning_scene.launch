@@ -1,0 +1,37 @@
+<!-- Launch nodes to import and visualize a planning scene of object meshes -->
+<launch>
+    <!-- Specify the YAML file used to construct the planning scene -->
+    <param name="meshes_yaml" value="$(find spot_skills)/domains/scenes/simple_scene.yaml" />
+
+    <!-- Simulation: Use "fake" controller manager -->
+    <arg name="moveit_controller_manager" value="fake" />
+
+    <!-- Default not in debug mode -->
+    <arg name="debug" default="false" />
+
+    <!-- Launch the core nodes MoveIt uses to control a robot -->
+    <include file="$(dirname)/moveit_core.launch" pass_all_args="true">
+
+        <!-- Default planning pipeline: OMPL -->
+        <arg name="pipeline" default="ompl" />
+
+        <!-- Load/override the robot description (URDF) using MoveIt -->
+        <arg name="load_robot_description" value="true" />
+
+        <!-- Set execution mode for fake execution controllers
+             Options: interpolate, via points, or last point
+             Reference: https://tinyurl.com/noetic-fake-controller-manager -->
+        <arg name="fake_execution_type" default="interpolate" />
+
+        <!-- Default: Don't provide a GUI for manual control of the robot joint states -->
+        <arg name="joints_gui" default="false" />
+    </include>
+
+    <!-- Launch the node that runs a SceneHandler to populate the scene -->
+    <node name="planning_scene_loader" pkg="spot_skills" type="planning_scene_loader.py"
+        output="screen" />
+
+    <!-- Run Rviz using a default config file provided by MoveIt -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_moveit_config)/launch/moveit.rviz" />
+
+</launch>
