@@ -32,30 +32,47 @@ def print_geometric_info(name: str, mesh: trimesh.Trimesh) -> None:
     print()
 
 
-def load_normalized_mesh(mesh_path: str) -> trimesh.Trimesh:
+def load_normalized_mesh(
+    mesh_path: str,
+    adjustment_matrix: np.ndarray | None = None,
+) -> trimesh.Trimesh:
     """Load a mesh from file and transform it to a normalized frame.
 
     The mesh is transformed to be centered in X/Y and have a minimum Z of zero.
 
     :param mesh_path: Path to the mesh file to be imported
+    :param adjustment_matrix: Transform applied to the mesh after it's normalized
 
-    :returns: Trimesh object transformed to a normalized frame.
+    :returns: Trimesh object transformed to a normalized and axis-aligned frame.
     """
-    mesh: trimesh.Trimesh = trimesh.load_mesh(mesh_path)
-    mesh = mesh.convert_units("meters")
+    geometry = trimesh.load_mesh(mesh_path)
+
+    # Identify the type of the loaded geometry (probably a Trimesh or Scene)
+    if isinstance(geometry, trimesh.Trimesh):
+        mesh = geometry
+    elif isinstance(geometry, trimesh.Scene):
+        geometry.show()  # Visualize the mesh; helps debugging
+        mesh = geometry.to_mesh()
+    else:
+        raise TypeError(f"{mesh_path} geometry had unexpected type: {type(geometry)}")
+
+    mesh = mesh.convert_units("meters", guess=True)
     (min_x, min_y, min_z), (max_x, max_y, _) = mesh.bounds
 
     x_size = max_x - min_x
     y_size = max_y - min_y
 
     translate_by = np.array([-min_x - x_size / 2.0, -min_y - y_size / 2.0, -min_z])
+    normalized_mesh: trimesh.Trimesh = mesh.apply_translation(translate_by)
 
-    return mesh.apply_translation(translate_by)
+    if adjustment_matrix is not None:
+        normalized_mesh = normalized_mesh.apply_transform(adjustment_matrix)
+
+    return normalized_mesh
 
 
-def find_top_subframes(mesh_path: str) -> dict[str, Coordinate3D]:
-    """Compute subframes for the top, and four top corners, of the specified mesh."""
-    mesh = load_normalized_mesh(mesh_path)
+def find_top_subframes(mesh: trimesh.Trimesh) -> dict[str, Coordinate3D]:
+    """Compute subframes for the top, and four top corners, of the given mesh."""
     (min_x, min_y, _), (max_x, max_y, max_z) = mesh.bounds
 
     return {
@@ -76,7 +93,7 @@ def main() -> None:
     normalized_mesh = load_normalized_mesh(args.mesh_filepath)
     print_geometric_info("Normalized Mesh", normalized_mesh)
 
-    subframes = find_top_subframes(args.mesh_filepath)
+    subframes = find_top_subframes(normalized_mesh)
     for name, (x, y, z) in subframes.items():
         print(f"Frame '{name}' coordinates: {x:.2f} {y:.2f} {z:.2f}")
 
