@@ -72,7 +72,7 @@ class SceneHandler:
                 obj_msg.subframe_names,
                 obj_msg.subframe_poses,
             ):
-                rospy.loginfo(f"Object {obj_id} has the subframe '{subframe_name}'")
+                rospy.loginfo(f"Object '{obj_id}' has the subframe '{subframe_name}'")
                 subframe_tf = TransformStamped()
                 subframe_tf.header.stamp = rospy.Time.now()
                 subframe_tf.header.frame_id = obj_id  # Subframe is w.r.t. object
@@ -112,7 +112,7 @@ class SceneHandler:
 
         mesh_msg = self.mesh_to_msg(mesh)
         collision_object.meshes = [mesh_msg]
-        collision_object.mesh_poses = [object_pose]
+        collision_object.mesh_poses = [Pose()]  # Mesh frame = Object frame
 
         collision_object.operation = CollisionObject.ADD
 
@@ -168,14 +168,16 @@ class SceneHandler:
                 relative_mesh_filepath = obj_data["mesh_filepath"]
                 mesh_filepath = resolve_package_path(relative_mesh_filepath)
 
-                # If the mesh adjustment is unspecified, assume no transformation
-                adjustment = obj_data.get("adjust_mesh", [0, 0, 0, 0, 0, 0])
-                adjust_matrix = compose_matrix(
-                    angles=adjustment[3:],
-                    translate=adjustment[:3],
-                )
-
-                mesh = load_normalized_mesh(mesh_filepath, adjust_matrix)
+                # Include the option to adjust the mesh during normalization
+                adjustment = obj_data.get("adjust_mesh", None)
+                if adjustment is None:
+                    mesh = load_normalized_mesh(mesh_filepath)
+                else:
+                    adjust_matrix = compose_matrix(
+                        translate=adjustment[:3],
+                        angles=adjustment[3:],
+                    )
+                    mesh = load_normalized_mesh(mesh_filepath, adjust_matrix)
 
                 xyz = tuple(pose_data[:3])
                 r_rad, p_rad, y_rad = pose_data[3:]
