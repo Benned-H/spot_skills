@@ -51,7 +51,7 @@ def load_normalized_mesh(
     if isinstance(geometry, trimesh.Trimesh):
         mesh = geometry
     elif isinstance(geometry, trimesh.Scene):
-        geometry.show()  # Visualize the mesh; helps debugging
+        # geometry.show()  # Visualize the mesh; helps debugging
         mesh = geometry.to_mesh()
     else:
         raise TypeError(f"{mesh_path} geometry had unexpected type: {type(geometry)}")
@@ -77,10 +77,8 @@ def find_top_subframes(mesh: trimesh.Trimesh) -> dict[str, Coordinate3D]:
 
     return {
         "top": (0, 0, max_z),
-        "min_xy_top": (min_x, min_y, max_z),
-        "min_x_max_y_top": (min_x, max_y, max_z),
-        "max_x_min_y_top": (max_x, min_y, max_z),
-        "max_xy_top": (max_x, max_y, max_z),
+        "top_min_xy": (min_x, min_y, max_z),
+        "top_max_xy": (max_x, max_y, max_z),
     }
 
 
