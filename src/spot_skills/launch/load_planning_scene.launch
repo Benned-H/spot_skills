@@ -3,6 +3,10 @@
     <!-- Specify the YAML file used to construct the planning scene -->
     <param name="meshes_yaml" value="$(find spot_skills)/domains/scenes/simple_scene.yaml" />
 
+    <!-- Publish a static transform defining the map frame as the origin -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="map_broadcaster"
+        args="0 0 0 0 0 0 1 map body" />
+
     <!-- Simulation: Use "fake" controller manager -->
     <arg name="moveit_controller_manager" value="fake" />
 

@@ -20,16 +20,12 @@ def main() -> None:
         rospy.logfatal(f"Cannot find '{yaml_rosparam}' rosparam.")
         sys.exit(1)
 
-    yaml_filepath = rospy.get_param(yaml_rosparam)
-    rospy.loginfo(f"Found rosparam '{yaml_rosparam}': {yaml_filepath}")
+    yaml_path_str = rospy.get_param(yaml_rosparam)
+    rospy.loginfo(f"Found rosparam '{yaml_rosparam}': {yaml_path_str}")
+    yaml_path = Path(yaml_path_str)
 
-    # Create the scene handler and use it to load meshes from file
-    scene_handler = SceneHandler()
-
-    yaml_path_obj = Path(yaml_filepath)
-    scene_handler.load_scene_from_yaml(yaml_path_obj)
-
-    rospy.spin()
+    # Create the scene handler and load meshes from file (loops)
+    _ = SceneHandler(yaml_path)
 
 
 if __name__ == "__main__":
