@@ -39,7 +39,7 @@ class SceneHandler:
         if scene_yaml is not None:
             self.load_scene_from_yaml(scene_yaml)
 
-        self.rate_hz = rospy.Rate(1)  # Define rate (Hz) for transform broadcasting
+        self.rate_hz = rospy.Rate(10)  # Define rate (Hz) for transform broadcasting
 
         # Loop forever, broadcasting the frames of all objects in the planning scene
         while not rospy.is_shutdown():
@@ -73,6 +73,7 @@ class SceneHandler:
                 obj_msg.subframe_poses,
             ):
                 rospy.loginfo(f"Object '{obj_id}' has the subframe '{subframe_name}'")
+
                 subframe_tf = TransformStamped()
                 subframe_tf.header.stamp = rospy.Time.now()
                 subframe_tf.header.frame_id = obj_id  # Subframe is w.r.t. object
@@ -99,7 +100,7 @@ class SceneHandler:
         :param relative_frame: Frame w.r.t. which the object's pose is defined
         :param object_pose: Pose for the object in the global frame
 
-        :returns: moveit_msgs/CollisionObject based on the given inputs.
+        :returns: Constructed moveit_msgs/CollisionObject ROS message
         """
         collision_object = CollisionObject()
         collision_object.header.frame_id = relative_frame
@@ -107,8 +108,7 @@ class SceneHandler:
 
         collision_object.id = object_id
 
-        # TODO: How do object_recognition_msgs/ObjectType messages work?
-        collision_object.type.key = object_type
+        collision_object.type.key = object_type  # Ignore 'db' field
 
         mesh_msg = self.mesh_to_msg(mesh)
         collision_object.meshes = [mesh_msg]
