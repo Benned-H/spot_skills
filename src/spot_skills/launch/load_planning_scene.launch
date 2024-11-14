@@ -36,6 +36,7 @@
         output="screen" />
 
     <!-- Run Rviz using a default config file provided by MoveIt -->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_moveit_config)/launch/moveit.rviz" />
+    <node name="rviz" pkg="rviz" type="rviz"
+        args="-d $(find spot_skills)/rviz/load_planning_scene.rviz" />
 
 </launch>

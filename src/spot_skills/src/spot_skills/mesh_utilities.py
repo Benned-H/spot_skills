@@ -45,16 +45,11 @@ def load_normalized_mesh(
 
     :returns: Trimesh object transformed to a normalized and axis-aligned frame.
     """
-    geometry = trimesh.load_mesh(mesh_path)
+    mesh = trimesh.load(mesh_path, force="mesh")
+    if type(mesh) is not trimesh.Trimesh:
+        raise TypeError(f"{mesh_path} imported as unexpected type: {type(geometry)}.")
 
-    # Identify the type of the loaded geometry (probably a Trimesh or Scene)
-    if isinstance(geometry, trimesh.Trimesh):
-        mesh = geometry
-    elif isinstance(geometry, trimesh.Scene):
-        # geometry.show()  # Visualize the mesh; helps debugging
-        mesh = geometry.to_mesh()
-    else:
-        raise TypeError(f"{mesh_path} geometry had unexpected type: {type(geometry)}")
+    # mesh.show()  # Visualize the mesh; helps debugging
 
     mesh = mesh.convert_units("meters", guess=True)
     (min_x, min_y, min_z), (max_x, max_y, _) = mesh.bounds
@@ -72,7 +67,7 @@ def load_normalized_mesh(
 
 
 def find_top_subframes(mesh: trimesh.Trimesh) -> dict[str, Coordinate3D]:
-    """Compute subframes for the top, and four top corners, of the given mesh."""
+    """Compute subframes for the top, and top corners, of the given mesh."""
     (min_x, min_y, _), (max_x, max_y, max_z) = mesh.bounds
 
     return {
