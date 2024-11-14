@@ -25,7 +25,7 @@ def main() -> None:
     yaml_path = Path(yaml_path_str)
 
     # Create the scene handler and load meshes from file (loops)
-    _ = SceneHandler(yaml_path)
+    _ = SceneHandler(yaml_path, tf_hz=10)
 
 
 if __name__ == "__main__":
