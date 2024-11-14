@@ -47,7 +47,7 @@ def load_normalized_mesh(
     """
     mesh = trimesh.load(mesh_path, force="mesh")
     if type(mesh) is not trimesh.Trimesh:
-        raise TypeError(f"{mesh_path} imported as unexpected type: {type(geometry)}.")
+        raise TypeError(f"{mesh_path} imported as unexpected type: {type(mesh)}.")
 
     # mesh.show()  # Visualize the mesh; helps debugging
 

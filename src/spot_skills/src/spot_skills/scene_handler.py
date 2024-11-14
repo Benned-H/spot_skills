@@ -26,10 +26,11 @@ if TYPE_CHECKING:
 class SceneHandler:
     """A wrapper for managing objects in MoveIt's planning scene."""
 
-    def __init__(self, scene_yaml: Path | None):
+    def __init__(self, scene_yaml: Path | None, tf_hz: int):
         """Initialize a Python interface for MoveIt's planning scene.
 
         :param scene_yaml: Optional path to a YAML file specifying the scene's objects
+        :param tf_hz: Frequency (Hz) at which scene object transforms will be broadcast
         """
         self._scene = PlanningSceneInterface()
         self._broadcaster = TransformBroadcaster()
@@ -39,7 +40,7 @@ class SceneHandler:
         if scene_yaml is not None:
             self.load_scene_from_yaml(scene_yaml)
 
-        self.rate_hz = rospy.Rate(10)  # Define rate (Hz) for transform broadcasting
+        self.rate_hz = rospy.Rate(tf_hz)  # Define rate (Hz) for transform broadcasting
 
         # Loop forever, broadcasting the frames of all objects in the planning scene
         while not rospy.is_shutdown():
