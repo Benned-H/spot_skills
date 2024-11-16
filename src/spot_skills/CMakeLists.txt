@@ -160,6 +160,7 @@ include_directories(
 catkin_install_python(PROGRAMS
   scripts/generate_moveit_plans.py
   scripts/arm_long_trajectory_demo.py
+  scripts/planning_scene_loader.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

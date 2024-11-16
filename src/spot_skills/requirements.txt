@@ -1,0 +1,9 @@
+# Dependencies for unit testing
+pytest
+coverage
+
+# Dependencies for trimesh
+trimesh
+scipy
+pycollada
+pyglet<2

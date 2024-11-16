@@ -6,12 +6,11 @@ indent-width = 4
 [tool.ruff.lint]
 # Default to all Ruff rules, ignores to be added as necessary
 select = ["ALL"]
-ignore = ["ANN101"]  # Ignore type annotations on `self`
-unfixable = ["F401"] # Disable 'fix' for unused imports
+ignore = ["ANN101", "ANN204"] # Ignore type annotations on `self` and __init__
+unfixable = ["F401"]          # Disable 'fix' for unused imports
 
 [tool.ruff.lint.per-file-ignores]
-# Ignore assertions in test files
-"**/tests/*" = ["S101"]
+"**/tests/*" = ["S101"] # Ignore assertions in test files
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings
