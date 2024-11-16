@@ -1,0 +1,13 @@
+# Poses are specified as XYZ, then fixed-frame RPY (rad)
+- table1:
+    type: table
+    pose: [0, 0, 0, 0, 0, 0]
+    mesh_filepath: "spot_skills/domains/meshes/table/model.dae"
+    adjust_mesh: [0, 0, 0, 0, 0, -1.78599542] # Axis-align the table in its frame
+
+- mug1:
+    type: mug
+    frame: "table1/top" # Pose specified w.r.t. center-top frame of the table
+    pose: [0.3, 0.15, 0, 0, 0, -0.5236]
+    mesh_filepath: "spot_skills/domains/meshes/mug/model.dae"
+    adjust_mesh: [0.02, 0, 0, 0, 0, 0] # Center the mug's cylinder in its frame
