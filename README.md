@@ -146,3 +146,15 @@ back-and-forth, MoveIt creates motion plans to the target, which are then used t
 control the simulated Spot's arm. An example screenshot from the demo is shown below.
 
 ![Simulated Spot moving its arm to an end-effector target (shown as RGB axes).](docs/sim-moveit-spot.png "Spot's Arm Moving to an End-Effector Target")
+
+## Sample Put-Down and Grasp Poses
+
+In this demonstration, we visualize numerous randomly sampled put-down and grasping poses in RViz.
+
+To run this demonstration, use the following commands from the top `spot_skills` directory:
+
+```bash
+pip install -r src/spot_skills/requirements.txt
+source devel/setup.bash
+roslaunch spot_skills sample_poses.launch
+```
