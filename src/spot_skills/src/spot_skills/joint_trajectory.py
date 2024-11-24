@@ -55,7 +55,7 @@ class JointsPoint:
         return cls(angles_rad, velocities_radps, time_since_start_s)
 
     @classmethod
-    def from_ros_msg(cls, point_msg: trajectory_msgs.msg.JointPoint) -> Self:
+    def from_ros_msg(cls, point_msg: trajectory_msgs.msg.JointTrajectoryPoint) -> Self:
         """Construct a JointsPoint from an equivalent ROS message.
 
         :param      point_msg    ROS message representing an arm's joints' state
