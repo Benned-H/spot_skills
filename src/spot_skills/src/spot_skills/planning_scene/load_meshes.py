@@ -7,12 +7,11 @@ from pathlib import Path
 from typing import Any
 
 import geometry_msgs.msg
+import moveit_msgs.msg
 import numpy as np
 import rospy
+import shape_msgs.msg
 import yaml
-from moveit_msgs.msg import CollisionObject as CollisionObjectMsg
-from shape_msgs.msg import Mesh as MeshMsg
-from shape_msgs.msg import MeshTriangle as MeshTriangleMsg
 from trimesh import Trimesh
 from trimesh import load as trimesh_load
 from trimesh.transformations import compose_matrix
@@ -68,7 +67,9 @@ def load_normalized_mesh(
     return normalized_mesh
 
 
-def make_collision_object_msg(object_fields: dict[str, Any]) -> CollisionObjectMsg:
+def make_collision_object_msg(
+    object_fields: dict[str, Any],
+) -> moveit_msgs.msg.CollisionObject:
     """Create a moveit_msgs/CollisionObject message from an object's YAML data.
 
     Note: This method sets the CollisionObject's `operation` field to ADD.
@@ -76,7 +77,7 @@ def make_collision_object_msg(object_fields: dict[str, Any]) -> CollisionObjectM
     :param object_fields: Dictionary from YAML field names to field data
     :returns: Constructed moveit_msgs/CollisionObject ROS message
     """
-    collision_object = CollisionObjectMsg()
+    collision_object = moveit_msgs.msg.CollisionObject()
 
     # If the relative frame is unspecified, default to "map"
     collision_object.header.frame_id = object_fields.get("frame", "map")
@@ -118,21 +119,22 @@ def make_collision_object_msg(object_fields: dict[str, Any]) -> CollisionObjectM
             collision_object.subframe_names.append(subframe_name)
             collision_object.subframe_poses.append(subframe_pose)
 
-    collision_object.operation = CollisionObjectMsg.ADD
+    collision_object.operation = moveit_msgs.msg.CollisionObject.ADD
 
     return collision_object
 
 
-def trimesh_to_msg(mesh: Trimesh) -> MeshMsg:
+def trimesh_to_msg(mesh: Trimesh) -> shape_msgs.msg.Mesh:
     """Convert a trimesh.Trimesh into a shape_msgs/Mesh message.
 
     :param mesh: Object containing a triangular 3D mesh
 
     :returns: A shape_msgs/Mesh message containing the mesh geometry.
     """
-    mesh_msg = MeshMsg()
+    mesh_msg = shape_msgs.msg.Mesh()
     mesh_msg.triangles = [
-        MeshTriangleMsg(vertex_indices=list(triangle)) for triangle in mesh.faces
+        shape_msgs.msg.MeshTriangle(vertex_indices=list(triangle))
+        for triangle in mesh.faces
     ]
     mesh_msg.vertices = [
         geometry_msgs.msg.Point(v[0], v[1], v[2]) for v in mesh.vertices

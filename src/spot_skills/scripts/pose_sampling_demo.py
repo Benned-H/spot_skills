@@ -29,8 +29,10 @@ def main() -> None:
     # Create a sampler for put-down poses
     surface_name = "table1"
     table_surface = scene_handler.surfaces[surface_name]
+    avoid_table_edge_m = 0.05
     put_down_sampler = PutDownPoseSampler(
         table_surface,
+        avoid_table_edge_m,
         rng_seed=42,
         sample_limit=num_samples,
     )

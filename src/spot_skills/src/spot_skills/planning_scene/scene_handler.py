@@ -20,7 +20,7 @@ from .load_meshes import (
 from .put_down_surface import PutDownSurface
 
 if TYPE_CHECKING:
-    from moveit_msgs.msg import CollisionObject as CollisionObjectMsg
+    import moveit_msgs.msg
 
 
 class SceneHandler:
@@ -108,7 +108,10 @@ class SceneHandler:
                 subframe_tf.transform = pose_to_transform(subframe_pose)
                 self._broadcaster.sendTransform(subframe_tf)
 
-    def add_collision_object(self, collision_object: CollisionObjectMsg) -> None:
+    def add_collision_object(
+        self,
+        collision_object: moveit_msgs.msg.CollisionObject,
+    ) -> None:
         """Add the given collision object to the planning scene."""
         self._scene.add_object(collision_object)
         rospy.loginfo(f"Added object with ID '{collision_object.id}' to the scene.")
