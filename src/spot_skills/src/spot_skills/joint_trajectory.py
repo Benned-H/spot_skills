@@ -13,10 +13,9 @@ from spot_skills.time_stamp import TimeStamp
 if TYPE_CHECKING:
     from typing import Self
 
+    import trajectory_msgs.msg
     from bosdyn.api.arm_command_pb2 import ArmJointTrajectory, ArmJointTrajectoryPoint
     from bosdyn.api.robot_command_pb2 import RobotCommand
-    from trajectory_msgs.msg import JointTrajectory as JointTrajectoryMsg
-    from trajectory_msgs.msg import JointTrajectoryPoint as JointPointMsg
 
 
 @dataclass
@@ -56,7 +55,7 @@ class JointsPoint:
         return cls(angles_rad, velocities_radps, time_since_start_s)
 
     @classmethod
-    def from_ros_msg(cls, point_msg: JointPointMsg) -> Self:
+    def from_ros_msg(cls, point_msg: trajectory_msgs.msg.JointPoint) -> Self:
         """Construct a JointsPoint from an equivalent ROS message.
 
         :param      point_msg    ROS message representing an arm's joints' state
@@ -98,7 +97,7 @@ class JointTrajectory:
         return cls(timestamp, points)
 
     @classmethod
-    def from_ros_msg(cls, trajectory_msg: JointTrajectoryMsg) -> Self:
+    def from_ros_msg(cls, trajectory_msg: trajectory_msgs.msg.JointTrajectory) -> Self:
         """Construct a JointTrajectory from an equivalent ROS message.
 
         :param      trajectory_msg    Trajectory of joint points as a ROS message
