@@ -19,7 +19,7 @@ jobs:
       - name: List files in the repository
         run: |
           ls ${{ github.workspace }}
-      - name: Build selected Docker Compose services (focus on the Spot SDK image)
+      - name: Build all current Docker Compose services
         run: |
-          docker compose build spot-sdk
+          docker compose --progress plain build
       - run: echo "This job's current status is ${{ job.status }}."

@@ -20,10 +20,9 @@ git submodule update --init --recursive
 
 This repository uses Docker to standardize its workspace across machines. The `compose.yaml` defines a Docker service for several development use cases, varying across the inclusion or exclusion of ROS 1 Noetic and MoveIt 1, the Spot SDK, and GPU support:
 
-- **ROS 1 Noetic with MoveIt 1 (w/o GPU)** - `noetic-moveit`
-- **GPU-enabled ROS 1 Noetic with MoveIt 1** - `noetic-moveit-gpu`
 - **Spot SDK** - `spot-sdk`
 - **Spot SDK with ROS 1 Noetic and MoveIt 1 (w/o GPU)** - `spot-moveit`
+- **Spot SDK with ROS 1 Noetic and MoveIt 1 (w/ NVIDIA GPU)** - `spot-moveit-gpu`
 
 To select a service, you'll need its service name (e.g., `spot-moveit`), which you can copy to your clipboard. In the following commands, replace `<SERVICE_NAME>` with the chosen name.
 
