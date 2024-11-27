@@ -1,3 +1,6 @@
 [submodule "src/spot_ros"]
 	path = src/spot_ros
 	url = git@github.com:Benned-H/spot_ros.git
+[submodule "ros_docker"]
+	path = docker/ros_docker
+	url = https://github.com/Benned-H/ros_docker
