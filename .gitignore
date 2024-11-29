@@ -11,4 +11,4 @@ __pycache__/
 secrets/
 
 # Ignore what would otherwise be a submodule, were it not a private repo
-src/tamp/
+src/tmp3/
