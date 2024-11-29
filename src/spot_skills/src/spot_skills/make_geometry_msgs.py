@@ -83,3 +83,16 @@ def stamp_pose(
     header.frame_id = frame_id
 
     return geometry_msgs.msg.PoseStamped(header, pose)
+
+
+def pose_to_transform(
+    pose: geometry_msgs.msg.Pose,
+) -> geometry_msgs.msg.Transform:
+    """Convert a geometry_msgs/Pose message to a geometry_msgs/Transform."""
+    translation = geometry_msgs.msg.Vector3(
+        pose.position.x,
+        pose.position.y,
+        pose.position.z,
+    )
+
+    return geometry_msgs.msg.Transform(translation, pose.orientation)
