@@ -40,17 +40,6 @@ services:
     volumes: # Mount this repository (a ROS workspace) into the container
       - .:/docker/spot_skills
 
-  # Service configuring the Spot SDK + MoveIt image for a macOS host
-  spot-moveit-mac:
-    extends: # Add config for GUIs on macOS host machines
-      file: ./docker/ros_docker/compose/core-compose.yaml
-      service: base-gui-mac-host
-
-    image: bennedh/spot-skills:spot-moveit
-
-    volumes: # Mount this repository (a ROS workspace) into the container
-      - .:/docker/spot_skills
-
   # Service configuring the Spot SDK + MoveIt image for an Ubuntu host with NVIDIA GPU
   spot-moveit-gpu:
     extends: # Extend Docker service config for GUIs and NVIDIA GPU(s)
