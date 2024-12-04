@@ -112,3 +112,46 @@ CMD ["bash"]
 
 # Finalize the default working directory for the image
 WORKDIR /docker/spot_sdk
+
+# Stage B2/A4 (optional): Install all catkin dependencies of the current workspace
+FROM spot-sdk AS spot-catkin-deps
+
+# Install the specified list of catkin package dependencies
+ARG HOST_DEP_PATH="catkin_package_deps.txt"
+ARG BUILD_DEP_PATH="/tmp/${HOST_DEP_PATH}"
+
+COPY "${HOST_DEP_PATH}" "${BUILD_DEP_PATH}"
+
+# Verify that the dependency file exists within the build and is non-empty
+RUN if [ ! -f "${BUILD_DEP_PATH}" ]; then \
+        echo "Error: ${BUILD_DEP_PATH} not found!" && exit 1; \
+    elif [ ! -s "${BUILD_DEP_PATH}" ]; then \
+        echo "Error: ${BUILD_DEP_PATH} is empty!" && exit 1; \
+    else \
+        cat ${BUILD_DEP_PATH}; \
+    fi;
+
+# Ensure that any failure in a pipe (|) causes the stage to fail
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Resolve the package dependencies using rosdep
+RUN RESOLVED_PACKAGES=""; \
+    # Iterate over packages and attempt to resolve each
+    while read -r package; do \
+        echo "Resolving package '$package'..."; \
+        # Redirect stderr to stdout when checking if rosdep resolution fails
+        if rosdep_output=$(rosdep resolve "$package" 2>&1); then \
+            resolved_package=$(echo "$rosdep_output" | tail -n1); \
+            echo "  Package '$package' was resolved as '$resolved_package'"; \
+            RESOLVED_PACKAGES+=" $resolved_package"; \
+        else \
+            echo "  $rosdep_output"; \
+        fi; \
+    done < "${BUILD_DEP_PATH}"; \
+    # Install the aggregated resolved packages
+    if [ -n "$RESOLVED_PACKAGES" ]; then \
+        echo "Installing packages: $RESOLVED_PACKAGES"; \
+        echo "$RESOLVED_PACKAGES" | xargs apt-get install -y --no-install-recommends; \
+    else \
+        echo "No resolvable packages found"; \
+    fi;
