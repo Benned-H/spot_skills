@@ -15,6 +15,8 @@ jobs:
       - run: echo "Running a job triggered by user ${{ github.actor }} on a ${{ runner.os }} server."
       - name: Check out repository code
         uses: actions/checkout@v4
+        with:
+          submodules: "true"
       - run: echo "Branch ${{ github.ref }} in repository ${{ github.repository }} has been cloned to the runner."
       - name: List files in the repository
         run: |
