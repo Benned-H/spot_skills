@@ -46,9 +46,11 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         python3-rosinstall-generator \
         python3-wstool \
         build-essential \
+        wget \
         # MoveIt's source build requires the following dependency (provides catkin build)
         # Reference: https://moveit.ai/install/source/
         python3-catkin-tools
+
 
 RUN rosdep init && \
     rosdep update
@@ -103,6 +105,18 @@ RUN python3 -m pip install --upgrade pip && \
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
     apt-get install -y --no-install-recommends iputils-ping
+
+# install python3.10 for segment anything stuff
+RUN wget -P /opt/ https://www.python.org/ftp/python/3.10.0/Python-3.10.0.tgz && \
+    tar -xzvf /opt/Python-3.10.0.tgz -C /opt/ && \
+    cd /opt/Python-3.10.0 && \
+    ./configure && \
+    make -j$(nproc) && \
+    make install && \
+    ln -s /opt/Python-3.10.0/python /usr/bin/python3.10 && \
+    /usr/bin/python3.10 -m venv /opt/venv3.10 && \
+    /opt/venv3.10/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    /opt/venv3.10/bin/pip install opencv-python pyyaml rospkg
 
 # Set up the entrypoint script
 COPY docker/entrypoint.sh /entrypoint.sh
