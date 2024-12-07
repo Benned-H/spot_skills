@@ -1,0 +1,7 @@
+sensor_msgs/Image image
+std_msgs/UInt16MultiArray points
+std_msgs/UInt16MultiArray boxes
+bool[] labels
+---
+sensor_msgs/Image[] masks
+float32[] scores
