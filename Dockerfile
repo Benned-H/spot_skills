@@ -106,17 +106,19 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
     apt-get install -y --no-install-recommends iputils-ping
 
-# install python3.10 for segment anything stuff
+
+## STAGE A4: Install dependencies for segment anything
+FROM spot-sdk AS spot-sdk-sam
+# install python3.10
 RUN wget -P /opt/ https://www.python.org/ftp/python/3.10.0/Python-3.10.0.tgz && \
     tar -xzvf /opt/Python-3.10.0.tgz -C /opt/ && \
-    cd /opt/Python-3.10.0 && \
-    ./configure && \
-    make -j$(nproc) && \
-    make install && \
-    ln -s /opt/Python-3.10.0/python /usr/bin/python3.10 && \
-    /usr/bin/python3.10 -m venv /opt/venv3.10 && \
-    /opt/venv3.10/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
-    /opt/venv3.10/bin/pip install opencv-python pyyaml rospkg
+    cd /opt/Python-3.10.0 && ./configure && make -j$(nproc) && make altinstall && \
+    rm -rf /opt/Python-3.10.0.tgz && \
+    python3.10 -m venv /opt/venv-sam2 && \
+    /opt/venv-sam2/bin/pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    /opt/venv-sam2/bin/pip install --no-cache-dir opencv-python pyyaml rospkg && \
+    git clone https://github.com/facebookresearch/sam2.git /opt/sam2 && \
+    /opt/venv-sam2/bin/pip install --no-cache-dir -e /opt/sam2
 
 # Set up the entrypoint script
 COPY docker/entrypoint.sh /entrypoint.sh
