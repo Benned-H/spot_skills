@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 
+from spot_skills.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES, Configuration
 from spot_skills.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
@@ -58,20 +59,29 @@ class JointsPoint:
     def from_ros_msg(cls, point_msg: trajectory_msgs.msg.JointTrajectoryPoint) -> Self:
         """Construct a JointsPoint from an equivalent ROS message.
 
-        :param      point_msg    ROS message representing an arm's joints' state
+        :param point_msg: ROS message representing an arm's joints' state
 
-        :returns    JointsPoint constructed based on the given ROS message
+        :returns: JointsPoint constructed based on the given ROS message
         """
         time_from_start_s = point_msg.time_from_start.to_sec()
         return cls(point_msg.positions, point_msg.velocities, time_from_start_s)
+
+    @classmethod
+    def from_configuration(cls, joint_values: Configuration) -> Self:
+        """Construct a JointsPoint from a configuration specifying joint values.
+
+        :param joint_values: Map from joint names to joint values
+
+        :returns: JointsPoint constructed based on the given configuration
+        """
+        positions = [joint_values[dof] for dof in SPOT_SDK_ARM_JOINT_NAMES]
+
+        return cls(positions, [], 0)
 
 
 @dataclass
 class JointTrajectory:
     """A trajectory describing an arm's joints in phase space over time.
-
-    Note: Removed joint names, as they have not seemed essential for current goals.
-        i.e, spot_arm_joint_names = ["sh0", "sh1", "el0", "el1", "wr0", "wr1"]
 
     In a phase space representation, the velocities of the state variables are
     treated as state variables. Accelerations can be treated similarly.
@@ -79,6 +89,7 @@ class JointTrajectory:
 
     reference_timestamp: TimeStamp  # Relative timestamp for trajectory point times
     points: list[JointsPoint]  # Points in the trajectory
+    joint_names: list[str]
 
     @classmethod
     def from_proto(cls, trajectory_proto: ArmJointTrajectory) -> Self:
@@ -94,7 +105,9 @@ class JointTrajectory:
 
         # Note: Ignoring maximum velocity/acceleration from Protobuf message
 
-        return cls(timestamp, points)
+        joint_names = SPOT_SDK_ARM_JOINT_NAMES  # Use Spot SDK's joint names
+
+        return cls(timestamp, points, joint_names)
 
     @classmethod
     def from_ros_msg(cls, trajectory_msg: trajectory_msgs.msg.JointTrajectory) -> Self:
@@ -109,7 +122,7 @@ class JointTrajectory:
 
         points = [JointsPoint.from_ros_msg(p) for p in trajectory_msg.points]
 
-        return cls(timestamp, points)  # Note: Ignoring joint names from ROS message
+        return cls(timestamp, points, trajectory_msg.joint_names)
 
     def segment_to_robot_commands(self, max_segment_len: int) -> list[RobotCommand]:
         """Convert this JointTrajectory into a list of robot commands for Spot.
