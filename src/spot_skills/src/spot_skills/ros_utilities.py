@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import rospy
-import std_srvs.srv
 from rospkg import RosPack
+from std_srvs.srv import Trigger, TriggerResponse
 
 
 def get_ros_params(ros_param_names: list[str]) -> list:
@@ -26,18 +26,24 @@ def get_ros_params(ros_param_names: list[str]) -> list:
     return param_values
 
 
-def trigger_service(service_name: str) -> None:
-    """Call the named ROS service of the std_srvs.srv.Trigger type.
+def trigger_service(service_name: str) -> bool:
+    """Call the named ROS service of the std_srvs/Trigger type.
 
-    :param      service_name    Name of the std_srvs.srv.Trigger service to be called
+    :param service_name: Name of the std_srvs/Trigger service to be called
+    :returns: Boolean success returned by the service (True or False)
     """
     rospy.wait_for_service(service_name)
-    service_caller = rospy.ServiceProxy(service_name, std_srvs.srv.Trigger)
+    service_caller = rospy.ServiceProxy(service_name, Trigger)
+
+    success = False
     try:
-        response = service_caller()
-        rospy.loginfo(f"[{service_name}] Service response: {response}")
+        response: TriggerResponse = service_caller()
+        rospy.loginfo(f"[{service_name}] Service response message: {response.message}")
+        success = response.success
     except rospy.ServiceException as exc:
         rospy.logerr(f"[{service_name}] Could not communicate with service: {exc}")
+
+    return success
 
 
 def resolve_package_path(filepath: str) -> Path | None:
