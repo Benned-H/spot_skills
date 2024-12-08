@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from bosdyn.util import duration_to_seconds
 
-from spot_skills.spot_configuration import MAP_JOINT_NAME_SPOT_SDK_TO_URDF
+from spot_skills.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
 from spot_skills.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
@@ -181,7 +181,7 @@ class SpotArmController:
         command_start_angles_rad = trajectory.points[0].positions_rad
 
         for sdk_joint, curr_rad in arm_configuration.items():
-            urdf_joint = MAP_JOINT_NAME_SPOT_SDK_TO_URDF[sdk_joint]
+            urdf_joint = MAP_JOINT_NAMES_SPOT_SDK_TO_URDF[sdk_joint]
             joint_idx = trajectory.joint_names.index(urdf_joint)
             cmd_rad = command_start_angles_rad[joint_idx]
 

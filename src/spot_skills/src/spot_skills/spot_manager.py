@@ -200,19 +200,17 @@ class SpotManager:
 
         Note: Ignores the velocities and accelerations of Spot's arm joints.
 
-        :returns: Configuration mapping joint names to their positions
+        :returns: Configuration mapping joint names (per Spot SDK) to their positions
         """
         robot_state = self._state_client.get_robot_state()
-        joint_states = robot_state.kinematic_state.joint_states
-        self.log_info(f"Joint states per Spot SDK: {joint_states}")
-        self.log_info(f"SPOT_SDK_ARM_JOINT_NAMES: {SPOT_SDK_ARM_JOINT_NAMES}")
+        sdk_joint_states = robot_state.kinematic_state.joint_states
 
         # Use the joint names as sent from Spot directly (differs from URDF names)
         # See Lines 81-87 of spot_ros/spot_driver/src/spot_driver/ros_helpers.py
 
         arm_configuration = {}
 
-        for joint in robot_state.kinematic_state.joint_states:
+        for joint in sdk_joint_states:
             if joint.name in SPOT_SDK_ARM_JOINT_NAMES:
                 arm_configuration[joint.name] = joint.position.value
 
