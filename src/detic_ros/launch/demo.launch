@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="sam2_ros" type="camera.py" name="camera_node"/>
+    <node pkg="sam2_ros" type="sam2_node.py" name="sam2_node"/>
+    <node pkg="detic_ros" type="detic_node.py" name="detic_node"/>
+    <node pkg="detic_ros" type="deticsam.py" name="client"/>
+</launch>
