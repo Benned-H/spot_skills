@@ -1,13 +1,13 @@
 """Define a class providing a ROS 1 interface to the Spot robot."""
 
 import rospy
-import std_srvs.srv
 from actionlib import SimpleActionServer
 from control_msgs.msg import (
     FollowJointTrajectoryAction,
     FollowJointTrajectoryActionGoal,
     FollowJointTrajectoryActionResult,
 )
+from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from spot_skills.joint_trajectory import JointTrajectory
 from spot_skills.ros_utilities import get_ros_params
@@ -40,19 +40,19 @@ class SpotROS1Wrapper:
         # Initialize all ROS services provided by the class
         self._stand_service = rospy.Service(
             "spot/stand",
-            std_srvs.srv.Trigger,
+            Trigger,
             self.handle_stand,
         )
 
         self._unlock_arm_service = rospy.Service(
             "spot/unlock_arm",
-            std_srvs.srv.Trigger,
+            Trigger,
             self.handle_unlock_arm,
         )
 
         self._stow_arm_service = rospy.Service(
             "spot/stow_arm",
-            std_srvs.srv.Trigger,
+            Trigger,
             self.handle_stow_arm,
         )
 
@@ -68,46 +68,40 @@ class SpotROS1Wrapper:
         rospy.loginfo(f"[{self._arm_action_name}] Action server has started.")
 
     def shutdown(self) -> None:
-        """Shut-down the ROS wrapper to Spot by safely powering off Spot."""
-        self._manager.shutdown()  # TODO: Don't stow the arm if holding something!
+        """Shut-down Spot's ROS wrapper by safely powering off Spot."""
+        self._manager.shutdown()
 
-    def handle_stand(
-        self,
-        request_msg: std_srvs.srv.TriggerRequest,
-    ) -> std_srvs.srv.TriggerResponse:
+    def handle_stand(self, request_msg: TriggerRequest) -> TriggerResponse:
         """Handle a service request to have Spot stand up.
 
-        :param      request_msg     Message representing a request for Spot to stand
+        :param request_msg: Message representing a request for Spot to stand
 
         :returns    Response conveying whether Spot has successfully stood up
         """
         del request_msg
         self._manager.stand_up(20)
-        return std_srvs.srv.TriggerResponse(True, "Spot is now standing.")
 
-    def handle_unlock_arm(
-        self,
-        request_msg: std_srvs.srv.TriggerRequest,
-    ) -> std_srvs.srv.TriggerResponse:
+        return TriggerResponse(True, "Spot is now standing.")
+
+    def handle_unlock_arm(self, request_msg: TriggerRequest) -> TriggerResponse:
         """Handle a service request to enable ROS control of Spot's arm.
 
-        :param      request_msg     Message representing a request to unlock Spot's arm
+        :param request_msg: Message representing a request to unlock Spot's arm
 
         :returns    Response conveying that Spot's arm has been unlocked
         """
         del request_msg
         self._arm_locked = False
-        return std_srvs.srv.TriggerResponse(True, "Spot's arm is now unlocked.")
+        self._arm_controller.unlock_arm()
 
-    def handle_stow_arm(
-        self,
-        request_msg: std_srvs.srv.TriggerRequest,
-    ) -> std_srvs.srv.TriggerResponse:
+        return TriggerResponse(True, "Spot's arm is now unlocked.")
+
+    def handle_stow_arm(self, request_msg: TriggerRequest) -> TriggerResponse:
         """Handle a service request to stow Spot's arm.
 
         TODO: If Spot is believed to be holding something, prevent stowing.
 
-        :param      request_msg     Message representing a request to stow Spot's arm
+        :param request_msg: Message representing a request to stow Spot's arm
 
         :returns    Response conveying whether Spot's arm has been stowed
         """
@@ -120,7 +114,7 @@ class SpotROS1Wrapper:
         else:
             message = "Spot's arm was not stowed because Spot's arm remains locked."
 
-        return std_srvs.srv.TriggerResponse(stow_arm, message)
+        return TriggerResponse(stow_arm, message)
 
     def arm_action_callback(self, goal: FollowJointTrajectoryActionGoal) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
@@ -164,7 +158,7 @@ class SpotROS1Wrapper:
             result = FollowJointTrajectoryActionResult(
                 -1,  # Represents INVALID_GOAL error code
                 (
-                    "Trajectory could not be executed because it did not begin "
+                    "Could not follow trajectory because it did not begin "
                     "from the current configuration of Spot's arm."
                 ),
             )
@@ -173,7 +167,7 @@ class SpotROS1Wrapper:
         elif outcome == ArmCommandOutcome.ARM_LOCKED:
             result = FollowJointTrajectoryActionResult(
                 -1,  # Represents INVALID_GOAL error code
-                ("Trajectory could not be executed because Spot's arm remains locked."),
+                ("Could not follow trajectory because Spot's arm remains locked."),
             )
             self._arm_action_server.set_aborted(result)
 

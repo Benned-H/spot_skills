@@ -156,16 +156,11 @@ control the simulated Spot's arm. An example screenshot from the demo is shown b
    - _Check_: Are Spot's front lights now flashing rainbow?
 3. On your computer, make sure you've followed the **Docker Demo Setup** instructions above.
    We will need one terminal tab opened into Docker.
-4. We need to tell ROS which Spot we're using. Run the following command in the first tab, with `spot_name` substituted for the Spot you're using (e.g., `snouter`):
+4. We will need to tell ROS which Spot we're using. Note the name of the Spot robot you're using (e.g., `snouter`).
+5. Now, launch the real-robot demo using the following command, replacing `<SPOT-NAME>` with your Spot's name:
 
 ```bash
-export SPOT_NAME=spot_name
-```
-
-5. Now, launch the real-robot demo using the following command:
-
-```bash
-roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=$SPOT_NAME
+roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=<SPOT-NAME>
 ```
 
 ## Sample Put-Down and Grasp Poses
