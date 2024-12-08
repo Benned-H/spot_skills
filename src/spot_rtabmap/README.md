@@ -40,6 +40,8 @@ catkin build -DRTABMAP_SYNC_MULTI_RGBD=ON
 
 ### Add Passthrough Filter
 
-Install point_cloud2_filter in src for filtering the raw point cloud from lidar. You will also need to install the (sensor_filters)[http://wiki.ros.org/sensor_filters] dependency.
+Install point_cloud2_filter in src for filtering the raw point cloud from lidar. You will also need to install the [sensor_filters](http://wiki.ros.org/sensor_filters) dependency.
 
-The min and max height of the point cloud can be set in `config/spot_cloud_filter.yaml`
+The min and max height of the point cloud can be set in `config/spot_cloud_filter.yaml`.
+
+NOTE: The filtering is not perfect. We need to filter at least three parts of the point cloud: The part higher than the door, the part close to the ground (the annoying circles), and the trajectories of Spot's own arm. For now, we are only filtering out the first and the second but not the third. The filtering of the arm trjectory will be implemented soon.
