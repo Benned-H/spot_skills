@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/local/bin/python3.10
 import time
 
 import rospy

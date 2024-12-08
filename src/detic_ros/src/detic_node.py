@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/local/bin/python3.10
 import os
 import sys
 
@@ -13,9 +13,9 @@ from detectron2 import model_zoo
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 from detectron2.data import MetadataCatalog
-sys.path.insert(0, '/opt/Detic/third_party/CenterNet2/')
-sys.path.insert(0, "/opt/Detic")
-sys.path.insert(0, "/opt")
+sys.path.insert(0, '/docker/Detic/third_party/CenterNet2/')
+sys.path.insert(0, "/docker/Detic")
+sys.path.insert(0, "/docker")
 from centernet.config import add_centernet_config
 from Detic.detic.config import add_detic_config
 from Detic.detic.modeling.utils import reset_cls_test
@@ -37,7 +37,7 @@ def DETIC_predictor(detic_package_path="Detic", device="cuda", vocabulary="openi
     cfg = get_cfg()
     add_centernet_config(cfg)
     add_detic_config(cfg)
-    cfg.merge_from_file("/opt/Detic/configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml")
+    cfg.merge_from_file("/docker/Detic/configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml")
     cfg.MODEL.WEIGHTS = 'https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth'
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5 # set threshold for this model
     cfg.MODEL.ROI_BOX_HEAD.ZEROSHOT_WEIGHT_PATH = 'rand'
@@ -98,7 +98,7 @@ def custom_vocab(detic_predictor, classes):
 
 
 if __name__ == "__main__":
-    predictor = DETIC_predictor(detic_package_path="/opt/Detic")
+    predictor = DETIC_predictor(detic_package_path="/docker/Detic")
     # predictor = FasterRCNN_predictor()
     thing_classes = predictor.metadata.thing_classes
 

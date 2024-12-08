@@ -1,6 +1,4 @@
 #!/usr/bin/python3
-# Publish images from the camera to a topic
-
 import cv2
 import rospy
 from sensor_msgs.msg import Image

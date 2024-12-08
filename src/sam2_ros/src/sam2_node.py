@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-# take the image from the rostopic and run the sam2 model on it
-# and show the segmentation outputs
+#!/usr/local/bin/python3.10
 import os
 
 import rospy
@@ -15,10 +13,10 @@ from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 
 if __name__ == "__main__":
-    checkpoint = "/opt/sam2/checkpoints/sam2.1_hiera_large.pt"
+    checkpoint = "/docker/sam2/checkpoints/sam2.1_hiera_large.pt"
     if not os.path.exists(checkpoint):
         cwd = os.getcwd()
-        os.chdir("/opt/sam2/checkpoints")
+        os.chdir("/docker/sam2/checkpoints")
         os.system("./download_ckpts.sh")
         os.chdir(cwd)
     model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"
