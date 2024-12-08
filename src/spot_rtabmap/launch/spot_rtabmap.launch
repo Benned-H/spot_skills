@@ -1,7 +1,15 @@
 <launch>
     <arg name="camera0" default="frontleft" />
     <arg name="camera1" default="frontright" />
+    <arg name="localization_mode" default="false" />
+    <arg name="reload" default="false" />
 
+    <!--  should reload? -->
+    <arg name="rtabmap_args" value="--delete_db_on_start" unless="$(arg reload)" />
+    <!-- <arg name="rtabmap_args" value="" if="$(arg reload)" /> -->
+
+
+    <!-- MAIN GROUP -->
     <group ns="rtabmap">
         <!-- Use RGBD synchronization -->
         <!-- Here is a general example using a standalone nodelet, 
@@ -22,8 +30,10 @@
         </node>
 
 
+        <!-- args="delete_db_on_start" if you want to start a new map -->
         <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen"
-            args="--delete_db_on_start">
+            args="$(arg rtabmap_args)"
+        >
             <param name="frame_id" type="string" value="body" />
 
             <param name="subscribe_depth" type="bool" value="false" />
@@ -42,11 +52,26 @@
             <remap from="scan_cloud" to="/filtered_pointcloud" />
 
             <!-- navigation -->
-            <remap from="goal_out" to="/spot/go_to_pose" />
+            <remap from="goal_out" to="/move_base_simple/goal" />
 
             <!-- params -->
             <param name="queue_size" type="int" value="50" />
             <param name="approx_sync" type="bool" value="true" />
+
+            <!-- Localization mode -->
+            <param name="Mem/IncrementalMemory" type="string" value="false"
+                if="$(arg localization_mode)" />
+            <param name="Mem/ReduceGraph" type="string" value="false" if="$(arg localization_mode)" />
+            <param name="RGBD/StartAtOrigin" type="string" value="true"
+                if="$(arg localization_mode)" />
+
+            <!-- Mapping mode (i.e. not localization mode) -->
+            <param name="Mem/IncrementalMemory" type="string" value="true"
+                unless="$(arg localization_mode)" />
+            <param name="Mem/ReduceGraph" type="string" value="true"
+                unless="$(arg localization_mode)" />
+            <param name="RGBD/StartAtOrigin" type="string" value="false"
+                unless="$(arg localization_mode)" />
 
             <!-- RTAB-Map's parameters, taken from kaiyu -->
             <param name="RGBD/ProximityBySpace" type="string" value="false" />
@@ -57,6 +82,7 @@
             <param name="Vis/MinInliers" type="string" value="12" />
             <param name="Vis/MinInliers" type="string" value="12" />
             <param name="Grid/CellSize" type="string" value="0.02" />
+            <param name="Rtabmap/DetectionRate" type="string" value="5" />
         </node>
     </group>
 </launch>
