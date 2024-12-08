@@ -7,7 +7,7 @@
 ARG CUDA_VERSION=12.2.2
 
 # Enable overriding the base image for non-GPU machines (default uses GPU)
-ARG BASE_IMAGE=nvidia/cuda:${CUDA_VERSION}-base-ubuntu20.04
+ARG BASE_IMAGE=nvidia/cuda:${CUDA_VERSION}-devel-ubuntu20.04
 
 # Enable overriding the image onto which the Spot SDK is installed
 ARG INSTALL_SPOT_SDK_ONTO=ubuntu-git-py
@@ -105,20 +105,6 @@ RUN python3 -m pip install --upgrade pip && \
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
     apt-get install -y --no-install-recommends iputils-ping
-
-
-## STAGE A4: Install dependencies for segment anything
-FROM spot-sdk AS spot-sdk-sam
-# install python3.10
-RUN wget -P /opt/ https://www.python.org/ftp/python/3.10.0/Python-3.10.0.tgz && \
-    tar -xzvf /opt/Python-3.10.0.tgz -C /opt/ && \
-    cd /opt/Python-3.10.0 && ./configure && make -j$(nproc) && make altinstall && \
-    rm -rf /opt/Python-3.10.0.tgz && \
-    python3.10 -m venv /opt/venv-sam2 && \
-    /opt/venv-sam2/bin/pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
-    /opt/venv-sam2/bin/pip install --no-cache-dir opencv-python pyyaml rospkg && \
-    git clone https://github.com/facebookresearch/sam2.git /opt/sam2 && \
-    /opt/venv-sam2/bin/pip install --no-cache-dir -e /opt/sam2
 
 # Set up the entrypoint script
 COPY docker/entrypoint.sh /entrypoint.sh
