@@ -169,12 +169,12 @@ class SpotArmController:
         if self._locked:
             return ArmCommandOutcome.ARM_LOCKED
 
-        spot_arm_state = self._manager.get_arm_state()
-        self._manager.log_info(f"Spot's arm state: {spot_arm_state}\n")
+        arm_configuration = self._manager.get_arm_configuration()
+        self._manager.log_info(f"Spot's arm state: {arm_configuration}\n")
 
         command_start_angles_rad = trajectory.points[0].positions_rad
 
-        for joint_name, curr_rad in spot_arm_state.items():
+        for joint_name, curr_rad in arm_configuration.items():
             joint_idx = trajectory.joint_names.index(joint_name)
             cmd_rad = command_start_angles_rad[joint_idx]
 

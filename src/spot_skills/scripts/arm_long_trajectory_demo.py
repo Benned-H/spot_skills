@@ -95,7 +95,8 @@ def main() -> None:
     trajectory_points = [query_trajectory(t_s) for t_s in full_trajectory_times_s]
 
     # Create an "approaching" point to bring Spot's arm to the trajectory's start
-    current_arm_state = JointsPoint.from_joint_values(spot_manager.get_arm_state())
+    current_arm_config = spot_manager.get_arm_configuration()
+    current_arm_state = JointsPoint.from_configuration(current_arm_config)
     current_arm_state.time_from_start_s = 0  # Begin approach (t = 0) from where arm is
 
     # Offset the full trajectory's relative times based on the approach duration
