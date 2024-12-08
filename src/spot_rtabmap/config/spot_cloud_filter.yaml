@@ -1,0 +1,13 @@
+cloud_filter_chain:
+  - name: PassThroughFilter
+    type: point_cloud2_filters/PassThroughFilterPointCloud2
+    params:
+      active: True
+      input_frame: "sensor_origin_velodyne-point-cloud"
+      output_frame: "sensor_origin_velodyne-point-cloud"
+      keep_organized: True
+      negative: False
+      #user_filter_value: 3
+      filter_field_name: "z"
+      filter_limit_min: 0.9
+      filter_limit_max: 1.8
