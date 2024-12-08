@@ -69,7 +69,7 @@ class JointsPoint:
         return cls(point_msg.positions, point_msg.velocities, time_from_start_s)
 
     @classmethod
-    def from_joint_values(cls, joint_values: Configuration) -> Self:
+    def from_configuration(cls, joint_values: Configuration) -> Self:
         """Construct a JointsPoint from a configuration specifying joint values.
 
         :param joint_values: Map from joint names to joint values

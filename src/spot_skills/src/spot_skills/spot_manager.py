@@ -208,8 +208,8 @@ class SpotManager:
         """Check whether the Spot robot has an arm connected."""
         return self._robot.has_arm()
 
-    def get_arm_state(self) -> Configuration:
-        """Query and return the current state of Spot's arm.
+    def get_arm_configuration(self) -> Configuration:
+        """Query and return the current configuration of Spot's arm.
 
         Note: Ignores the velocities and accelerations of Spot's arm joints.
 
