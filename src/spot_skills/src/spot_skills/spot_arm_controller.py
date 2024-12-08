@@ -172,10 +172,12 @@ class SpotArmController:
         spot_arm_state = self._manager.get_arm_state()
         self._manager.log_info(f"Spot's arm state: {spot_arm_state}\n")
 
-        current_angles_rad = spot_arm_state.positions_rad
         command_start_angles_rad = trajectory.points[0].positions_rad
 
-        for curr_rad, cmd_rad in zip(current_angles_rad, command_start_angles_rad):
+        for joint_name, curr_rad in spot_arm_state.items():
+            joint_idx = trajectory.joint_names.index(joint_name)
+            cmd_rad = command_start_angles_rad[joint_idx]
+
             if abs(curr_rad - cmd_rad) > self.angle_proximity_rad:
                 self._manager.log_info(
                     "Commanded trajectory doesn't begin where Spot's arm is!",
