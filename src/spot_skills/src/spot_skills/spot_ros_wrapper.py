@@ -4,8 +4,8 @@ import rospy
 from actionlib import SimpleActionServer
 from control_msgs.msg import (
     FollowJointTrajectoryAction,
-    FollowJointTrajectoryActionGoal,
-    FollowJointTrajectoryActionResult,
+    FollowJointTrajectoryGoal,
+    FollowJointTrajectoryResult,
 )
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
@@ -116,7 +116,7 @@ class SpotROS1Wrapper:
 
         return TriggerResponse(stow_arm, message)
 
-    def arm_action_callback(self, goal: FollowJointTrajectoryActionGoal) -> None:
+    def arm_action_callback(self, goal: FollowJointTrajectoryGoal) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
 
         If Spot's arm is unlocked, trajectories sent to this server will be executed.
@@ -143,6 +143,9 @@ class SpotROS1Wrapper:
             f"{len(trajectory.points)}, lasting {traj_duration_s} seconds.",
         )
 
+        result = FollowJointTrajectoryResult()
+        result.error_code = -1  # Default error code: INVALID_GOAL
+
         # Attempt to send the trajectory using the SpotArmController
         outcome = self._arm_controller.command_trajectory(
             trajectory,
@@ -151,24 +154,23 @@ class SpotROS1Wrapper:
 
         # Update the ROS action server based on the outcome of the trajectory
         if outcome == ArmCommandOutcome.SUCCESS:
-            result = FollowJointTrajectoryActionResult(outcome, "Success!")
+            result.error_code = outcome
+            result.error_string = "Success!"
             self._arm_action_server.set_succeeded(result)
 
         elif outcome == ArmCommandOutcome.INVALID_START:
-            result = FollowJointTrajectoryActionResult(
-                -1,  # Represents INVALID_GOAL error code
-                (
-                    "Could not follow trajectory because it did not begin "
-                    "from the current configuration of Spot's arm."
-                ),
+            result.error_string = (
+                "Could not follow trajectory because it did not begin "
+                "from the current configuration of Spot's arm."
             )
+
             self._arm_action_server.set_aborted(result)
 
         elif outcome == ArmCommandOutcome.ARM_LOCKED:
-            result = FollowJointTrajectoryActionResult(
-                -1,  # Represents INVALID_GOAL error code
-                ("Could not follow trajectory because Spot's arm remains locked."),
+            result.error_string = (
+                "Could not follow trajectory because Spot's arm remains locked."
             )
+
             self._arm_action_server.set_aborted(result)
 
         elif outcome == ArmCommandOutcome.PREEMPTED:

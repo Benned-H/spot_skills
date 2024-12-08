@@ -9,7 +9,6 @@ from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import (
     LeaseClient,
     LeaseKeepAlive,
-    LeaseNotOwnedByWallet,
     LeaseWallet,
     NoSuchLease,
 )
@@ -23,7 +22,8 @@ from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from rospy import loginfo as ros_loginfo
 
-from spot_skills.joint_trajectory import JointsPoint
+from spot_skills.joint_trajectory import Configuration, JointsPoint
+from spot_skills.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
 from spot_skills.spot_sync import SpotTimeSync
 
 
@@ -208,34 +208,25 @@ class SpotManager:
         """Check whether the Spot robot has an arm connected."""
         return self._robot.has_arm()
 
-    def get_arm_state(self) -> JointsPoint:
+    def get_arm_state(self) -> Configuration:
         """Query and return the current state of Spot's arm.
 
-        :returns    Point storing the current positions/velocities of Spot's arm joints
+        Note: Ignores the velocities and accelerations of Spot's arm joints.
+
+        :returns: Configuration mapping joint names to their positions
         """
         robot_state = self._state_client.get_robot_state()
 
-        arm_joint_names_from_spot = [
-            "arm0.sh0",
-            "arm0.sh1",
-            "arm0.el0",
-            "arm0.el1",
-            "arm0.wr0",
-            "arm0.wr1",
-        ]  # Use the joint names as sent from Spot directly (differs from URDF names)
-        # See Lines 64-84 of spot_ros/spot_driver/src/spot_driver/ros_helpers.py
+        # Use the joint names as sent from Spot directly (differs from URDF names)
+        # See Lines 81-87 of spot_ros/spot_driver/src/spot_driver/ros_helpers.py
 
-        joint_positions = [float("nan")] * len(arm_joint_names_from_spot)
-        joint_velocities = [float("nan")] * len(arm_joint_names_from_spot)
-        # Note: Ignoring arm joints' accelerations
+        arm_configuration = {}
 
         for joint in robot_state.kinematic_state.joint_states:
-            if joint.name in arm_joint_names_from_spot:
-                joint_idx = arm_joint_names_from_spot.index(joint.name)
-                joint_positions[joint_idx] = joint.position.value
-                joint_velocities[joint_idx] = joint.velocity.value
+            if joint.name in SPOT_SDK_ARM_JOINT_NAMES:
+                arm_configuration[joint.name] = joint.position.value
 
-        return JointsPoint(joint_positions, joint_velocities, 0.0)
+        return arm_configuration
 
     def send_robot_command(self, command: RobotCommand) -> int:
         """Command Spot to execute the given robot command.

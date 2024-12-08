@@ -163,6 +163,12 @@ control the simulated Spot's arm. An example screenshot from the demo is shown b
 roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=<SPOT-NAME>
 ```
 
+6. In another terminal tab, run the following within Docker:
+
+```bash
+rosrun spot_skills spot_moveit_demo.py
+```
+
 ## Sample Put-Down and Grasp Poses
 
 In this demonstration, we visualize numerous randomly sampled put-down and grasping poses in RViz.

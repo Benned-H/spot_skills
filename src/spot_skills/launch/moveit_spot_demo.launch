@@ -61,7 +61,7 @@
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
         
         <!-- Launch a wrapper providing an interface to Spot for ROS and MoveIt -->
-        <node name="spot_ros_wrapper" pkg="spot_skills" type="spot_ros_wrapper.py" output="screen"/>
+        <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen"/>
 
     </group>
 
