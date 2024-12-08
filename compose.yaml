@@ -70,8 +70,6 @@ services:
     build:
       context: .
       target: noetic
-    devices:
-      - "/dev/video0:/dev/video0"
 
     volumes: # Mount this repository (a ROS workspace) into the container
       - ./docker/install_samdetic.sh:/install_samdetic.sh
