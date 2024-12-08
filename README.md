@@ -163,7 +163,7 @@ control the simulated Spot's arm. An example screenshot from the demo is shown b
 roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=<SPOT-NAME>
 ```
 
-6. Enter Docker in another terminal tab, source `devel/setup.bash`, and then run:
+6. In the second Docker terminal tab, source `devel/setup.bash`, and then run:
 
 ```bash
 rosrun spot_skills spot_moveit_demo.py
