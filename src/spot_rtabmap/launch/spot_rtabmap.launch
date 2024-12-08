@@ -13,6 +13,14 @@
             <arg name="camera1" value="$(arg camera1)" />
         </include>
 
+        <node pkg="sensor_filters" type="pointcloud2_filter_chain"
+            name="passthrough_z" output="screen">
+            <rosparam command="load"
+                file="$(find spot_rtabmap)/config/spot_cloud_filter.yaml" />
+            <remap from="~input" to="/spot/lidar/points" />
+            <remap from="~output" to="/filtered_pointcloud" />
+        </node>
+
 
         <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen"
             args="--delete_db_on_start">
@@ -31,7 +39,10 @@
 
             <!-- remapping -->
             <remap from="odom" to="/spot/odometry" />
-            <remap from="scan_cloud" to="/spot/lidar/points" />
+            <remap from="scan_cloud" to="/filtered_pointcloud" />
+
+            <!-- navigation -->
+            <remap from="goal_out" to="/spot/go_to_pose" />
 
             <!-- params -->
             <param name="queue_size" type="int" value="50" />
