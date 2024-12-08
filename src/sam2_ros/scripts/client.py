@@ -16,7 +16,7 @@ if __name__ == "__main__":
         layout = MultiArrayLayout()
         n = 1  # number of points
         layout.dim = [MultiArrayDimension("points", n, n*2),
-                    MultiArrayDimension("dim", 2, 1)]
+                      MultiArrayDimension("dim", 2, 2)]
         layout.data_offset = 0
         points.layout = layout
         points.data = [req.image.width // 2, req.image.height // 2]
