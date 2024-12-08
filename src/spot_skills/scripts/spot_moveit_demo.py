@@ -11,8 +11,10 @@ def main() -> None:
     """Set up the robot to conduct the real-world MoveIt-Spot demo."""
     rospy.init_node("spot_moveit_demo_driver")
 
-    # First, request that Spot stands up
-    trigger_service("spot/stand")
+    # First, request that Spot stands up until the service succeeds
+    stood_up = False
+    while not stood_up:
+        stood_up = trigger_service("spot/stand")
 
     # Then, permit ROS control of Spot's arm (i.e., begin executing motion plans)
     trigger_service("spot/unlock_arm")

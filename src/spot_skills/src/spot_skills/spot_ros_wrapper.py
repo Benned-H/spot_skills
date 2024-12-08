@@ -79,9 +79,10 @@ class SpotROS1Wrapper:
         :returns    Response conveying whether Spot has successfully stood up
         """
         del request_msg
-        self._manager.stand_up(20)
+        stood_up = self._manager.stand_up(20)
+        message = "Spot is now standing." if stood_up else "Spot could not stand up."
 
-        return TriggerResponse(True, "Spot is now standing.")
+        return TriggerResponse(stood_up, message)
 
     def handle_unlock_arm(self, request_msg: TriggerRequest) -> TriggerResponse:
         """Handle a service request to enable ROS control of Spot's arm.
@@ -106,15 +107,17 @@ class SpotROS1Wrapper:
         :returns    Response conveying whether Spot's arm has been stowed
         """
         del request_msg
-        stow_arm = not self._arm_locked
 
-        if stow_arm:
-            self._manager.stow_arm()
-            message = "Spot's arm has been stowed."
-        else:
+        if self._arm_locked:
             message = "Spot's arm was not stowed because Spot's arm remains locked."
+            return TriggerResponse(False, message)
 
-        return TriggerResponse(stow_arm, message)
+        success = self._manager.stow_arm()
+        message = (
+            "Spot's arm has been stowed." if success else "Could not stow Spot's arm."
+        )
+
+        return TriggerResponse(success, message)
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.

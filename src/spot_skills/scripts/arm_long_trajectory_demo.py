@@ -80,8 +80,8 @@ def main() -> None:
 
     # By now, Spot should be powered on and controllable
     spot_manager.take_control()
-    spot_manager.stand_up(20)
-    spot_manager.deploy_arm()
+    assert spot_manager.stand_up(20)
+    assert spot_manager.deploy_arm()
 
     # Compute the full trajectory to be executed on Spot's arm
     dt_s = 0.2  # Timestep (seconds)

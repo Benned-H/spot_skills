@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 
-from spot_skills.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
+from spot_skills.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES, Configuration
 from spot_skills.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
@@ -17,8 +17,6 @@ if TYPE_CHECKING:
     import trajectory_msgs.msg
     from bosdyn.api.arm_command_pb2 import ArmJointTrajectory, ArmJointTrajectoryPoint
     from bosdyn.api.robot_command_pb2 import RobotCommand
-
-    Configuration = dict[str, float]  # Maps joint names to their positions
 
 
 @dataclass
@@ -84,9 +82,6 @@ class JointsPoint:
 @dataclass
 class JointTrajectory:
     """A trajectory describing an arm's joints in phase space over time.
-
-    Note: Removed joint names, as they have not seemed essential for current goals.
-        i.e, spot_arm_joint_names = ["sh0", "sh1", "el0", "el1", "wr0", "wr1"]
 
     In a phase space representation, the velocities of the state variables are
     treated as state variables. Accelerations can be treated similarly.

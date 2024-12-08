@@ -6,12 +6,7 @@ from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.estop import EstopClient
-from bosdyn.client.lease import (
-    LeaseClient,
-    LeaseKeepAlive,
-    LeaseWallet,
-    NoSuchLease,
-)
+from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
     RobotCommandClient,
@@ -22,8 +17,7 @@ from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from rospy import loginfo as ros_loginfo
 
-from spot_skills.joint_trajectory import Configuration, JointsPoint
-from spot_skills.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
+from spot_skills.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES, Configuration
 from spot_skills.spot_sync import SpotTimeSync
 
 
@@ -117,18 +111,7 @@ class SpotManager:
         self.log_info("Logging current lease information...")
 
         list_leases = self._lease_client.list_leases()
-        self.log_info(f"List of leases: {list_leases}")
-
-        wallet: LeaseWallet = self._lease_client.lease_wallet
-
-        possible_resources = ["body", "gripper", "arm", "mobility", "fan", "full-arm"]
-
-        for resource in possible_resources:
-            try:
-                status = wallet.get_lease_state(resource).lease_status
-                self.log_info(f"Status of lease '{resource}': {status}.")
-            except NoSuchLease:
-                self.log_info(f"Couldn't get status of lease '{resource}'.")
+        self.log_info(f"List of SpotManager's leases: {list_leases}")
 
     def take_control(self, resource: str = "body") -> bool:
         """Request control of a resource from Spot and ensure Spot is powered on.
@@ -160,7 +143,7 @@ class SpotManager:
             self._robot.power_on(timeout_sec=20)
 
         # Verify that the attempted operations succeeded
-        lease_alive = self._lease_keeper is not None and self._lease_keeper.is_alive()
+        lease_alive = self.check_lease_alive()
         power_success = self._robot.is_powered_on()
 
         self.log_info("Spot powered on." if power_success else "Spot power on failed.")
@@ -168,6 +151,10 @@ class SpotManager:
         self.log_info("Exiting SpotManager.take_control()...\n")
 
         return lease_alive and power_success
+
+    def check_lease_alive(self) -> bool:
+        """Check whether the SpotManager has a live lease for Spot."""
+        return self._lease_keeper is not None and self._lease_keeper.is_alive()
 
     def log_info(self, message: str) -> None:
         """Log the given message to the Spot and ROS information logs.
@@ -216,6 +203,9 @@ class SpotManager:
         :returns: Configuration mapping joint names to their positions
         """
         robot_state = self._state_client.get_robot_state()
+        joint_states = robot_state.kinematic_state.joint_states
+        self.log_info(f"Joint states per Spot SDK: {joint_states}")
+        self.log_info(f"SPOT_SDK_ARM_JOINT_NAMES: {SPOT_SDK_ARM_JOINT_NAMES}")
 
         # Use the joint names as sent from Spot directly (differs from URDF names)
         # See Lines 81-87 of spot_ros/spot_driver/src/spot_driver/ros_helpers.py
@@ -247,13 +237,18 @@ class SpotManager:
 
         return command_id
 
-    def stand_up(self, timeout_s: float) -> None:
+    def stand_up(self, timeout_s: float) -> bool:
         """Tell Spot to stand up within the given timeout (in seconds).
 
-        :param      timeout_s       Timeout (seconds) for the blocking stand command
+        :param timeout_s: Timeout (seconds) for the blocking stand command
+        :returns: True if Spot stood up, otherwise False
         """
+        if not self.check_lease_alive():
+            return False
+
         blocking_stand(self.command_client, timeout_sec=timeout_s)
         self.log_info("Robot standing.")
+        return True
 
     def block_until_arm_arrives(self, command_id: int) -> None:
         """Block until Spot's arm arrives at the identified command's goal.
@@ -265,21 +260,35 @@ class SpotManager:
         time.sleep(0.5)
         self.log_info("Done blocking.\n")
 
-    def deploy_arm(self) -> None:
-        """Deploy Spot's arm to "ready" and wait until the arm has deployed."""
+    def deploy_arm(self) -> bool:
+        """Deploy Spot's arm to "ready" and wait until the arm has deployed.
+
+        :returns: True if Spot's arm was deployed, otherwise False
+        """
+        if not self.check_lease_alive():
+            return False
+
         self.log_info("Deploying Spot's arm to the 'ready' position...")
         arm_ready = RobotCommandBuilder.arm_ready_command()
         command_id = self.send_robot_command(arm_ready)
         self.block_until_arm_arrives(command_id)
         self.log_info("Arm is now ready.")
+        return True
 
-    def stow_arm(self) -> None:
-        """Stow Spot's arm and wait until the arm has finished stowing."""
+    def stow_arm(self) -> bool:
+        """Stow Spot's arm and wait until the arm has finished stowing.
+
+        :returns: True if Spot's arm was stowed, otherwise False
+        """
+        if not self.check_lease_alive():
+            return False
+
         self.log_info("Stowing Spot's arm...")
         arm_stow = RobotCommandBuilder.arm_stow_command()
         command_id = self.send_robot_command(arm_stow)
         self.block_until_arm_arrives(command_id)
         self.log_info("Arm is now stowed.")
+        return True
 
     def release_control(self) -> None:
         """Release control of Spot so that other clients can control Spot."""
@@ -298,7 +307,7 @@ class SpotManager:
         """Shut-down by stowing the arm, sitting, powering off, and releasing Spot."""
         self.log_info("Shutting down Spot manager...")
 
-        if self._lease_keeper is not None and self._lease_keeper.is_alive():
+        if self.check_lease_alive():
             self.stow_arm()
             self.safely_power_off()  # Send a "safe power off" command
             self.release_control()  # Return Spot's lease
