@@ -1,0 +1,19 @@
+<launch>
+    <!-- Navigation; assumes driver.launch is running with control authority -->
+    <arg name="camera0" default="frontleft" />
+    <arg name="camera1" default="frontright" />
+    <!-- <arg name="map_name" default="$(env MAP_NAME)" /> -->
+
+    <!-- localization -->
+    <include file="$(find spot_rtabmap)/launch/spot_rtabmap.launch">
+        <arg name="camera0" value="$(arg camera0)" />
+        <arg name="camera1" value="$(arg camera1)" />
+        <!-- <arg name="map_name" value="$(env MAP_NAME)" /> -->
+    </include>
+
+    <!-- move base -->
+    <include file="$(find spot_move_base)/launch/include/move_base.launch" />
+    <!-- <node pkg="rbd_spot_action" type="move_base_status.py"
+        name="move_base_status" output="screen" /> -->
+
+</launch>
