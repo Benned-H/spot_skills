@@ -8,3 +8,6 @@
 [submodule "src/point_cloud2_filters"]
 	path = src/point_cloud2_filters
 	url = https://github.com/ADVRHumanoids/point_cloud2_filters.git
+[submodule "ros_docker"]
+	path = docker/ros_docker
+	url = https://github.com/Benned-H/ros_docker
