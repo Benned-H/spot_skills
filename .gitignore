@@ -9,7 +9,3 @@ __pycache__/
 
 # Ignore secrets (e.g., passwords, robot IPs, etc.)
 secrets/
-
-# ignore pytorch save files
-*.pt
-
