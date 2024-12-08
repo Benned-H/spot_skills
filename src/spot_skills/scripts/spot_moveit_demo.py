@@ -2,6 +2,8 @@
 
 """Send ROS service requests to drive the real-robot Spot-MoveIt demo."""
 
+import time
+
 import rospy
 
 from spot_skills.ros_utilities import trigger_service
@@ -15,6 +17,7 @@ def main() -> None:
     stood_up = False
     while not stood_up:
         stood_up = trigger_service("spot/stand")
+        time.sleep(3)
 
     # Then, permit ROS control of Spot's arm (i.e., begin executing motion plans)
     trigger_service("spot/unlock_arm")
