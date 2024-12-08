@@ -8,7 +8,7 @@ from cv_bridge import CvBridge, CvBridgeError
 
 class Camera:
     def __init__(self):
-        self.pub = rospy.Publisher('camera', Image, queue_size=10)
+        self.pub = rospy.Publisher('camera', Image, queue_size=1)
         self.bridge = CvBridge()
         self.cap = cv2.VideoCapture(0)
 
@@ -21,7 +21,7 @@ class Camera:
                 print(e)
 
     def run(self):
-        rate = rospy.Rate(5)
+        rate = rospy.Rate(10)
         while not rospy.is_shutdown():
             self.publish()
             rate.sleep()
