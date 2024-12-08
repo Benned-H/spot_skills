@@ -60,8 +60,8 @@
         <!-- Launch a node to map Spot's joint states into link transforms -->
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
         
-        <!-- Launch an action server to forward MoveIt trajectories to Spot's arm -->
-        <node name="follow_joint_trajectory" pkg="spot_skills" type="spot_arm_action_server.py" output="screen" ns="spot_arm_controller"/>
+        <!-- Launch a wrapper providing an interface to Spot for ROS and MoveIt -->
+        <node name="spot_ros_wrapper" pkg="spot_skills" type="spot_ros_wrapper.py" output="screen"/>
 
     </group>
 
