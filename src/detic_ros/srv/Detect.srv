@@ -1,0 +1,5 @@
+sensor_msgs/Image image
+---
+std_msgs/UInt16MultiArray boxes
+string[] labels
+float32[] scores
