@@ -4,6 +4,7 @@
 import os
 
 import rospy
+import cv2
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from sam2_ros.srv import Segment, SegmentRequest, SegmentResponse
@@ -27,6 +28,7 @@ if __name__ == "__main__":
     def segment_callback(req: SegmentRequest):
         bridge = CvBridge()
         image = bridge.imgmsg_to_cv2(req.image, "bgr8")
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         points = None
         boxes = None
         labels = None
