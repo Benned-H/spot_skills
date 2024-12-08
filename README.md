@@ -155,7 +155,7 @@ control the simulated Spot's arm. An example screenshot from the demo is shown b
    screen), then tapping _Advanced_, and selecting **Release Control**.
    - _Check_: Are Spot's front lights now flashing rainbow?
 3. On your computer, make sure you've followed the **Docker Demo Setup** instructions above.
-   We will need one terminal tab opened into Docker.
+   We will need two terminal tabs opened into Docker.
 4. We will need to tell ROS which Spot we're using. Note the name of the Spot robot you're using (e.g., `snouter`).
 5. Now, launch the real-robot demo using the following command, replacing `<SPOT-NAME>` with your Spot's name:
 
