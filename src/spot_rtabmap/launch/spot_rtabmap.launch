@@ -21,12 +21,19 @@
             <arg name="camera1" value="$(arg camera1)" />
         </include>
 
+        <node name="point_cloud_sphere_filter" pkg="spot_rtabmap"
+            type="point_cloud_filtering.py"
+            output="screen">
+            <param name="moving_frame" value="base_link" />
+            <param name="sphere_radius" value="3.0" />
+        </node>
+
         <node pkg="sensor_filters" type="pointcloud2_filter_chain"
             name="passthrough_z" output="screen">
             <rosparam command="load"
                 file="$(find spot_rtabmap)/config/spot_cloud_filter.yaml" />
-            <remap from="~input" to="/spot/lidar/points" />
-            <remap from="~output" to="/filtered_pointcloud" />
+            <remap from="~input" to="/filtered_pointcloud_sphere" />
+            <remap from="~output" to="/filtered_pointcloud_passthrough" />
         </node>
 
 
@@ -49,7 +56,7 @@
 
             <!-- remapping -->
             <remap from="odom" to="/spot/odometry" />
-            <remap from="scan_cloud" to="/filtered_pointcloud" />
+            <remap from="scan_cloud" to="/filtered_pointcloud_passthrough" />
 
             <!-- navigation -->
             <remap from="goal_out" to="/move_base_simple/goal" />
