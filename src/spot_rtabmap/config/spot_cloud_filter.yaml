@@ -9,5 +9,5 @@ cloud_filter_chain:
       negative: False
       #user_filter_value: 3
       filter_field_name: "z"
-      filter_limit_min: 1.2
-      filter_limit_max: 2.0
+      filter_limit_min: 0.2
+      filter_limit_max: 1.8
