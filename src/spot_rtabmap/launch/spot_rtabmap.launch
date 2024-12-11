@@ -3,10 +3,11 @@
     <arg name="camera1" default="frontright" />
     <arg name="localization_mode" default="false" />
     <arg name="reload" default="false" />
+    <arg name="rtabmap_viz" default="false" />
 
     <!--  should reload? -->
-    <arg name="rtabmap_args" value="--delete_db_on_start" unless="$(arg reload)" />
-    <!-- <arg name="rtabmap_args" value="" if="$(arg reload)" /> -->
+    <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg reload)" />
+    <arg name="rtabmap_args" value="" unless="$(arg reload)" />
 
 
     <!-- MAIN GROUP -->
@@ -25,7 +26,7 @@
             type="point_cloud_filtering.py"
             output="screen">
             <param name="moving_frame" value="base_link" />
-            <param name="sphere_radius" value="3.0" />
+            <param name="sphere_radius" value="1.5" />
         </node>
 
         <node pkg="sensor_filters" type="pointcloud2_filter_chain"
@@ -56,20 +57,23 @@
 
             <!-- remapping -->
             <remap from="odom" to="/spot/odometry" />
+            <remap from="initialpose" to="/initialpose" />
+            <!-- <remap from="scan_cloud" to="/spot/lidar/points" /> -->
             <remap from="scan_cloud" to="/filtered_pointcloud_passthrough" />
 
             <!-- navigation -->
             <remap from="goal_out" to="/move_base_simple/goal" />
 
             <!-- params -->
-            <param name="queue_size" type="int" value="50" />
+            <param name="queue_size" type="int" value="100" />
             <param name="approx_sync" type="bool" value="true" />
 
             <!-- Localization mode -->
             <param name="Mem/IncrementalMemory" type="string" value="false"
                 if="$(arg localization_mode)" />
-            <param name="Mem/ReduceGraph" type="string" value="false" if="$(arg localization_mode)" />
-            <param name="RGBD/StartAtOrigin" type="string" value="true"
+            <param name="Mem/ReduceGraph" type="string" value="false"
+                if="$(arg localization_mode)" />
+            <param name="RGBD/StartAtOrigin" type="string" value="false"
                 if="$(arg localization_mode)" />
 
             <!-- Mapping mode (i.e. not localization mode) -->
@@ -77,19 +81,50 @@
                 unless="$(arg localization_mode)" />
             <param name="Mem/ReduceGraph" type="string" value="true"
                 unless="$(arg localization_mode)" />
-            <param name="RGBD/StartAtOrigin" type="string" value="false"
+            <param name="RGBD/StartAtOrigin" type="string" value="true"
                 unless="$(arg localization_mode)" />
+            <!-- <param name="Mem/InitWMWithAllNodes" type="string" value="$(arg localization_mode)"
+            /> -->
 
-            <!-- RTAB-Map's parameters, taken from kaiyu -->
-            <param name="RGBD/ProximityBySpace" type="string" value="false" />
+            <!-- RTAB-Map's parameters, taken from kaiyu and the tutorial -->
+            <param name="RGBD/ProximityBySpace" type="string" value="true" />
+            <param name="RGBD/NeighborLinkRefining" type="string" value="true" />
             <param name="RGBD/AngularUpdate" type="string" value="0.01" />
             <param name="RGBD/LinearUpdate" type="string" value="0.01" />
             <param name="RGBD/OptimizeFromGraphEnd" type="string" value="false" />
+            <!-- <param name="RGBD/OptimizeMaxError" type="string" value="0" /> -->
+            <param name="RGBD/StartAtOrigin" type="string" value="false" />
             <param name="Reg/Force3DoF" type="string" value="true" />
+            <param name="Reg/Strategy" type="string" value="1" /> <!-- 1 == ICP -->
             <param name="Vis/MinInliers" type="string" value="12" />
-            <param name="Vis/MinInliers" type="string" value="12" />
+            <param name="Vis/EstimationType" type="string" value="0" />
             <param name="Grid/CellSize" type="string" value="0.02" />
-            <param name="Rtabmap/DetectionRate" type="string" value="5" />
+            <param name="Grid/FromDepth" type="string" value="false" /><!-- occupancy grid from
+            lidar -->
+            <param name="Rtabmap/DetectionRate" type="string" value="0" />
+
+            <!-- ICP parameters -->
+            <param name="Icp/VoxelSize" type="string" value="0.05" />
+            <param name="Icp/MaxCorrespondenceDistance" type="string" value="0.1" />
+        </node>
+
+        <!-- Visualisation RTAB-Map -->
+        <node if="$(arg rtabmap_viz)" pkg="rtabmap_viz" type="rtabmap_viz" name="rtabmap_viz"
+            args="-d $(find rtabmap_demos)/launch/config/rgbd_gui.ini" output="screen">
+            <param name="subscribe_depth" type="bool" value="false" />
+            <param name="subscribe_rgbd" type="bool" value="true" />
+            <param name="subscribe_scan_cloud" type="bool" value="true" />
+            <param name="frame_id" type="string" value="body" />
+            <param name="wait_for_transform" type="bool" value="true" />
+
+            <remap from="rgb/image" to="$(arg camera0)_rgbd_image" />
+            <!-- <remap from="depth/image" to="/data_throttled_image_depth" /> -->
+            <!-- <remap from="rgb/camera_info" to="/data_throttled_camera_info" /> -->
+            <remap from="scan" to="/spot/lidar/points" />
+            <!-- <remap from="odom" to="/az3/base_controller/odom" /> -->
+
+            <param name="rgb/image_transport" type="string" value="compressed" />
+            <!-- <param name="depth/image_transport" type="string" value="compressedDepth" /> -->
         </node>
     </group>
 </launch>
