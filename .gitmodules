@@ -1,6 +1,13 @@
 [submodule "src/spot_ros"]
 	path = src/spot_ros
 	url = git@github.com:Benned-H/spot_ros.git
+[submodule "src/rtabmap_ros"]
+	path = src/rtabmap_ros
+	url = https://github.com/introlab/rtabmap_ros.git
+	branch = noetic-devel
+[submodule "src/point_cloud2_filters"]
+	path = src/point_cloud2_filters
+	url = https://github.com/ADVRHumanoids/point_cloud2_filters.git
 [submodule "ros_docker"]
 	path = docker/ros_docker
 	url = https://github.com/Benned-H/ros_docker
