@@ -22,7 +22,7 @@
             <arg name="camera1" value="$(arg camera1)" />
         </include>
 
-        <!-- <node name="point_cloud_sphere_filter" pkg="spot_rtabmap"
+        <node name="point_cloud_sphere_filter" pkg="spot_rtabmap"
             type="point_cloud_filtering.py"
             output="screen">
             <param name="moving_frame" value="base_link" />
@@ -35,7 +35,7 @@
                 file="$(find spot_rtabmap)/config/spot_cloud_filter.yaml" />
             <remap from="~input" to="/filtered_pointcloud_sphere" />
             <remap from="~output" to="/filtered_pointcloud_passthrough" />
-        </node> -->
+        </node>
 
 
         <!-- args="delete_db_on_start" if you want to start a new map -->
@@ -58,7 +58,8 @@
             <!-- remapping -->
             <remap from="odom" to="/spot/odometry" />
             <remap from="initialpose" to="/initialpose" />
-            <remap from="scan_cloud" to="/spot/lidar/points" />
+            <!-- <remap from="scan_cloud" to="/spot/lidar/points" /> -->
+            <remap from="scan_cloud" to="/filtered_pointcloud_passthrough" />
 
             <!-- navigation -->
             <remap from="goal_out" to="/move_base_simple/goal" />
