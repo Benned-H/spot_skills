@@ -1,0 +1,4 @@
+# 2D Costmap parameters; Most parameters
+# are defined specifically for local and global costmaps.
+# ---Vector footprint (Meters):---
+footprint: [[0.39,0.3],[0.39,-0.3],[-0.39,-0.3],[-0.39,0.3]]
