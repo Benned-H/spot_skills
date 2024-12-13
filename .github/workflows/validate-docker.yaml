@@ -9,7 +9,7 @@ on:
       - ".github/workflows/validate-docker.yaml"
 
 jobs:
-  Build-All-Docker-Services:
+  Build-Latest-Docker: # Verify that the most recently created Docker service successfully builds
     runs-on: ubuntu-latest
     steps:
       - run: echo "Running a job triggered by user ${{ github.actor }} on a ${{ runner.os }} server."
@@ -21,7 +21,7 @@ jobs:
       - name: List files in the repository
         run: |
           ls ${{ github.workspace }}
-      - name: Build all current Docker Compose services
+      - name: Build latest Docker Compose service
         run: |
-          docker compose build
+          docker compose build spot-tamp
       - run: echo "This job's current status is ${{ job.status }}."

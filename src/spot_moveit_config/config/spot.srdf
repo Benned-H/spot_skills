@@ -37,6 +37,13 @@ are defined
         <joint name="rear_right_hip_y" />
         <joint name="rear_right_knee" />
     </group>
+    <group name="full_robot">
+        <chain base_link="body" tip_link="arm_link_fngr" />
+        <chain base_link="body" tip_link="front_left_lower_leg" />
+        <chain base_link="body" tip_link="front_right_lower_leg" />
+        <chain base_link="body" tip_link="rear_left_lower_leg" />
+        <chain base_link="body" tip_link="rear_right_lower_leg" />
+    </group>
     <group name="arm">
         <chain base_link="body" tip_link="arm_link_wr1" />
     </group>
@@ -60,6 +67,7 @@ are defined
         <joint name="rear_right_hip_y" value="0.872665" />
         <joint name="rear_right_knee" value="-1.44862" />
     </group_state>
+
     <group_state name="arm_stowed" group="arm">
         <joint name="arm_el0" value="3.1415" />
         <joint name="arm_el1" value="0" />
@@ -68,15 +76,36 @@ are defined
         <joint name="arm_wr0" value="0" />
         <joint name="arm_wr1" value="0" />
     </group_state>
-    <!--END
-    EFFECTOR: Purpose: Represent information about an end effector.-->
+
+    <group_state name="standing_stowed" group="full_robot">
+        <joint name="front_left_hip_x" value="0" />
+        <joint name="front_left_hip_y" value="0.872665" />
+        <joint name="front_left_knee" value="-1.44862" />
+        <joint name="front_right_hip_x" value="0" />
+        <joint name="front_right_hip_y" value="0.872665" />
+        <joint name="front_right_knee" value="-1.44862" />
+        <joint name="rear_left_hip_x" value="0" />
+        <joint name="rear_left_hip_y" value="0.872665" />
+        <joint name="rear_left_knee" value="-1.44862" />
+        <joint name="rear_right_hip_x" value="0" />
+        <joint name="rear_right_hip_y" value="0.872665" />
+        <joint name="rear_right_knee" value="-1.44862" />
+        <joint name="arm_el0" value="3.1415" />
+        <joint name="arm_el1" value="0" />
+        <joint name="arm_sh0" value="0" />
+        <joint name="arm_sh1" value="-3.1415" />
+        <joint name="arm_wr0" value="0" />
+        <joint name="arm_wr1" value="0" />
+    </group_state>
+    
+    <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
     <end_effector name="gripper" parent_link="arm_link_wr1" group="end_effector" />
-    <!--VIRTUAL
-    JOINT: Purpose: this element defines a virtual joint between a robot link and an external frame
+    
+    <!--VIRTUAL JOINT: Purpose: this element defines a virtual joint between a robot link and an external frame
     of reference (considered fixed with respect to the robot)-->
     <virtual_joint name="virtual_joint" type="fixed" parent_frame="world" child_link="body" />
-    <!--DISABLE
-    COLLISIONS: By default it is assumed that any link of the robot could potentially come into
+    
+    <!--DISABLE COLLISIONS: By default it is assumed that any link of the robot could potentially come into
     collision with any other link in the robot. This tag disables collision checking between a
     specified pair of links. -->
     <disable_collisions link1="arm_link_el0" link2="arm_link_el1" reason="Adjacent" />

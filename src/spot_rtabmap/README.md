@@ -6,12 +6,21 @@ Spot has a stereo camera. Thus, it is necessary to compile a rtabmap that suppor
 
 ### Dependencies of rtabmap-ros
 
-The easiest way to get all them (Qt, PCL, VTK, OpenCV, g2o, gtsam ...) is to install _AND THEN_ uninstall rtabmap binaries:
+To install any missing ROS dependencies of `rtabmap_ros`, ensure that all submodules are up-to-date
+and then use `rosdep` to install their dependencies:
 
+```bash
+git submodule update --init --recursive
+rosdep install --from-paths src --ignore-src -y
 ```
-sudo apt install ros-$ROS_DISTRO-rtabmap*
-sudo apt remove ros-$ROS_DISTRO-rtabmap*
+
+To build the package, run `catkin build` with the `-DRTABMAP_SYNC_MULTI_RGBD` flag:
+
+```bash
+catkin build -DRTABMAP_SYNC_MULTI_RGBD=ON
 ```
+
+This ensures that RTAB-Map sync multi is on.
 
 ### Compiling Rtabmap
 
