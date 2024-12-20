@@ -32,8 +32,10 @@
             },
             "extensions": [
                 "charliermarsh.ruff",
-                "matangover.mypy",
-                "jan-dolejsi.pddl"
+                "ms-python.mypy-type-checker", // Mypy type checker provided by Microsoft
+                "jan-dolejsi.pddl",
+                "ms-python.debugpy", // Python Debugger
+                "ms-python.python" // Python language support
             ]
         }
     }
