@@ -100,6 +100,7 @@
     <disable_collisions link1="arm_link_el1" link2="arm_link_sh1" reason="Never"/>
     <disable_collisions link1="arm_link_el1" link2="arm_link_wr0" reason="Adjacent"/>
     <disable_collisions link1="arm_link_el1" link2="arm_link_wr1" reason="Never"/>
+    <disable_collisions link1="arm_link_el1" link2="arm_link_sh0" reason="Never"/>
     <disable_collisions link1="arm_link_fngr" link2="arm_link_wr0" reason="Never"/>
     <disable_collisions link1="arm_link_fngr" link2="arm_link_wr1" reason="Adjacent"/>
     <disable_collisions link1="arm_link_hr0" link2="arm_link_sh0" reason="Default"/>
