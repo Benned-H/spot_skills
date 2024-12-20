@@ -7,5 +7,5 @@ moveit_setup_assistant_config:
     relative_path: config/spot.srdf
   CONFIG:
     author_name: Benned Hedegaard
-    author_email: bhedegaa@brown.cs.edu
-    generated_timestamp: 1734654371
+    author_email: bhedegaa@cs.brown.edu
+    generated_timestamp: 1734654426
