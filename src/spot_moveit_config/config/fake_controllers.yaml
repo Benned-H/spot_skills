@@ -24,6 +24,7 @@ controller_list:
   - name: fake_arm_controller
     type: $(arg fake_execution_type)
     joints:
+      - arm_sh0
       - arm_sh1
       - arm_el0
       - arm_el1

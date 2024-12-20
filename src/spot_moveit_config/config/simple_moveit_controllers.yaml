@@ -1,17 +1,2 @@
 controller_list:
-  - name: arm_controller
-    action_ns: follow_joint_trajectory
-    type: FollowJointTrajectory
-    default: True
-    joints:
-      - arm_sh1
-      - arm_el0
-      - arm_el1
-      - arm_wr0
-      - arm_wr1
-  - name: end_effector_controller
-    action_ns: gripper_action
-    type: GripperCommand
-    default: True
-    joints:
-      - arm_f1x
+  []
