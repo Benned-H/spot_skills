@@ -1,19 +1,17 @@
 controller_list:
-  - name: spot_arm_controller
+  - name: arm_controller
     action_ns: follow_joint_trajectory
     type: FollowJointTrajectory
-    default: true # Is this the primary controller for these joints?
+    default: True
     joints:
-      - arm_sh0
       - arm_sh1
       - arm_el0
       - arm_el1
       - arm_wr0
       - arm_wr1
-  - name: gripper_controller
+  - name: end_effector_controller
     action_ns: gripper_action
     type: GripperCommand
-    default: true # Is this the primary controller for these joints?
-    parallel: false # False because Spot's gripper does not involve two joints
+    default: True
     joints:
       - arm_f1x
