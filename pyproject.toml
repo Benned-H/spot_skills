@@ -39,3 +39,13 @@ quote-style = "double"
 
 # Like Black, indent with spaces (not tabs)
 indent-style = "space"
+
+[tool.mypy]
+disallow_untyped_defs = true
+disallow_any_unimported = true
+implicit_optional = false
+check_untyped_defs = true
+warn_return_any = true
+show_error_code_links = true
+warn_unused_configs = true # Warn if any per-module sections in the config file go unused
+strict = true
