@@ -19,7 +19,8 @@
 
         <!-- If no `joints_gui`, use a joint state publisher without a GUI -->
         <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" unless="$(arg joints_gui)">
-            <rosparam param="source_list">[move_group/fake_controller_joint_states]</rosparam>
+            <!-- <rosparam param="source_list">[move_group/fake_controller_joint_states]</rosparam> -->
+            <rosparam param="source_list">[handle_robot/robot_config]</rosparam>
         </node>
 
         <!-- Otherwise, use a joint state publisher with a joint-controlling GUI -->
