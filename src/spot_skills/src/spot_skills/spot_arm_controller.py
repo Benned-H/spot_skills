@@ -240,6 +240,10 @@ class SpotArmController:
         :param target_rad: Target gripper angle (radians)
         :return: Enum indicating the outcome of the gripper command sent to Spot
         """
+        if self._locked:
+            self._manager.log_info("Rejected gripper command because Spot's arm remains locked.\n")
+            return GripperCommandOutcome.FAILURE
+
         if target_rad < -1.5707 or target_rad > 0:
             self._manager.log_info(f"Rejected gripper command requesting: {target_rad} rad.\n")
             return GripperCommandOutcome.FAILURE

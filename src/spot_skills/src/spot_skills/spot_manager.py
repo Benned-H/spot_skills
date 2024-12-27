@@ -1,7 +1,6 @@
 """Define a class to manage a sustained connection to a Spot robot."""
 
 import time
-from typing import TYPE_CHECKING
 
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
@@ -22,9 +21,6 @@ from rospy import loginfo as ros_loginfo
 from spot_skills.spot_arm_controller import GripperCommandOutcome
 from spot_skills.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES, Configuration
 from spot_skills.spot_sync import SpotTimeSync
-
-if TYPE_CHECKING:
-    from bosdyn.api.synchronized_command_pb2 import SynchronizedCommand
 
 
 class SpotManager:
@@ -273,7 +269,7 @@ class SpotManager:
 
         :param command_id: ID of a robot command for Spot's gripper
         :param timeout_s: Timeout (seconds) after which the command is considered failed
-        :return: Enum indicating the outcome of the gripper command
+        :return: Enum member indicating the outcome of the gripper command
         """
         end_time = time.time() + timeout_s
         now = time.time()
