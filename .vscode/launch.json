@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "TMP3 Debugger",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "TMP.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/src/tmp3"
+        }
+    ]
+}
