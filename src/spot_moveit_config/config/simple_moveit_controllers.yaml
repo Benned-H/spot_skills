@@ -1,5 +1,5 @@
 controller_list:
-  - name: spot_arm_controller
+  - name: arm_controller
     action_ns: follow_joint_trajectory
     type: FollowJointTrajectory
     default: true # Is this the primary controller for these joints?

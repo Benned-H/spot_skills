@@ -6,12 +6,19 @@ from control_msgs.msg import (
     FollowJointTrajectoryAction,
     FollowJointTrajectoryGoal,
     FollowJointTrajectoryResult,
+    GripperCommandAction,
+    GripperCommandGoal,
+    GripperCommandResult,
 )
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from spot_skills.joint_trajectory import JointTrajectory
 from spot_skills.ros_utilities import get_ros_params
-from spot_skills.spot_arm_controller import ArmCommandOutcome, SpotArmController
+from spot_skills.spot_arm_controller import (
+    ArmCommandOutcome,
+    GripperCommandOutcome,
+    SpotArmController,
+)
 from spot_skills.spot_manager import SpotManager
 
 
@@ -57,7 +64,7 @@ class SpotROS1Wrapper:
         )
 
         # Initialize all ROS action servers provided by the class
-        self._arm_action_name = "spot_arm_controller/follow_joint_trajectory"
+        self._arm_action_name = "arm_controller/follow_joint_trajectory"
         self._arm_action_server = SimpleActionServer(
             self._arm_action_name,
             FollowJointTrajectoryAction,
@@ -66,6 +73,16 @@ class SpotROS1Wrapper:
         )
         self._arm_action_server.start()
         rospy.loginfo(f"[{self._arm_action_name}] Action server has started.")
+
+        self._gripper_action_name = "end_effector_controller/gripper_action"
+        self._gripper_action_server = SimpleActionServer(
+            self._gripper_action_name,
+            GripperCommandAction,
+            execute_cb=self.gripper_action_callback,
+            auto_start=False,
+        )
+        self._gripper_action_server.start()
+        rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
 
     def shutdown(self) -> None:
         """Shut-down Spot's ROS wrapper by safely powering off Spot."""
@@ -113,9 +130,7 @@ class SpotROS1Wrapper:
             return TriggerResponse(False, message)
 
         success = self._manager.stow_arm()
-        message = (
-            "Spot's arm has been stowed." if success else "Could not stow Spot's arm."
-        )
+        message = "Spot's arm has been stowed." if success else "Could not stow Spot's arm."
 
         return TriggerResponse(success, message)
 
@@ -170,11 +185,33 @@ class SpotROS1Wrapper:
             self._arm_action_server.set_aborted(result)
 
         elif outcome == ArmCommandOutcome.ARM_LOCKED:
-            result.error_string = (
-                "Could not follow trajectory because Spot's arm remains locked."
-            )
+            result.error_string = "Could not follow trajectory because Spot's arm remains locked."
 
             self._arm_action_server.set_aborted(result)
 
         elif outcome == ArmCommandOutcome.PREEMPTED:
             self._arm_action_server.set_preempted()
+
+    def gripper_action_callback(self, goal: GripperCommandGoal) -> None:
+        """Handle a new goal for the GripperCommandAction action server.
+
+        If Spot's arm is unlocked, gripper commands sent to this server will be executed.
+
+        Reference: https://docs.ros.org/en/noetic/api/control_msgs/html/action/GripperCommand.html
+
+        :param goal: Gripper command to be executed
+        """
+        goal_position_rad = goal.command.position  # Ignoring goal.command.max_effort
+
+        gripper_command_result = GripperCommandResult()
+
+        outcome = self._arm_controller.command_gripper(goal_position_rad)
+
+        if outcome == GripperCommandOutcome.FAILURE:
+            gripper_command_result.reached_goal = False
+            self._gripper_action_server.set_aborted(gripper_command_result)
+        else:
+            gripper_command_result.reached_goal = outcome == GripperCommandOutcome.REACHED_SETPOINT
+            gripper_command_result.stalled = outcome == GripperCommandOutcome.STALLED
+
+            self._gripper_action_server.set_succeeded(gripper_command_result)

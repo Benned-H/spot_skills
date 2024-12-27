@@ -1,8 +1,10 @@
 """Define a class to manage a sustained connection to a Spot robot."""
 
 import time
+from typing import TYPE_CHECKING
 
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
+from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.estop import EstopClient
@@ -17,8 +19,12 @@ from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from rospy import loginfo as ros_loginfo
 
+from spot_skills.spot_arm_controller import GripperCommandOutcome
 from spot_skills.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES, Configuration
 from spot_skills.spot_sync import SpotTimeSync
+
+if TYPE_CHECKING:
+    from bosdyn.api.synchronized_command_pb2 import SynchronizedCommand
 
 
 class SpotManager:
@@ -257,6 +263,43 @@ class SpotManager:
         bd_block_arm_command(self.command_client, command_id)
         time.sleep(0.5)
         self.log_info("Done blocking.\n")
+
+    def block_during_gripper_command(
+        self,
+        command_id: int,
+        timeout_s: float = 5.0,
+    ) -> GripperCommandOutcome:
+        """Block until Spot's gripper completes the identified command (or time runs out).
+
+        :param command_id: ID of a robot command for Spot's gripper
+        :param timeout_s: Timeout (seconds) after which the command is considered failed
+        :return: Enum indicating the outcome of the gripper command
+        """
+        end_time = time.time() + timeout_s
+        now = time.time()
+
+        while now < end_time:
+            response = self.command_client.robot_command_feedback(command_id)
+            if response.feedback.HasField("synchronized_feedback"):
+                sync_fb = response.feedback.synchronized_feedback
+
+                if sync_fb.HasField("gripper_command_feedback"):
+                    gripper_status = sync_fb.gripper_command_feedback.claw_gripper_feedback.status
+
+                    # If gripper has reached its goal, or entered force control mode, success!
+                    if gripper_status == ClawGripperCommand.Feedback.STATUS_AT_GOAL:
+                        return GripperCommandOutcome.REACHED_SETPOINT
+
+                    if gripper_status == ClawGripperCommand.Feedback.STATUS_APPLYING_FORCE:
+                        return GripperCommandOutcome.STALLED
+
+                    if gripper_status == ClawGripperCommand.Feedback.STATUS_UNKNOWN:
+                        return GripperCommandOutcome.FAILURE
+
+            time.sleep(0.1)
+            now = time.time()
+
+        return GripperCommandOutcome.FAILURE
 
     def deploy_arm(self) -> bool:
         """Deploy Spot's arm to "ready" and wait until the arm has deployed.

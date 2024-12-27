@@ -1,4 +1,4 @@
-spot_arm_controller:
+arm_controller:
   type: position_controllers/JointTrajectoryController
   joints:
     - arm_sh0
