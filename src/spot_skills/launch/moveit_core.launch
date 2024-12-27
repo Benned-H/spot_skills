@@ -12,6 +12,9 @@
         <arg name="fake_execution_type" value="$(arg fake_execution_type)" />
     </include>
 
+    <!-- TODO: Update this argument when calling from TMP3 -->
+    <arg name="joint_state_source_list" default="[move_group/fake_controller_joint_states]" />
+
     <!-- When there's no real robot connected, we need to publish fake joint states
         using the joint_state_publisher node. We tell this node to listen to the
         fake MoveIt controller using its `source_list` parameter -->
@@ -19,7 +22,7 @@
 
         <!-- If no `joints_gui`, use a joint state publisher without a GUI -->
         <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" unless="$(arg joints_gui)">
-            <rosparam param="source_list">[move_group/fake_controller_joint_states]</rosparam>
+            <rosparam param="source_list" subst_value="true">$(arg joint_state_source_list)</rosparam>
         </node>
 
         <!-- Otherwise, use a joint state publisher with a joint-controlling GUI -->
