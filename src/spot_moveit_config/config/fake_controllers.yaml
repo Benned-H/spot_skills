@@ -49,6 +49,10 @@ controller_list:
       - rear_right_hip_x
       - rear_right_hip_y
       - rear_right_knee
+  - name: fake_gripper_controller
+    type: $(arg fake_execution_type)
+    joints:
+      - arm_f1x
 initial:  # Define initial robot poses per group
   - group: full_robot
     pose: standing_stowed
