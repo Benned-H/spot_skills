@@ -1,0 +1,42 @@
+{
+  "name": "Spot-TAMP-GPU Dev Container",
+  "dockerComposeFile": [
+    "../../compose.yaml"
+  ],
+  "service": "spot-tamp-gpu",
+  "runServices": [
+    "spot-tamp-gpu"
+  ],
+  "workspaceFolder": "/docker/spot_skills",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor": {
+          "rulers": [
+            100
+          ],
+          "insertSpaces": true,
+          "tabSize": 4,
+          "stickyTabStops": true,
+          "formatOnSave": true
+        },
+        "[python]": {
+          "editor": {
+            "defaultFormatter": "charliermarsh.ruff",
+            "codeActionsOnSave": {
+              "source.fixAll": "explicit",
+              "source.organizeImports": "explicit"
+            }
+          }
+        }
+      },
+      "extensions": [
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker",
+        "jan-dolejsi.pddl",
+        "ms-python.debugpy",
+        "ms-python.python"
+      ]
+    }
+  }
+}
