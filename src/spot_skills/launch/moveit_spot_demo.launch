@@ -40,6 +40,11 @@
         <arg name="joints_gui" default="false" />
     </include>
 
+    <!-- If we're running the demo in simulation, launch any simulation-specific nodes -->
+    <group unless="$(arg real_robot)">
+        <node name="fake_gripper_action_server" pkg="spot_skills" type="fake_gripper_action_server.py" output="screen"/>
+    </group>
+
     <!-- If we're running the demo on Spot, launch the necessary nodes -->
     <group if="$(arg real_robot)">
 
