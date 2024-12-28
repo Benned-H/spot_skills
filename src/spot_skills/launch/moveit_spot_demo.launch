@@ -69,6 +69,6 @@
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" />
 
     <!-- Launch the Python node that prompts MoveIt to generate motion plans -->
-    <node name="generate_moveit_plans" pkg="spot_skills" type="generate_moveit_plans.py" output="screen" />
+    <!-- <node name="generate_moveit_plans" pkg="spot_skills" type="generate_moveit_plans.py" output="screen" /> -->
 
 </launch>

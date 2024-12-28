@@ -10,10 +10,9 @@ controller_list:
       - arm_el1
       - arm_wr0
       - arm_wr1
-
   - name: gripper_controller
     action_ns: gripper_action
     type: GripperCommand
-    default: true
-    parallel: false
-    joints: arm_f1x
+    default: True
+    joints:
+      - arm_f1x
