@@ -37,5 +37,4 @@
   <!-- <run_depend>warehouse_ros_mongo</run_depend> -->
   <run_depend>spot_description</run_depend>
 
-
 </package>
