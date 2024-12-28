@@ -1,3 +1,4 @@
+# Reference: https://moveit.github.io/moveit_tutorials/doc/trac_ik/trac_ik_tutorial.html
 arm:
   kinematics_solver: trac_ik_kinematics_plugin/TRAC_IKKinematicsPlugin
   kinematics_solver_search_resolution: 0.005
