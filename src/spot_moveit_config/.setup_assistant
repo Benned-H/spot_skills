@@ -1,11 +1,11 @@
 moveit_setup_assistant_config:
   URDF:
     package: spot_description
-    relative_path: urdf/spot.urdf.xacro
-    xacro_args: arm:=true
+    relative_path: urdf/spot.urdf
+    xacro_args: ""
   SRDF:
     relative_path: config/spot.srdf
   CONFIG:
     author_name: Benned Hedegaard
     author_email: bhedegaa@cs.brown.edu
-    generated_timestamp: 1724694107
+    generated_timestamp: 1735315917
