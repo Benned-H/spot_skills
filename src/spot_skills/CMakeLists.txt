@@ -164,6 +164,7 @@ catkin_install_python(PROGRAMS
   scripts/pose_sampling_demo.py
   scripts/spot_wrapper_node.py
   scripts/spot_moveit_demo.py
+  scripts/fake_gripper_action_server.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
