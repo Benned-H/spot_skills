@@ -5,7 +5,7 @@
   <arg name="paused" default="false" doc="Start Gazebo paused"/>
   <arg name="world_name" default="worlds/empty.world" doc="Gazebo world file"/>
   <arg name="world_pose" default="-x 0 -y 0 -z 0 -R 0 -P 0 -Y 0" doc="Pose to spawn the robot at"/>
-  <arg name="initial_joint_positions" default=" -J arm_el0 3.1415 -J arm_el1 0 -J arm_sh0 0 -J arm_sh1 -3.1415 -J arm_wr0 0 -J arm_wr1 0 -J front_left_hip_x 0 -J front_left_hip_y 0.872665 -J front_left_knee -1.44862 -J front_right_hip_x 0 -J front_right_hip_y 0.872665 -J front_right_knee -1.44862 -J rear_left_hip_x 0 -J rear_left_hip_y 0.872665 -J rear_left_knee -1.44862 -J rear_right_hip_x 0 -J rear_right_hip_y 0.872665 -J rear_right_knee -1.44862" doc="Initial joint configuration of the robot"/>
+  <arg name="initial_joint_positions" default=" -J arm_el0 3.1415 -J arm_el1 0 -J arm_f1x 0 -J arm_sh0 0 -J arm_sh1 -3.1415 -J arm_wr0 0 -J arm_wr1 0 -J front_left_hip_x 0 -J front_left_hip_y 0.872665 -J front_left_knee -1.44862 -J front_right_hip_x 0 -J front_right_hip_y 0.872665 -J front_right_knee -1.44862 -J rear_left_hip_x 0 -J rear_left_hip_y 0.872665 -J rear_left_knee -1.44862 -J rear_right_hip_x 0 -J rear_right_hip_y 0.872665 -J rear_right_knee -1.44862" doc="Initial joint configuration of the robot"/>
 
   <!-- Start Gazebo paused to allow the controllers to pickup the initial pose -->
   <include file="$(find gazebo_ros)/launch/empty_world.launch" pass_all_args="true">
@@ -13,7 +13,7 @@
   </include>
 
   <!-- Set the robot urdf on the parameter server -->
-  <param name="robot_description" textfile="$(find spot_moveit_config)/config/gazebo_spot.urdf" />
+  <param name="robot_description" textfile="$(find spot_description)/urdf/spot.urdf" />
 
   <!-- Unpause the simulation after loading the robot model -->
   <arg name="unpause" value="$(eval '' if arg('paused') else '-unpause')" />
