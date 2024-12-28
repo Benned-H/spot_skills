@@ -231,7 +231,7 @@ class SpotArmController:
     def command_gripper(self, target_rad: float) -> GripperCommandOutcome:
         """Command Spot's gripper to move to the specified angle (radians).
 
-        Fully open gripper is -1.5708 radians, whereas fully closed gripper is 0 radians.
+        Fully open gripper is -1.5707 radians, whereas fully closed gripper is 0 radians.
 
         If contact is detected while closing the gripper, the default maximum torque is 5.5 Nm.
 
