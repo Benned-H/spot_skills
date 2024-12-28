@@ -31,14 +31,11 @@ def main() -> None:
     group_name = "arm"
     move_group = MoveGroupCommander(group_name, wait_for_servers=180)
 
-    use_gripper = True
-
-    if use_gripper:
-        gripper_action_name = "gripper_controller/gripper_action"
-        gripper_client = SimpleActionClient(gripper_action_name, GripperCommandAction)
-        if not gripper_client.wait_for_server(timeout=rospy.Duration.from_sec(60.0)):
-            rospy.logerr(f"Couldn't find ROS action server '{gripper_action_name}' in time!")
-            sys.exit(1)
+    gripper_action_name = "gripper_controller/gripper_action"
+    gripper_client = SimpleActionClient(gripper_action_name, GripperCommandAction)
+    if not gripper_client.wait_for_server(timeout=rospy.Duration.from_sec(60.0)):
+        rospy.logerr(f"Couldn't find ROS action server '{gripper_action_name}' in time!")
+        sys.exit(1)
 
     # Ensure that the move group expects poses in Spot's body frame
     ref_frame_before = move_group.get_pose_reference_frame()
@@ -100,16 +97,14 @@ def main() -> None:
         else:
             rospy.loginfo(f"Planning failed with error {error}!")
 
-        if use_gripper:
-            # Cycle Spot's gripper to the next target position in the list
-            gripper_goal_msg = GripperCommandGoal()
-            gripper_goal_msg.command.position = cycle_gripper_angles[target_idx]
+        # Cycle Spot's gripper to the next target position in the list
+        gripper_goal_msg = GripperCommandGoal()
+        gripper_goal_msg.command.position = cycle_gripper_angles[target_idx]
 
-            goal_state = gripper_client.send_goal_and_wait(
-                gripper_goal_msg,
-                execute_timeout=rospy.Duration.from_sec(10.0),
-            )
-            rospy.loginfo(f"Type of goal_state: {type(goal_state)}")
+        gripper_client.send_goal_and_wait(
+            gripper_goal_msg,
+            execute_timeout=rospy.Duration.from_sec(10.0),
+        )
 
         target_idx = (target_idx + 1) % len(cycle_target_poses)
 
