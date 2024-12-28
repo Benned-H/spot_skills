@@ -32,6 +32,7 @@
       },
       "extensions": [
         "charliermarsh.ruff",
+        "esbenp.prettier-vscode",
         "ms-python.mypy-type-checker",
         "jan-dolejsi.pddl",
         "ms-python.debugpy",
