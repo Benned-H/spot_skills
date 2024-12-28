@@ -37,7 +37,7 @@
     <group name="arm">
         <chain base_link="body" tip_link="arm_link_wr1"/>
     </group>
-    <group name="end_effector">
+    <group name="gripper">
         <link name="arm_link_fngr"/>
         <joint name="arm_f1x"/>
     </group>
@@ -59,18 +59,15 @@
         <link name="rear_right_upper_leg"/>
         <link name="rear_right_lower_leg"/>
     </group>
-    <group name="gripper">
-        <chain base_link="arm_link_wr0" tip_link="arm_link_fngr"/>
-    </group>
     <!--GROUP STATES: Purpose: Define a named state for a particular group, in terms of joint values. This is useful to define states like 'folded arms'-->
     <group_state name="standing_stowed" group="full_robot">
         <joint name="arm_el0" value="3.1415"/>
         <joint name="arm_el1" value="0"/>
+        <joint name="arm_f1x" value="0"/>
         <joint name="arm_sh0" value="0"/>
         <joint name="arm_sh1" value="-3.1415"/>
         <joint name="arm_wr0" value="0"/>
         <joint name="arm_wr1" value="0"/>
-        <joint name="arm_f1x" value="0"/>
         <joint name="front_left_hip_x" value="0"/>
         <joint name="front_left_hip_y" value="0.872665"/>
         <joint name="front_left_knee" value="-1.44862"/>
@@ -85,7 +82,7 @@
         <joint name="rear_right_knee" value="-1.44862"/>
     </group_state>
     <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
-    <end_effector name="gripper" parent_link="arm_link_wr1" group="end_effector" parent_group="arm"/>
+    <end_effector name="gripper" parent_link="arm_link_wr1" group="gripper" parent_group="arm"/>
     <!--DISABLE COLLISIONS: By default it is assumed that any link of the robot could potentially come into collision with any other link in the robot. This tag disables collision checking between a specified pair of links. -->
     <disable_collisions link1="arm_link_el0" link2="arm_link_el1" reason="Adjacent"/>
     <disable_collisions link1="arm_link_el0" link2="arm_link_fngr" reason="Never"/>
@@ -94,6 +91,7 @@
     <disable_collisions link1="arm_link_el0" link2="arm_link_sh1" reason="Default"/>
     <disable_collisions link1="arm_link_el0" link2="arm_link_wr0" reason="Never"/>
     <disable_collisions link1="arm_link_el0" link2="arm_link_wr1" reason="Never"/>
+    <disable_collisions link1="arm_link_el0" link2="front_left_hip" reason="Never"/>
     <disable_collisions link1="arm_link_el0" link2="front_right_hip" reason="Never"/>
     <disable_collisions link1="arm_link_el0" link2="rear_left_hip" reason="Never"/>
     <disable_collisions link1="arm_link_el0" link2="rear_left_upper_leg" reason="Never"/>
@@ -104,7 +102,6 @@
     <disable_collisions link1="arm_link_el1" link2="arm_link_sh1" reason="Never"/>
     <disable_collisions link1="arm_link_el1" link2="arm_link_wr0" reason="Adjacent"/>
     <disable_collisions link1="arm_link_el1" link2="arm_link_wr1" reason="Never"/>
-    <disable_collisions link1="arm_link_el1" link2="arm_link_sh0" reason="Never"/>
     <disable_collisions link1="arm_link_fngr" link2="arm_link_wr0" reason="Never"/>
     <disable_collisions link1="arm_link_fngr" link2="arm_link_wr1" reason="Adjacent"/>
     <disable_collisions link1="arm_link_hr0" link2="arm_link_sh0" reason="Default"/>
@@ -162,6 +159,7 @@
     <disable_collisions link1="front_left_upper_leg" link2="front_right_hip" reason="Never"/>
     <disable_collisions link1="front_left_upper_leg" link2="rear_left_hip" reason="Never"/>
     <disable_collisions link1="front_left_upper_leg" link2="rear_right_hip" reason="Never"/>
+    <disable_collisions link1="front_left_upper_leg" link2="rear_right_upper_leg" reason="Never"/>
     <disable_collisions link1="front_right_hip" link2="front_right_lower_leg" reason="Never"/>
     <disable_collisions link1="front_right_hip" link2="front_right_upper_leg" reason="Adjacent"/>
     <disable_collisions link1="front_right_hip" link2="rear_left_hip" reason="Never"/>

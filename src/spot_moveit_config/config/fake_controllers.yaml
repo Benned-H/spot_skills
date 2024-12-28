@@ -1,4 +1,26 @@
 controller_list:
+  - name: fake_full_robot_controller
+    type: $(arg fake_execution_type)
+    joints:
+      - arm_sh0
+      - arm_sh1
+      - arm_el0
+      - arm_el1
+      - arm_wr0
+      - arm_wr1
+      - arm_f1x
+      - front_left_hip_x
+      - front_left_hip_y
+      - front_left_knee
+      - front_right_hip_x
+      - front_right_hip_y
+      - front_right_knee
+      - rear_left_hip_x
+      - rear_left_hip_y
+      - rear_left_knee
+      - rear_right_hip_x
+      - rear_right_hip_y
+      - rear_right_knee
   - name: fake_arm_controller
     type: $(arg fake_execution_type)
     joints:
@@ -8,12 +30,25 @@ controller_list:
       - arm_el1
       - arm_wr0
       - arm_wr1
-
   - name: fake_gripper_controller
     type: $(arg fake_execution_type)
     joints:
       - arm_f1x
-
-initial:
+  - name: fake_body_controller
+    type: $(arg fake_execution_type)
+    joints:
+      - front_left_hip_x
+      - front_left_hip_y
+      - front_left_knee
+      - front_right_hip_x
+      - front_right_hip_y
+      - front_right_knee
+      - rear_left_hip_x
+      - rear_left_hip_y
+      - rear_left_knee
+      - rear_right_hip_x
+      - rear_right_hip_y
+      - rear_right_knee
+initial: # Define initial robot poses per group
   - group: full_robot
     pose: standing_stowed
