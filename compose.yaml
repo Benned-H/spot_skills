@@ -59,3 +59,42 @@ services:
 
     volumes: # Mount this repository (a ROS workspace) into the container
       - .:/docker/spot_skills
+
+  # Service for running TAMP experiments alongside Spot (w/o GPU)
+  spot-tamp:
+    extends: # Add config for GUIs on Ubuntu host machines
+      file: ./docker/ros_docker/compose/core-compose.yaml
+      service: base-gui-ubuntu
+
+    build: # Command:   docker compose --progress plain build spot-tamp
+      context: .
+      target: spot-tamp
+      args:
+        BASE_IMAGE: ubuntu:20.04 # Use a base image without GPU support
+        SPOT_SDK_VERSION: 4.1.0 # Specifies the Spot Python package versions
+        INSTALL_SPOT_SDK_ONTO: noetic-moveit # Install Spot SDK onto the MoveIt stage
+
+    image: bennedh/spot-skills:spot-tamp
+
+    volumes: # Mount this repository (a ROS workspace) into the container
+      - .:/docker/spot_skills
+
+  # Service for running TAMP experiments alongside Spot (w/ NVIDIA GPU)
+  spot-tamp-gpu:
+    extends: # Extend Docker service config for GUIs and NVIDIA GPU(s)
+      file: ./docker/ros_docker/compose/core-compose.yaml
+      service: base-nvidia-ubuntu
+
+    build:
+      context: .
+      target: spot-tamp
+      args:
+        SPOT_SDK_VERSION: 4.1.0 # Specifies the Spot Python package versions
+
+        # Install the Spot SDK onto the stage that has ROS 1 Noetic and MoveIt
+        INSTALL_SPOT_SDK_ONTO: noetic-moveit
+
+    image: bennedh/spot-skills:spot-tamp-gpu
+
+    volumes: # Mount this repository (a ROS workspace) into the container
+      - .:/docker/spot_skills

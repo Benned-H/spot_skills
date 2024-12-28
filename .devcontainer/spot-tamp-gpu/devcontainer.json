@@ -35,7 +35,8 @@
         "ms-python.mypy-type-checker",
         "jan-dolejsi.pddl",
         "ms-python.debugpy",
-        "ms-python.python"
+        "ms-python.python",
+        "ms-azuretools.vscode-docker"
       ]
     }
   }
