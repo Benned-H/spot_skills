@@ -39,7 +39,7 @@ class FakeGripperActionServer:
         self._wiggle_room_rad = 0.1
 
     def execute_command(self, goal: GripperCommandGoal) -> None:
-        """Simulate the execution of the given gripper command by logging its data to ROS."""
+        """Execute the given gripper command and log its data to ROS."""
         position = goal.command.position
         max_effort = goal.command.max_effort
 
@@ -56,7 +56,7 @@ class FakeGripperActionServer:
             position = self._joint_max_rad
 
         joint_goal = JointState()
-        joint_goal.name.append("arm_f1x")  # Single joint in the move group
+        joint_goal.name.append(self._gripper_joint_name)
         joint_goal.position.append(position)
 
         self._move_group.go(joint_goal, wait=True)
