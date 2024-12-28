@@ -8,4 +8,4 @@ moveit_setup_assistant_config:
   CONFIG:
     author_name: Benned Hedegaard
     author_email: bhedegaa@cs.brown.edu
-    generated_timestamp: 1735315917
+    generated_timestamp: 1735344357
