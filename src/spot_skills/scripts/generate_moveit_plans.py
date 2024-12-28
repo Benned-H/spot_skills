@@ -31,10 +31,10 @@ def main() -> None:
     group_name = "arm"
     move_group = MoveGroupCommander(group_name, wait_for_servers=180)
 
-    use_gripper = False
+    use_gripper = True
 
     if use_gripper:
-        gripper_action_name = "/end_effector_controller/gripper_action"
+        gripper_action_name = "gripper_controller/gripper_action"
         gripper_client = SimpleActionClient(gripper_action_name, GripperCommandAction)
         if not gripper_client.wait_for_server(timeout=rospy.Duration.from_sec(60.0)):
             rospy.logerr(f"Couldn't find ROS action server '{gripper_action_name}' in time!")
