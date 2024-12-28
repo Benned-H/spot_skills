@@ -12,7 +12,7 @@
         <arg name="fake_execution_type" value="$(arg fake_execution_type)" />
     </include>
 
-    <!-- TODO: Update this argument when calling from TMP3 -->
+    <!-- Enable other launch files to override where MoveIt listens for joint states -->
     <arg name="joint_state_source_list" default="[move_group/fake_controller_joint_states]" />
 
     <!-- When there's no real robot connected, we need to publish fake joint states
