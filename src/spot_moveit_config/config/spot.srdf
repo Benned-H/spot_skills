@@ -39,6 +39,7 @@
     </group>
     <group name="gripper">
         <link name="arm_link_fngr"/>
+        <link name="arm_link_wr1"/>
         <joint name="arm_f1x"/>
     </group>
     <group name="body">
