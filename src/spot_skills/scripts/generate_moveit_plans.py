@@ -5,7 +5,10 @@
 import sys
 
 import geometry_msgs.msg
+import numpy as np
 import rospy
+from actionlib.simple_action_client import SimpleActionClient
+from control_msgs.msg import GripperCommandAction, GripperCommandGoal
 from moveit_commander import MoveGroupCommander, roscpp_initialize
 
 from spot_skills.make_geometry_msgs import create_pose, stamp_pose
@@ -27,6 +30,12 @@ def main() -> None:
     # MoveGroupCommander Reference: https://tinyurl.com/move-group-commander
     group_name = "arm"
     move_group = MoveGroupCommander(group_name, wait_for_servers=180)
+
+    gripper_action_name = "gripper_controller/gripper_action"
+    gripper_client = SimpleActionClient(gripper_action_name, GripperCommandAction)
+    if not gripper_client.wait_for_server(timeout=rospy.Duration.from_sec(60.0)):
+        rospy.logerr(f"Couldn't find ROS action server '{gripper_action_name}' in time!")
+        sys.exit(1)
 
     # Ensure that the move group expects poses in Spot's body frame
     ref_frame_before = move_group.get_pose_reference_frame()
@@ -60,7 +69,8 @@ def main() -> None:
     right_ee_pose = create_pose((endpoint_x_m, -to_side_m, z_in_body_frame))
 
     cycle_target_poses = [center_ee_pose, left_ee_pose, center_ee_pose, right_ee_pose]
-    target_pose_idx = 0
+    cycle_gripper_angles = [-np.pi / 2.0, -np.pi / 4.0, -np.pi / 8.0, 0]
+    target_idx = 0
 
     rospy.loginfo(f"List of target poses to cycle through: {cycle_target_poses}")
 
@@ -70,7 +80,7 @@ def main() -> None:
     rate = rospy.Rate(switch_hz)
 
     while not rospy.is_shutdown():
-        curr_target_pose = cycle_target_poses[target_pose_idx]
+        curr_target_pose = cycle_target_poses[target_idx]
         stamped_target_pose = stamp_pose(curr_target_pose, body_frame_name)
         target_pose_publisher.publish(stamped_target_pose)
 
@@ -87,7 +97,16 @@ def main() -> None:
         else:
             rospy.loginfo(f"Planning failed with error {error}!")
 
-        target_pose_idx = (target_pose_idx + 1) % len(cycle_target_poses)
+        # Cycle Spot's gripper to the next target position in the list
+        gripper_goal_msg = GripperCommandGoal()
+        gripper_goal_msg.command.position = cycle_gripper_angles[target_idx]
+
+        gripper_client.send_goal_and_wait(
+            gripper_goal_msg,
+            execute_timeout=rospy.Duration.from_sec(10.0),
+        )
+
+        target_idx = (target_idx + 1) % len(cycle_target_poses)
 
         rate.sleep()  # Wait long enough to produce the specified rate (0.2 Hz)
 

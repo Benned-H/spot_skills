@@ -1,6 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "spot_skills"
+version = "0.0.1"
+dependencies = []
+authors = [{ name = "Benned Hedegaard", email = "bhedegaa@cs.brown.edu" }]
+description = "Motion-planning-based skills for Boston Dynamics' Spot robot."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">= 3.8"
+
+[tool.hatch.build.targets.wheel]
+packages = ["spot_skills"]
+sources = { "src/spot_skills" = "spot_skills" }
+
+[project.optional-dependencies]
+dev = ["ruff", "mypy"]
+
 [tool.ruff]
-# Use the same settings as Black
-line-length = 88
+line-length = 100
 indent-width = 4
 
 [tool.ruff.lint]
@@ -19,3 +39,13 @@ quote-style = "double"
 
 # Like Black, indent with spaces (not tabs)
 indent-style = "space"
+
+[tool.mypy]
+disallow_untyped_defs = false
+disallow_any_unimported = true
+implicit_optional = false
+check_untyped_defs = true
+warn_return_any = true
+show_error_code_links = true
+warn_unused_configs = true # Warn if any per-module sections in the config file go unused
+strict = true
