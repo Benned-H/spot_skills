@@ -3,7 +3,7 @@
 	url = git@github.com:Benned-H/spot_ros.git
 [submodule "src/rtabmap_ros"]
 	path = src/rtabmap_ros
-	url = https://github.com/introlab/rtabmap_ros.git
+	url = https://github.com/introlab/rtabmap_ros
 	branch = noetic-devel
 [submodule "ros_docker"]
 	path = docker/ros_docker
