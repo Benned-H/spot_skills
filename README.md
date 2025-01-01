@@ -146,6 +146,29 @@ control the simulated Spot's arm. An example screenshot from the demo is shown b
 
 ![Simulated Spot moving its arm to an end-effector target (shown as RGB axes).](docs/sim-moveit-spot.png "Spot's Arm Moving to an End-Effector Target")
 
+**Real Robot Version** - To run this demo using a real robot, perform the following steps:
+
+1. Use the tablet to teleoperate Spot to an open area free of obstacles.
+   Make sure there's space in front of Spot for Spot's arm to fully extend.
+2. Use the tablet to make Spot sit, which may be hidden under the _Stand_ menu. Then,
+   release tablet control of Spot by entering the _Power Button_ menu (top of the
+   screen), then tapping _Advanced_, and selecting **Release Control**.
+   - _Check_: Are Spot's front lights now flashing rainbow?
+3. On your computer, make sure you've followed the **Docker Demo Setup** instructions above.
+   We will need two terminal tabs opened into Docker.
+4. We will need to tell ROS which Spot we're using. Note the name of the Spot robot you're using (e.g., `snouter`).
+5. Now, launch the real-robot demo using the following command, replacing `<SPOT-NAME>` with your Spot's name:
+
+```bash
+roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=<SPOT-NAME>
+```
+
+6. In the second Docker terminal tab, source `devel/setup.bash`, and then run:
+
+```bash
+rosrun spot_skills spot_moveit_demo.py
+```
+
 ## Sample Put-Down and Grasp Poses
 
 In this demonstration, we visualize numerous randomly sampled put-down and grasping poses in RViz.

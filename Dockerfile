@@ -111,4 +111,11 @@ ENTRYPOINT ["/entrypoint.sh"]
 CMD ["bash"]
 
 # Finalize the default working directory for the image
-WORKDIR /docker/spot_sdk
+WORKDIR /docker/spot_skills
+
+# Stage N: Installs for TAMP experiments with Spot
+FROM spot-sdk AS spot-tamp
+
+RUN apt-get install -y \
+    ros-noetic-trac-ik-kinematics-plugin \
+    ros-noetic-trac-ik-python

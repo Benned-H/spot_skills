@@ -6,8 +6,10 @@ import time
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from bosdyn.client.robot_command import claw_gripper_open_angle_command
 from bosdyn.util import duration_to_seconds
 
+from spot_skills.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
 from spot_skills.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
@@ -25,6 +27,14 @@ class ArmCommandOutcome(Enum):
     SUCCESS = 0  # Indicates successful trajectory execution
     PREEMPTED = 1  # Indicates that the ROS action client canceled the trajectory
     ARM_LOCKED = 2  # Indicates that the ArmController cannot yet control Spot's arm
+
+
+class GripperCommandOutcome(Enum):
+    """Enumerates the possible outcomes from a gripper command to Spot."""
+
+    FAILURE = -1  # Indicates the command could not be completed
+    REACHED_SETPOINT = 0  # Indicates that the gripper reached the commanded position
+    STALLED = 1  # Indicates that the gripper is exerting max effort and not moving
 
 
 class SpotArmController:
@@ -48,6 +58,9 @@ class SpotArmController:
 
         # Define angle (radians) within which two angles are considered identical
         self.angle_proximity_rad = 0.005
+
+        # Duration (seconds) into the future by which each trajectory's start is offset
+        self._future_proof_s = 1.0
 
         # Begin with the arm controller unable to affect Spot's arm
         self._locked = True
@@ -169,13 +182,18 @@ class SpotArmController:
         if self._locked:
             return ArmCommandOutcome.ARM_LOCKED
 
-        spot_arm_state = self._manager.get_arm_state()
-        self._manager.log_info(f"Spot's arm state: {spot_arm_state}\n")
+        # SpotManager outputs joint names based on the Spot SDK's naming conventions
+        arm_configuration = self._manager.get_arm_configuration()
+        self._manager.log_info(f"Spot's arm state: {arm_configuration}\n")
 
-        current_angles_rad = spot_arm_state.positions_rad
+        # Each JointTrajectory ROS message uses joint names based on Spot's URDF
         command_start_angles_rad = trajectory.points[0].positions_rad
 
-        for curr_rad, cmd_rad in zip(current_angles_rad, command_start_angles_rad):
+        for sdk_joint, curr_rad in arm_configuration.items():
+            urdf_joint = MAP_JOINT_NAMES_SPOT_SDK_TO_URDF[sdk_joint]
+            joint_idx = trajectory.joint_names.index(urdf_joint)
+            cmd_rad = command_start_angles_rad[joint_idx]
+
             if abs(curr_rad - cmd_rad) > self.angle_proximity_rad:
                 self._manager.log_info(
                     "Commanded trajectory doesn't begin where Spot's arm is!",
@@ -185,6 +203,9 @@ class SpotArmController:
                     f"Command initial joint angle: {cmd_rad} radians.",
                 )
                 return ArmCommandOutcome.INVALID_START
+
+        new_start_timestamp = TimeStamp.from_time_s(time.time() + self._future_proof_s)
+        trajectory.reference_timestamp = new_start_timestamp
 
         robot_commands = trajectory.segment_to_robot_commands(self.max_segment_len)
 
@@ -206,3 +227,30 @@ class SpotArmController:
         self._manager.block_until_arm_arrives(self._command_id)
 
         return ArmCommandOutcome.PREEMPTED if preempted else ArmCommandOutcome.SUCCESS
+
+    def command_gripper(self, target_rad: float) -> GripperCommandOutcome:
+        """Command Spot's gripper to move to the specified angle (radians).
+
+        Fully open gripper is -1.5707 radians, whereas fully closed gripper is 0 radians.
+
+        If contact is detected while closing the gripper, the default maximum torque is 5.5 Nm.
+
+        Reference: https://dev.bostondynamics.com/_modules/bosdyn/client/robot_command#RobotCommandBuilder.claw_gripper_open_angle_command
+
+        :param target_rad: Target gripper angle (radians)
+        :return: Enum indicating the outcome of the gripper command sent to Spot
+        """
+        if self._locked:
+            self._manager.log_info("Rejected gripper command because Spot's arm remains locked.\n")
+            return GripperCommandOutcome.FAILURE
+
+        if target_rad < -1.5707 or target_rad > 0:
+            self._manager.log_info(f"Rejected gripper command requesting: {target_rad} rad.\n")
+            return GripperCommandOutcome.FAILURE
+
+        robot_command = claw_gripper_open_angle_command(target_rad)
+
+        self._command_id = self._manager.send_robot_command(robot_command)
+        self._manager.log_info("Gripper command sent.\n")
+
+        return self._manager.block_during_gripper_command(self._command_id)
