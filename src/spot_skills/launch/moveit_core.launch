@@ -1,6 +1,12 @@
 <!-- Launch the core nodes required to control a robot using MoveIt -->
 <launch>
 
+    <!-- Default planning pipeline: OMPL -->
+    <arg name="pipeline" default="ompl" />
+
+    <!-- Default: Don't provide a GUI for manual control of the robot joint states -->
+    <arg name="joints_gui" default="false" />
+
     <!-- Launch the main MoveIt executable (move_group) -->
     <include file="$(find spot_moveit_config)/launch/move_group.launch">
         <arg name="allow_trajectory_execution" value="true" />

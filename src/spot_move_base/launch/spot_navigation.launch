@@ -1,3 +1,4 @@
+<!-- Launch the nodes needed for Spot to navigate (i.e., SLAM and move_base) -->
 <launch>
     <arg name="camera0" default="frontleft" />
     <arg name="camera1" default="frontright" />

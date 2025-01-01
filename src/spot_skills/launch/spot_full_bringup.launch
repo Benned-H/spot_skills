@@ -1,0 +1,35 @@
+<!-- Launch all nodes needed to control the Spot robot (arm, navigation, SLAM, etc.) -->
+<launch>
+
+    <!-- Default: Assume Spot's name is "snouter" - To override, use all-lowercase -->
+    <arg name="spot_name" default="snouter" />
+
+    <!-- Launch BDAI's Spot ROS driver (used to publish sensor data into ROS), plus RViz -->
+    <include file="$(find spot_skills)/launch/authenticate_spot_driver.launch">
+        <arg name="spot_name" value="$(arg spot_name)" />
+
+        <!-- Load Spot's URDF/SRDF using MoveIt, not the Spot driver -->
+        <arg name="load_robot_description" value="false" />
+    </include>
+
+    <!-- Launch the nodes needed for Spot to navigate (i.e., SLAM and move_base) -->
+    <include file="$(find spot_move_base)/launch/spot_navigation.launch" />
+
+    <!-- Launch the core nodes MoveIt uses to control the robot -->
+    <include file="$(dirname)/moveit_core.launch">
+
+        <!-- Load/override the robot description (URDF) using MoveIt -->
+        <arg name="load_robot_description" value="true" />
+
+        <!-- MoveIt interfaces with the real robot using ROS controllers -->
+        <arg name="moveit_controller_manager" value="simple"/>
+
+    </include>
+
+    <!-- Launch a node to map Spot's joint states into link transforms -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+
+    <!-- Launch our Spot ROS wrapper (provides ROS actions to control Spot's arm and gripper) -->
+    <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen"/>
+
+</launch>

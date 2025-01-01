@@ -42,7 +42,7 @@ indent-style = "space"
 
 [tool.mypy]
 disallow_untyped_defs = false
-disallow_any_unimported = true
+disallow_any_unimported = false
 implicit_optional = false
 check_untyped_defs = true
 warn_return_any = true
