@@ -9,7 +9,6 @@
     <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg reload)" />
     <arg name="rtabmap_args" value="" unless="$(arg reload)" />
 
-
     <!-- MAIN GROUP -->
     <group ns="rtabmap">
         <!-- Use RGBD synchronization -->
@@ -17,14 +16,13 @@
          but it is recommended to attach this nodelet to nodelet 
          manager of the camera to avoid topic serialization -->
         <!-- RGBD sync -->
-        <include file="$(find spot_rtabmap)/launch/include/rgbd_sync_dual.launch">
+        <include file="$(find spot_rtabmap)/launch/rgbd_sync_dual.launch">
             <arg name="camera0" value="$(arg camera0)" />
             <arg name="camera1" value="$(arg camera1)" />
         </include>
 
         <node name="point_cloud_sphere_filter" pkg="spot_rtabmap"
-            type="point_cloud_filtering.py"
-            output="screen">
+            type="point_cloud_filtering.py" output="screen">
             <param name="moving_frame" value="base_link" />
             <param name="sphere_radius" value="1.5" />
         </node>
@@ -37,11 +35,9 @@
             <remap from="~output" to="/filtered_pointcloud_passthrough" />
         </node>
 
-
         <!-- args="delete_db_on_start" if you want to start a new map -->
         <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen"
-            args="$(arg rtabmap_args)"
-        >
+            args="$(arg rtabmap_args)">
             <param name="frame_id" type="string" value="body" />
 
             <param name="subscribe_depth" type="bool" value="false" />
@@ -61,7 +57,8 @@
             <!-- <remap from="scan_cloud" to="/spot/lidar/points" /> -->
             <remap from="scan_cloud" to="/filtered_pointcloud_passthrough" />
 
-            <!-- navigation -->
+            <!-- Remap ROS topics related to navigation -->
+            <remap from="goal" to="/spot/go_to_pose" />
             <remap from="goal_out" to="/move_base_simple/goal" />
 
             <!-- params -->
@@ -99,8 +96,9 @@
             <param name="Vis/MinInliers" type="string" value="12" />
             <param name="Vis/EstimationType" type="string" value="0" />
             <param name="Grid/CellSize" type="string" value="0.02" />
-            <param name="Grid/FromDepth" type="string" value="false" /><!-- occupancy grid from
-            lidar -->
+
+            <!-- occupancy grid from lidar -->
+            <param name="Grid/FromDepth" type="string" value="false" />
             <param name="Rtabmap/DetectionRate" type="string" value="0" />
 
             <!-- ICP parameters -->
