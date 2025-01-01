@@ -169,7 +169,7 @@ roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=<SPOT-
 rosrun spot_skills spot_moveit_demo.py
 ```
 
-## Sample Put-Down and Grasp Poses
+### Sample Put-Down and Grasp Poses
 
 In this demonstration, we visualize numerous randomly sampled put-down and grasping poses in RViz.
 
@@ -180,3 +180,34 @@ pip install -r src/spot_skills/requirements.txt
 source devel/setup.bash
 roslaunch spot_skills sample_poses.launch
 ```
+
+### Using `spot_move_base`
+
+The Docker container will have handled the installation of any additional dependencies.
+
+To launch `spot_move_base` and `rtabmap`, run the command:
+
+```bash
+roslaunch spot_move_base spot_navigation.launch
+```
+
+You can adjust the local planning in the following ways:
+
+- `move_base` for global and local planning - Comment out the line saying `<remap from="cmd_vel" to="/null/cmd_vel" />` in `spot_move_base/launch/move_base.launch`. This sends velocities directly to Spot, which may produce jerky motion depending on the latency.
+- `move_base` for global planning and custom Spot local controller - Start `spot_navigation.launch`, then run the following command:
+
+```bash
+rosrun spot_move_base send_traj.py
+```
+
+This node sends every 60th point in the global planner trajectory to `/spot/go_to_pose`. This can be smoother than the `move_base` method when using WiFi.
+
+### Using `spot_rtabmap`
+
+We need to compile `rtabmap` using a special flag to support multiple cameras. Therefore, we have included `rtabmap_ros` as a submodule of `spot_skills`. The Docker's entrypoint script should have already installed the dependencies of `rtabmap_ros`, so all we need to do is `catkin build` with a special flag ([source](https://github.com/introlab/rtabmap_ros/issues/453)):
+
+```bash
+catkin build rtabmap_ros -DRTABMAP_SYNC_MULTI_RGBD=ON
+```
+
+You can change the minimum/maximum height of the point cloud by editing `config/spot_cloud_filter.yaml`.
