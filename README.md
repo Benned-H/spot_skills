@@ -106,7 +106,7 @@ export SPOT_NAME=spot_name
 5. We're now ready to run the demo. In the first tab, run the command:
 
 ```bash
-roslaunch spot_skills arm_long_trajectory_demo.launch spot_name:=$SPOT_NAME
+roslaunch spot_skills authenticate_spot_driver.launch spot_name:=$SPOT_NAME
 ```
 
 That command will bring up RViz, which may initially show a bugged-out simulated Spot.
