@@ -2,25 +2,16 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Source ROS and Profile TMP.py",
+            "label": "Prepare for TMP3",
             "type": "shell",
-            "command": "/bin/bash",
-            "args": [
-                "-c",
-                "source devel/setup.bash && austin -h 10 python3 src/tmp3/TMP.py"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "problemMatcher": [
-                "$python"
-            ],
+            "command": "source devel/setup.bash && pip install -e src/tmp3",
+            "group": "build",
             "presentation": {
-                "echo": true,
                 "reveal": "always",
-                "focus": false,
-                "panel": "shared"
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
             }
-        }
+        },
     ]
 }
