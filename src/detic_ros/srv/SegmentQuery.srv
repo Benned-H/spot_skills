@@ -1,0 +1,4 @@
+sensor_msgs/Image image
+string lang_query
+---
+sensor_msgs/Image segmented_image

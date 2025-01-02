@@ -46,6 +46,7 @@ def DETIC_predictor(detic_package_path="Detic", device="cuda", vocabulary="openi
     cwd = os.getcwd()
     os.chdir(detic_package_path)
     detic_predictor = DefaultPredictor(cfg)
+    # classes = ['apple']
     if classes is None:
         metadata = default_vocab(detic_predictor, vocabulary=vocabulary)
     else:
