@@ -41,7 +41,7 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.mypy]
-disallow_untyped_defs = false
+disallow_untyped_defs = true
 disallow_any_unimported = false
 implicit_optional = false
 check_untyped_defs = true
