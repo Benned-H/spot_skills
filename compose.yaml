@@ -79,6 +79,25 @@ services:
     volumes: # Mount this repository (a ROS workspace) into the container
       - .:/docker/spot_skills
 
+  # Service for TAMP development on macOS hosts (Note: GUI may not work)
+  spot-tamp-mac:
+    extends: # Add config for macOS host machines
+      file: ./docker/ros_docker/compose/core-compose.yaml
+      service: base-gui-mac-host
+
+    build: # Command:   docker compose --progress plain build spot-tamp-mac
+      context: .
+      target: spot-tamp
+      args:
+        BASE_IMAGE: ubuntu:20.04 # Use a base image without GPU support
+        SPOT_SDK_VERSION: 4.1.0 # Specifies the Spot Python package versions
+        INSTALL_SPOT_SDK_ONTO: noetic-moveit # Install Spot SDK onto the MoveIt stage
+
+    image: bennedh/spot-skills:spot-tamp-mac
+
+    volumes: # Mount this repository (a ROS workspace) into the container
+      - .:/docker/spot_skills
+
   # Service for running TAMP experiments alongside Spot (w/ NVIDIA GPU)
   spot-tamp-gpu:
     extends: # Extend Docker service config for GUIs and NVIDIA GPU(s)
