@@ -1,11 +1,22 @@
 <!-- Launch the core nodes required to control a robot using MoveIt -->
 <launch>
 
+    <arg name="load_robot_description" />
+    <arg name="moveit_controller_manager" />
+
     <!-- Default planning pipeline: OMPL -->
     <arg name="pipeline" default="ompl" />
 
     <!-- Default: Don't provide a GUI for manual control of the robot joint states -->
     <arg name="joints_gui" default="false" />
+
+    <!-- Default not in debug mode -->
+    <arg name="debug" default="false" />
+
+    <!-- Set execution mode for fake execution controllers
+        Options: interpolate, via points, or last point
+        Reference: https://tinyurl.com/noetic-fake-controller-manager -->
+    <arg name="fake_execution_type" default="interpolate" />
 
     <!-- Launch the main MoveIt executable (move_group) -->
     <include file="$(find spot_moveit_config)/launch/move_group.launch">
