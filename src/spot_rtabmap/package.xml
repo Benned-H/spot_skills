@@ -54,6 +54,7 @@
   <depend>rtabmap_ros</depend>
   <depend>std_msgs</depend>
   <exec_depend>sensor_filters</exec_depend>
+  <exec_depend>point_cloud2_filters</exec_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

@@ -172,7 +172,7 @@ class SpotROS1Wrapper:
 
         # Update the ROS action server based on the outcome of the trajectory
         if outcome == ArmCommandOutcome.SUCCESS:
-            result.error_code = outcome
+            result.error_code = int(outcome)
             result.error_string = "Success!"
             self._arm_action_server.set_succeeded(result)
 

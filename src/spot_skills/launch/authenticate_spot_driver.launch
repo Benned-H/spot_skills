@@ -1,6 +1,8 @@
 <!-- Launch the Spot ROS driver using the provided authentication -->
 <launch>
 
+    <arg name="load_robot_description" />
+
     <!-- Default: Assume Spot's name is "snouter" - To override, use all-lowercase -->
     <arg name="spot_name" default="snouter" />
     <arg name="spot_secrets_yaml" value="$(find spot_skills)/secrets/$(arg spot_name)_rosparams.yaml" />
@@ -13,8 +15,5 @@
         <arg name="spot_secrets_yaml" value="$(arg spot_secrets_yaml)" />
         <arg name="load_robot_description" value="$(arg load_robot_description)" />
     </include>
-
-    <!-- Run Rviz using a default config file from the Spot driver -->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_viz)/rviz/robot.rviz" />
 
 </launch>
