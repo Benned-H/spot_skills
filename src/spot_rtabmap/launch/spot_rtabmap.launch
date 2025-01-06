@@ -67,7 +67,7 @@
             <param name="approx_sync" type="bool" value="true" />
 
             <!-- Localization mode -->
-            <param name="Mem/IncrementalMemory" type="string" value="false"
+            <param name="Mem/IncrementalMemory" type="string" value="true"
                 if="$(arg localization_mode)" />
             <param name="Mem/ReduceGraph" type="string" value="false"
                 if="$(arg localization_mode)" />

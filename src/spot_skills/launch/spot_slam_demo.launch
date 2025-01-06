@@ -15,10 +15,10 @@
     <!-- Launch the main launch file from spot_rtabmap in localization mode -->
     <include file="$(find spot_rtabmap)/launch/spot_rtabmap.launch">
         <arg name="localization_mode" value="true" />
-        <arg name="reload" default="false" />
+        <arg name="reload" default="true" />
     </include>
 
     <!-- Run RViz using a bringup-specific config file -->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/full_robot_bringup.rviz" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" />
 
 </launch>
