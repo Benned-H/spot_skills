@@ -16,4 +16,10 @@
         <arg name="load_robot_description" value="$(arg load_robot_description)" />
     </include>
 
+    <!-- Launch RViz if it was explicitly requested -->
+    <arg name="rviz" default="false" />
+    <group if="$(arg rviz)">
+        <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_viz)/rviz/robot.rviz" />
+    </group>
+
 </launch>
