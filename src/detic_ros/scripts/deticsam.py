@@ -32,7 +32,6 @@ if __name__ == "__main__":
         segment_req = SegmentRequest()
         segment_req.image = req.image
         segment_req.boxes = detic_response.boxes
-
         sam_respose = sam2_srv(segment_req)
         cv_bridge = CvBridge()
         image = cv_bridge.imgmsg_to_cv2(req.image, "bgra8")

@@ -1,4 +1,7 @@
 sensor_msgs/Image image
+sensor_msgs/Image depth
+sensor_msgs/CameraInfo info
 string lang_query
 ---
-sensor_msgs/Image segmented_image
+sensor_msgs/Image posed_image
+geometry_msgs/PoseStamped pose

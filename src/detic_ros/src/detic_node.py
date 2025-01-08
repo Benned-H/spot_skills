@@ -4,7 +4,7 @@ import sys
 
 import torch
 import numpy as np
-from std_msgs.msg import UInt16MultiArray, MultiArrayLayout, MultiArrayDimension
+from std_msgs.msg import UInt16MultiArray, MultiArrayLayout, MultiArrayDimension, String
 import rospy
 from cv_bridge import CvBridge
 from detic_ros.srv import Detect, DetectRequest, DetectResponse
@@ -46,7 +46,8 @@ def DETIC_predictor(detic_package_path="Detic", device="cuda", vocabulary="openi
     cwd = os.getcwd()
     os.chdir(detic_package_path)
     detic_predictor = DefaultPredictor(cfg)
-    # classes = ['apple']
+    rospy.logerr("classes are {}".format(classes))
+    # classes = ['cup']
     if classes is None:
         metadata = default_vocab(detic_predictor, vocabulary=vocabulary)
     else:
@@ -99,7 +100,9 @@ def custom_vocab(detic_predictor, classes):
 
 
 if __name__ == "__main__":
-    predictor = DETIC_predictor(detic_package_path="/docker/Detic")
+    predictor = DETIC_predictor(detic_package_path="/docker/Detic", 
+                                classes=['cup', 'apple'],
+                                )
     # predictor = FasterRCNN_predictor()
     thing_classes = predictor.metadata.thing_classes
 
@@ -112,6 +115,7 @@ if __name__ == "__main__":
         labels = outputs["instances"].pred_classes
         labels = [thing_classes[c] for c in labels]
         n = len(labels)
+        rospy.logerr(labels)
         res.labels = labels
         res.scores = outputs["instances"].scores.cpu().numpy().tolist()
         boxes = UInt16MultiArray()
@@ -124,6 +128,6 @@ if __name__ == "__main__":
         res.boxes = boxes
         return res
 
-    rospy.init_node("detic_server", anonymous=True)
+    rospy.init_node("detic_server", anonymous=True, log_level=rospy.INFO)
     service = rospy.Service("detic/query", Detect, detect_callback)
     rospy.spin()

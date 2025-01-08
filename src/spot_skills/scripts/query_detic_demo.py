@@ -18,7 +18,7 @@ def query_publisher(img, query):
 
 if __name__ == "__main__":
 
-    rospy.init_node('test')
+    rospy.init_node('test', log_level=rospy.INFO)
     msg = rospy.wait_for_message("/spot/camera/hand_color/image", Image)
     cv_bridge = CvBridge()
     image = cv_bridge.imgmsg_to_cv2(msg, "bgra8")
