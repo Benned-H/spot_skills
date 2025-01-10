@@ -8,3 +8,6 @@
 [submodule "ros_docker"]
 	path = docker/ros_docker
 	url = https://github.com/Benned-H/ros_docker
+[submodule "src/sam_6d_ros"]
+	path = src/sam_6d_ros
+	url = https://github.com/Benned-H/SAM-6D-ROS
