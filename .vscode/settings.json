@@ -1,0 +1,12 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/docker/spot_skills/devel/lib/python3/dist-packages",
+        "/moveit_ws/devel/lib/python3/dist-packages",
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/docker/spot_skills/devel/lib/python3/dist-packages",
+        "/moveit_ws/devel/lib/python3/dist-packages",
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ]
+}
