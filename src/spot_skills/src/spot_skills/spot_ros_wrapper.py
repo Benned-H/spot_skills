@@ -74,7 +74,7 @@ class SpotROS1Wrapper:
         self._arm_action_server.start()
         rospy.loginfo(f"[{self._arm_action_name}] Action server has started.")
 
-        self._gripper_action_name = "end_effector_controller/gripper_action"
+        self._gripper_action_name = "gripper_controller/gripper_action"
         self._gripper_action_server = SimpleActionServer(
             self._gripper_action_name,
             GripperCommandAction,
@@ -172,7 +172,7 @@ class SpotROS1Wrapper:
 
         # Update the ROS action server based on the outcome of the trajectory
         if outcome == ArmCommandOutcome.SUCCESS:
-            result.error_code = outcome
+            result.error_code = int(outcome)
             result.error_string = "Success!"
             self._arm_action_server.set_succeeded(result)
 

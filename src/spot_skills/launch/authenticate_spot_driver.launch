@@ -1,5 +1,7 @@
-<!-- Launch nodes to control Spot's arm through a long trajectory -->
+<!-- Launch the Spot ROS driver using the provided authentication -->
 <launch>
+
+    <arg name="load_robot_description" />
 
     <!-- Default: Assume Spot's name is "snouter" - To override, use all-lowercase -->
     <arg name="spot_name" default="snouter" />
@@ -11,9 +13,13 @@
     <!-- Launch the Spot ROS 1 driver using its primary launch file -->
     <include file="$(find spot_driver)/launch/driver.launch">
         <arg name="spot_secrets_yaml" value="$(arg spot_secrets_yaml)" />
+        <arg name="load_robot_description" value="$(arg load_robot_description)" />
     </include>
 
-    <!-- Run Rviz using a default config file from the Spot driver -->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_viz)/rviz/robot.rviz" />
+    <!-- Launch RViz if it was explicitly requested -->
+    <arg name="rviz" default="false" />
+    <group if="$(arg rviz)">
+        <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_viz)/rviz/robot.rviz" />
+    </group>
 
 </launch>
