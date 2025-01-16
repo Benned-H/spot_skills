@@ -3,9 +3,9 @@
     "dockerComposeFile": [
         "../../compose.yaml"
     ],
-    "service": "spot-tamp",
+    "service": "spot-tamp-gpu",
     "runServices": [
-        "spot-tamp"
+        "spot-tamp-gpu"
     ],
     "workspaceFolder": "/docker/spot_skills",
     "customizations": {
