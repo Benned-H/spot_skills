@@ -1,12 +1,20 @@
 """Define a class to manage a sustained connection to a Spot robot."""
 
+from __future__ import annotations
+
 import time
 
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
+from bosdyn.api.image_pb2 import ImageRequest, ImageResponse
 from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.estop import EstopClient
+from bosdyn.client.image import (
+    ImageClient,
+    UnsupportedPixelFormatRequestedError,
+    build_image_request,
+)
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
@@ -64,17 +72,18 @@ class SpotManager:
         self.resync_and_log()
 
         # Define a client that can command Spot to move
-        self.command_client = self._robot.ensure_client(
-            RobotCommandClient.default_service_name,
-        )
+        self.command_client = self._robot.ensure_client(RobotCommandClient.default_service_name)
 
         # Define a client to query the state of the robot
-        self._state_client = self._robot.ensure_client(
-            RobotStateClient.default_service_name,
-        )
+        self._state_client = self._robot.ensure_client(RobotStateClient.default_service_name)
 
         # Define a client to query Spot's e-stop status
         self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
+
+        # Define a client to request images from Spot
+        self._image_client: ImageClient = self._robot.ensure_client(
+            ImageClient.default_service_name,
+        )
 
         # Define a client to later obtain control of Spot (i.e., Spot's "lease")
         self._lease_client: LeaseClient = self._robot.ensure_client(
@@ -348,3 +357,42 @@ class SpotManager:
             self.stow_arm()
             self.safely_power_off()  # Send a "safe power off" command
             self.release_control()  # Return Spot's lease
+
+    def get_images(self, image_requests: list[ImageRequest]) -> dict[str, ImageResponse]:
+        """Request a collection of images from the robot.
+
+        Note: Adapted from get_images() in the spot_wrapper/spot_images.py file.
+
+        :param image_requests: List of images requested from the robot
+        :return: Dictionary mapping camera names (str) to image responses
+        """
+        try:
+            image_responses = self._image_client.get_image(image_requests)
+        except UnsupportedPixelFormatRequestedError as exc:
+            self.log_info(f"Error in SpotManager: {exc}")
+            return {}
+
+        return {response.source.name: response for response in image_responses}
+
+    def make_image_request(self, camera_name: str, quality_pct: int) -> ImageRequest:
+        """Build an image request to be sent to Spot.
+
+        :param camera_name: Name of the camera to be used to capture the image
+        :param quality_pct: Image quality from 0 to 100 (percent)
+        :return: Image request protobuf message
+        """
+        request = build_image_request(camera_name)
+
+
+# Args:
+#     image_source_name (string): The image source to query.
+#     quality_percent (int): The image quality from [0,100] (percent-value).
+#     image_format (image_pb2.Image.Format): The type of format for the image
+#                                            data, such as JPEG, RAW, or RLE.
+#     pixel_format (image_pb2.Image.PixelFormat) The pixel format of the image.
+#     resize_ratio (double): Resize ratio for image dimensions. fallback_formats (image_pb2.Image.PixelFormat) Fallback pixel formats to use if the pixel_format is invalid.
+
+# Returns:
+#     The ImageRequest protobuf message for the given parameters.
+
+# build_image_request
