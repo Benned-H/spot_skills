@@ -11,25 +11,36 @@
   "customizations": {
     "vscode": {
       "settings": {
-        "editor": {
-          "rulers": [
-            100
-          ],
-          "insertSpaces": true,
-          "tabSize": 4,
-          "stickyTabStops": true,
-          "formatOnSave": true
+        "editor.rulers": [
+          80,
+          100
+        ],
+        "editor.insertSpaces": true,
+        "editor.tabSize": 4,
+        "editor.stickyTabStops": true,
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "[json]": {
+          "editor.defaultFormatter": "vscode.json-language-features"
+        },
+        "[jsonc]": {
+          "editor.defaultFormatter": "vscode.json-language-features"
         },
         "[python]": {
-          "editor": {
-            "defaultFormatter": "charliermarsh.ruff",
-            "codeActionsOnSave": {
-              "source.fixAll": "explicit",
-              "source.organizeImports": "explicit"
-            }
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.organizeImports": "explicit"
           }
         },
-        "autoDocstring.docstringFormat": "sphinx-notypes"
+        "autoDocstring.docstringFormat": "sphinx-notypes",
+        "notebook.codeActionsOnSave": {
+          "notebook.source.fixAll": "explicit",
+          "notebook.source.organizeImports": "explicit"
+        },
+        "[toml]": {
+          "editor.defaultFormatter": "tamasfe.even-better-toml"
+        }
       },
       "extensions": [
         "charliermarsh.ruff",
@@ -40,8 +51,7 @@
         "ms-python.mypy-type-checker",
         "ms-python.python",
         "njpwerner.autodocstring",
-        "tamasfe.even-better-toml",
-        "usernamehw.errorlens"
+        "tamasfe.even-better-toml"
       ]
     }
   }
