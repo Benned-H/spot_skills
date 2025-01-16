@@ -81,7 +81,7 @@ services:
 
   # Service for TAMP + Spot development (on macOS hosts)
   spot-tamp-mac:
-    extends: # Add config for GUIs on Ubuntu host machines
+    extends: # Add config for GUIs on macOS host machines
       file: ./docker/ros_docker/compose/core-compose.yaml
       service: base-gui-mac-host
 
