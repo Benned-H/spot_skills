@@ -28,16 +28,20 @@
               "source.organizeImports": "explicit"
             }
           }
-        }
+        },
+        "autoDocstring.docstringFormat": "sphinx-notypes"
       },
       "extensions": [
         "charliermarsh.ruff",
         "esbenp.prettier-vscode",
-        "ms-python.mypy-type-checker",
-        "jan-dolejsi.pddl",
+        "Gruntfuggly.todo-tree",
+        "ms-azuretools.vscode-docker",
         "ms-python.debugpy",
+        "ms-python.mypy-type-checker",
         "ms-python.python",
-        "ms-azuretools.vscode-docker"
+        "njpwerner.autodocstring",
+        "tamasfe.even-better-toml",
+        "usernamehw.errorlens"
       ]
     }
   }
