@@ -1,11 +1,11 @@
 {
-    "name": "Spot-TAMP-GPU Dev Container",
+    "name": "Spot-TAMP-macOS Dev Container",
     "dockerComposeFile": [
         "../../compose.yaml"
     ],
-    "service": "spot-tamp-gpu",
+    "service": "spot-tamp-mac",
     "runServices": [
-        "spot-tamp-gpu"
+        "spot-tamp-mac"
     ],
     "workspaceFolder": "/docker/spot_skills",
     "customizations": {
