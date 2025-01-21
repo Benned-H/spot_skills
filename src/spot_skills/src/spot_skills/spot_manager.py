@@ -5,7 +5,8 @@ import typing
 
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
-from bosdyn.api.robot_command_pb2 import RobotCommand, MobilityParams
+from bosdyn.api.robot_command_pb2 import RobotCommand
+from bosdyn.api.spot.robot_command_pb2 import MobilityParams
 from bosdyn.client import frame_helpers
 from bosdyn.client import math_helpers
 from bosdyn.client import create_standard_sdk
