@@ -278,45 +278,56 @@ class SpotManager:
         self.last_trajectory_command_precise = precise_position
         self.log_info("got command duration of {}".format(cmd_duration))
         end_time = time.time() + cmd_duration
-        if frame_name == "vision":
-            vision_tform_body = frame_helpers.get_vision_tform_body(
-                self._state_client.get_robot_state().kinematic_state.transforms_snapshot
-            )
-            body_tform_goal = math_helpers.SE3Pose(
-                x=goal_x, y=goal_y, z=0, rot=math_helpers.Quat.from_yaw(goal_heading)
-            )
-            vision_tform_goal = vision_tform_body * body_tform_goal
-            response = self.send_robot_command(
-                RobotCommandBuilder.synchro_se2_trajectory_point_command(
-                    goal_x=vision_tform_goal.x,
-                    goal_y=vision_tform_goal.y,
-                    goal_heading=vision_tform_goal.rot.to_yaw(),
-                    frame_name=frame_helpers.VISION_FRAME_NAME,
-                    params=mobility_params,
+        error = None
+        try:
+            if frame_name == "vision":
+                vision_tform_body = frame_helpers.get_vision_tform_body(
+                    self._state_client.get_robot_state().kinematic_state.transforms_snapshot
                 )
-            )
-        elif frame_name == "odom":
-            odom_tform_body = frame_helpers.get_odom_tform_body(
-                self._state_client.get_robot_state().kinematic_state.transforms_snapshot
-            )
-            body_tform_goal = math_helpers.SE3Pose(
-                x=goal_x, y=goal_y, z=0, rot=math_helpers.Quat.from_yaw(goal_heading)
-            )
-            odom_tform_goal = odom_tform_body * body_tform_goal
-            response = self.send_robot_command(
-                RobotCommandBuilder.synchro_se2_trajectory_point_command(
-                    goal_x=odom_tform_goal.x,
-                    goal_y=odom_tform_goal.y,
-                    goal_heading=odom_tform_goal.rot.to_yaw(),
-                    frame_name=frame_helpers.ODOM_FRAME_NAME,
-                    params=mobility_params,
+                body_tform_goal = math_helpers.SE3Pose(
+                    x=goal_x, y=goal_y, z=0, rot=math_helpers.Quat.from_yaw(goal_heading)
                 )
-            )
-        else:
-            raise ValueError("frame_name must be 'vision' or 'odom'")
-        if response[0]:
-            self.last_trajectory_command = response[2]
-        return response[0], response[1]
+                vision_tform_goal = vision_tform_body * body_tform_goal
+                cmd_id = self.send_robot_command(
+                    RobotCommandBuilder.synchro_se2_trajectory_point_command(
+                        goal_x=vision_tform_goal.x,
+                        goal_y=vision_tform_goal.y,
+                        goal_heading=vision_tform_goal.rot.to_yaw(),
+                        frame_name=frame_helpers.VISION_FRAME_NAME,
+                        params=mobility_params,
+                    )
+                )
+                success = True
+            elif frame_name == "odom":
+                odom_tform_body = frame_helpers.get_odom_tform_body(
+                    self._state_client.get_robot_state().kinematic_state.transforms_snapshot
+                )
+                body_tform_goal = math_helpers.SE3Pose(
+                    x=goal_x, y=goal_y, z=0, rot=math_helpers.Quat.from_yaw(goal_heading)
+                )
+                odom_tform_goal = odom_tform_body * body_tform_goal
+                cmd_id = self.send_robot_command(
+                    RobotCommandBuilder.synchro_se2_trajectory_point_command(
+                        goal_x=odom_tform_goal.x,
+                        goal_y=odom_tform_goal.y,
+                        goal_heading=odom_tform_goal.rot.to_yaw(),
+                        frame_name=frame_helpers.ODOM_FRAME_NAME,
+                        params=mobility_params,
+                    )
+                )
+                success = True
+            else:
+                raise ValueError("frame_name must be 'vision' or 'odom'")
+        except Exception as e:
+            success = False
+            error = e
+        
+        if success:
+            print("success")
+            self.last_trajectory_command = cmd_id
+        
+        
+        return success, "Success" if success else str(error)
 
 
     def stand_up(self, timeout_s: float) -> bool:

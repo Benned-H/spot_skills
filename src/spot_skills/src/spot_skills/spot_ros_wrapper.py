@@ -13,6 +13,7 @@ from control_msgs.msg import (
 from geometry_msgs.msg import PoseStamped
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 from bosdyn.client import math_helpers
+import tf2_geometry_msgs
 import tf2_ros
 
 from spot_skills.joint_trajectory import JointTrajectory
@@ -66,8 +67,8 @@ class SpotROS1Wrapper:
             self.handle_stow_arm,
         )
 
-        self._go_to_service = rospy.Service(
-            "spot/go_to_pose",
+        self._go_to_topic = rospy.Subscriber(
+            "spot/go_to_pose2",
             PoseStamped,
             self.trajectory_callback
         )
@@ -115,6 +116,7 @@ class SpotROS1Wrapper:
             or the original pose if it is in the body frame.
 
         """
+        print("Lookup transform on frameid:", pose.header.frame_id)
         if pose.header.frame_id == "body":
             return pose
 
@@ -123,6 +125,7 @@ class SpotROS1Wrapper:
             pose.header.frame_id,
             rospy.Time(),
         )
+        print("movement:", body_to_fixed)
 
         pose_in_body = tf2_geometry_msgs.do_transform_pose(pose, body_to_fixed)
         pose_in_body.header.frame_id = "body"

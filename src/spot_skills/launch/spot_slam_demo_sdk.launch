@@ -5,6 +5,7 @@
     <arg name="spot_name" default="snouter" />
     <arg name="spot_secrets_yaml" value="$(find spot_skills)/secrets/$(arg spot_name)_rosparams.yaml" />
     <arg name="real_robot" default="true" />
+    <param name="robot_description" command="$(find xacro)/xacro '$(find spot_description)/urdf/spot.urdf.xacro'" />
 
     <!-- Launch BDAI's Spot ROS driver (used to publish sensor data into ROS) -->
     <!-- <include file="$(find spot_skills)/launch/authenticate_spot_driver.launch">
@@ -14,10 +15,6 @@
 
     <!-- If we're running the demo on Spot, launch the necessary nodes -->
     <group if="$(arg real_robot)">
-
-        <!-- Default: Assume Spot's name is "snouter" - Override using all-lowercase -->
-        <!-- <arg name="spot_name" default="snouter" /> -->
-        
         <!-- Load the username, password, and IP used to connect to Spot -->
         <rosparam command="load" file="$(arg spot_secrets_yaml)" ns="spot" />
         
@@ -37,10 +34,10 @@
     </group>
 
     <!-- Launch the main launch file from spot_rtabmap in localization mode -->
-    <!-- <include file="$(find spot_rtabmap)/launch/spot_rtabmap.launch">
-        <arg name="localization_mode" value="true" />
+    <include file="$(find spot_rtabmap)/launch/spot_rtabmap.launch">
+        <arg name="localization_mode" value="false" />
         <arg name="reload" default="true" />
-    </include> -->
+    </include>
 
     <!-- Run RViz using a bringup-specific config file -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" />
