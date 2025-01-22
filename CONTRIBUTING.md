@@ -45,7 +45,7 @@ Whenever you begin a new task for the project, create a branch on GitHub to trac
   git checkout -b <branch-name>
   ```
 
-  Name the branch descriptively (e.g. `edit-urdf`).
+  Name the branch descriptively but concisely (e.g. `edit-urdf`).
 
 ### 3. Push Early and Create a Draft Pull Request
 
