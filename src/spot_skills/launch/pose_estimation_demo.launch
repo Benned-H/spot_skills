@@ -4,9 +4,6 @@
     <!-- Which camera should be used for pose estimation? -->
     <param name="spot/pose_estimation_camera" type="str", value="frontright"/>
 
-    <!-- Load the username, password, and IP used to connect to Spot -->
-    <rosparam command="load" file="$(arg spot_secrets_yaml)" ns="spot" />
-
     <!-- Launch and authenticate with the Spot ROS driver -->
     <include file="$(find spot_skills)/launch/authenticate_spot_driver.launch">
         <arg name="load_robot_description" value="true" />
