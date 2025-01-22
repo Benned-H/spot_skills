@@ -4,6 +4,10 @@
     <arg name="localization_mode" default="false" />
     <arg name="reload" default="false" />
     <arg name="rtabmap_viz" default="false" />
+    <arg name="use_custom_spot_driver" default="false" />
+
+    <arg name="in_pose_topic" value="/spot/go_to_pose2" if="$(arg use_custom_spot_driver)"/>
+    <arg name="in_pose_topic" value="/spot/go_to_pose" unless="$(arg use_custom_spot_driver)"/>
 
     <!--  should reload? -->
     <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg reload)" />
@@ -60,7 +64,7 @@
             <remap from="scan_cloud" to="/filtered_pointcloud_passthrough" />
 
             <!-- Remap ROS topics related to navigation -->
-            <remap from="goal" to="/spot/go_to_pose" />
+            <remap from="goal" to="$(arg in_pose_topic)" />
             <remap from="goal_out" to="/move_base_simple/goal" />
 
             <!-- params -->

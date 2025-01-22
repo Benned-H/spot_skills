@@ -225,7 +225,7 @@ class SpotManager:
 
         return arm_configuration
 
-    def send_robot_command(self, command: RobotCommand) -> int:
+    def send_robot_command(self, command: RobotCommand, end_time_secs=None) -> int:
         """Command Spot to execute the given robot command.
 
         Note: The RobotCommandClient.robot_command() method will automatically update
@@ -238,6 +238,7 @@ class SpotManager:
         # Issue a command to the robot synchronously (blocks until done sending)
         command_id: int = self.command_client.robot_command(
             command,
+            end_time_secs=end_time_secs,
             timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
         )
         self.log_info(f"Issued robot command with ID: {command_id}")
@@ -295,7 +296,8 @@ class SpotManager:
                         goal_heading=vision_tform_goal.rot.to_yaw(),
                         frame_name=frame_helpers.VISION_FRAME_NAME,
                         params=mobility_params,
-                    )
+                    ),
+                    end_time_secs=end_time
                 )
                 success = True
             elif frame_name == "odom":
@@ -313,7 +315,8 @@ class SpotManager:
                         goal_heading=odom_tform_goal.rot.to_yaw(),
                         frame_name=frame_helpers.ODOM_FRAME_NAME,
                         params=mobility_params,
-                    )
+                    ),
+                    end_time_secs=end_time
                 )
                 success = True
             else:
@@ -321,12 +324,18 @@ class SpotManager:
         except Exception as e:
             success = False
             error = e
+            print("Error:", e)
         
         if success:
             print("success")
             self.last_trajectory_command = cmd_id
         
-        
+            # for i in range(10):
+            #     print(self.command_client.robot_command_feedback(cmd_id, timeout=1))
+            #     time.sleep(0.1)
+            #     for j in range(5):
+            #         print()
+
         return success, "Success" if success else str(error)
 
 

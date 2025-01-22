@@ -116,7 +116,6 @@ class SpotROS1Wrapper:
             or the original pose if it is in the body frame.
 
         """
-        print("Lookup transform on frameid:", pose.header.frame_id)
         if pose.header.frame_id == "body":
             return pose
 
@@ -125,8 +124,6 @@ class SpotROS1Wrapper:
             pose.header.frame_id,
             rospy.Time(),
         )
-        print("movement:", body_to_fixed)
-
         pose_in_body = tf2_geometry_msgs.do_transform_pose(pose, body_to_fixed)
         pose_in_body.header.frame_id = "body"
 
@@ -185,7 +182,7 @@ class SpotROS1Wrapper:
         try:
             self._send_trajectory_command(
                 self._transform_pose_to_body_frame(msg),
-                rospy.Duration(5),
+                rospy.Duration(10),
             )
         except tf2_ros.LookupException as e:
             rospy.logerr(str(e))
