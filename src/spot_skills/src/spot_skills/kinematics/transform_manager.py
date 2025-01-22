@@ -85,7 +85,7 @@ class TransformManager:
             Target frame (t)
 
         Say our input data originates in the source frame: pose_s_d ("data in the source frame").
-        This method outputs transform_t_s, so that a user could compute:
+        This method outputs transform_t_s ("source relative to target"), which lets us compute:
 
             transform_t_s @ pose_s_d = pose_t_d ("data in the target frame")
 
@@ -106,7 +106,7 @@ class TransformManager:
                 )
                 break
             except TransformException as t_exc:
-                rospy.logwarn(f"[lookup_transform] {t_exc}")
+                rospy.logwarn(f"[TransformManager.lookup_transform] {t_exc}")
                 rate_hz.sleep()
 
         pose_t_s = pose_from_tf_stamped_msg(transform_msg)
@@ -126,8 +126,8 @@ class TransformManager:
             Current reference frame (c)
             New reference frame (n)
 
-        Input: pose_c_p
-        Output: pose_n_p
+        Input: pose_c_p (pose w.r.t. current frame)
+        Output: pose_n_p (pose w.r.t. new frame)
 
         :param pose: 3D pose w.r.t. some reference frame
         :param new_frame: Reference frame of the returned pose
@@ -147,12 +147,11 @@ class TransformManager:
         """Broadcast the subframes of the given moveit_msgs/CollisionObject message."""
         assert len(obj_msg.subframe_names) == len(obj_msg.subframe_poses)
 
-        obj_id = obj_msg.id
         for sf_name, sf_pose in zip(obj_msg.subframe_names, obj_msg.subframe_poses):
             subframe_tf = TransformStamped()
             subframe_tf.header.stamp = rospy.Time.now()
-            subframe_tf.header.frame_id = obj_id  # Subframe is w.r.t. object
-            subframe_tf.child_frame_id = f"{obj_id}/{sf_name}"
+            subframe_tf.header.frame_id = obj_msg.id  # Subframe is w.r.t. object
+            subframe_tf.child_frame_id = f"{obj_msg.id}/{sf_name}"
             subframe_tf.transform = pose_msg_to_tf_msg(sf_pose)
 
             TransformManager.tf_broadcaster().sendTransform(subframe_tf)

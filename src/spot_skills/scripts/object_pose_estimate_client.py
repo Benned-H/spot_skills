@@ -1,12 +1,14 @@
 """Define a ROS node providing a client for the DetectObjectPose service."""
 
+from __future__ import annotations
+
 import rospy
 
 from object_detection_msgs.srv import DetectObjectPose, DetectObjectRequest, DetectObjectResponse
 from spot_skills.kinematics.kinematics import DEFAULT_FRAME
 from spot_skills.kinematics.kinematics_ros import pose_from_msg
 from spot_skills.kinematics.transform_manager import TransformManager
-from spot_skills.ros_utilities import get_ros_params
+from spot_skills.ros_utilities import get_ros_param
 from spot_skills.srv import GetPairedRGBD, GetPairedRGBDRequest, GetPairedRGBDResponse
 
 
@@ -18,7 +20,7 @@ class PoseEstimateClient:
         pose_service_name: str = "/detect_object_pose",
         image_service_name: str = "/spot/get_paired_rgbd",
     ) -> None:
-        """Initialize the service client with the relevant topic name.
+        """Initialize the service client with the relevant topic names.
 
         :param pose_service_name: Name of the pose estimation ROS service
         :param image_service_name: Name of the ROS service used to capture RGBD image pairs
@@ -31,12 +33,10 @@ class PoseEstimateClient:
         self.image_service_name = image_service_name
         self._image_service_caller = rospy.ServiceProxy(image_service_name, GetPairedRGBD)
 
-        # Find which camera to use for pose estimation from ROS params
-        camera_rosparam = ["/spot/pose_estimation_camera"]
-        self.camera_name: str = get_ros_params(camera_rosparam)[0]
+        # Find which camera to use for pose estimation, and the known objects list, from ROS params
+        self.camera_name: str = get_ros_param("/spot/pose_estimation_camera")
+        self._objects: list[str] = get_ros_param("known_objects")
 
-        # TODO: Populate these from somewhere
-        self._objects = ["expo_spray", "solo_cup"]
         self._next_obj_idx = 0
 
     def next_object(self) -> str:
@@ -68,11 +68,11 @@ class PoseEstimateClient:
         except rospy.ServiceException as exc:
             rospy.logerr(f"[{self.image_service_name}] Could not call service: {exc}")
         else:
-            rospy.loginfo(f"[{self.image_service_name}] Service response: {response}")
+            rospy.loginfo(f"[{self.image_service_name}] Successful response: {response}")
             return response
 
     def call_pose_estimation(self, rgbd_pair: GetPairedRGBDResponse) -> None:
-        """Call the pose estimation service using the given RGB/depth image pair.
+        """Call the pose estimation service using the given RGB and depth image pair.
 
         :param rgbd_pair: Paired RGB and depth images with corresponding camera info
         """
@@ -89,7 +89,7 @@ class PoseEstimateClient:
         except rospy.ServiceException as exc:
             rospy.logerr(f"[{self.pose_service_name}] Could not call service: {exc}")
         else:
-            rospy.loginfo(f"[{self.pose_service_name}] Service response: {response}")
+            rospy.loginfo(f"[{self.pose_service_name}] Successful response: {response}")
 
             if not response.object_found:
                 return
@@ -103,7 +103,7 @@ class PoseEstimateClient:
             pose_c_o = pose_from_msg(response.pose)  # Pose of object (o) w.r.t. camera (c)
             pose_w_o = pose_w_c @ pose_c_o
 
-            # Broadcast the estimated pose using tf2
+            # Broadcast the estimated pose in the world frame using tf2
             TransformManager.broadcast_transform(object_to_find, pose_w_o)
 
 

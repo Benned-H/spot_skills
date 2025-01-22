@@ -1,4 +1,4 @@
-"""Define utility functions that convert Spot protobuf messages into ROS messages."""
+"""Define utility functions that convert Spot SDK protobuf messages into ROS messages."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ def convert_to_image_and_camera_info_msgs(
     data: image_pb2.ImageResponse,
     local_time: rospy.Time,
 ) -> tuple[Image, CameraInfo]:
-    """Take the image and camera data and populate the necessary ROS messages.
+    """Convert the given image and camera data into equivalent ROS messages.
 
     Note: Adapted from the Spot ROS 1 repository's ros_helpers.py file.
 
