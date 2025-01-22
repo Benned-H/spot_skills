@@ -29,7 +29,7 @@ This section outlines the typical workflow for contributing to `spot_skills` and
 
 ### 2. Create a Feature Branch
 
-Whenever you begin a new task for the project, create a branch on GitHub to track the effort. In principle, each branch should introduce a single clearly defined new feature to the codebase. In this so-called [feature branch](https://martinfowler.com/bliki/FeatureBranch.html) style of development, changes are only integrated into the `main` branch once they're working. This keeps the `main` branch stable, providing a foundation on which others can simultaneously develop independent features in separate feature branches.
+Whenever you begin a new task for the project, create a branch on GitHub to track the effort. In principle, each branch should introduce a single, well-defined feature to the codebase. In this so-called [feature branch](https://martinfowler.com/bliki/FeatureBranch.html) style of development, changes are only integrated into the `main` branch once they're complete. This keeps the `main` branch stable, providing a foundation enabling the simultaneous development of independent features in separate feature branches.
 
 - **Sync with `main`**:
 
