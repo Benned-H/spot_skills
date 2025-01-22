@@ -123,7 +123,7 @@ class Pose3D:
         return Pose3D(Point3D(0, 0, 0), Quaternion(0, 0, 0, 1))
 
     def __matmul__(self, other: Pose3D) -> Pose3D:
-        """Find the product of this pose and another pose's homogeneous transformation matrices."""
+        """Multiply the homogeneous transformation matrices of this pose and another pose."""
         m1 = self.to_homogeneous_matrix()
         m2 = other.to_homogeneous_matrix()
         frame = self.frame
