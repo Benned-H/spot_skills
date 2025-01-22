@@ -82,7 +82,7 @@ Whenever you begin a new task for the project, create a branch on GitHub to trac
   - Keep commits [atomic](https://www.aleksandrhovhannisyan.com/blog/atomic-git-commits/) and frequent. Each commit should reflect one logical change or update:
     ```bash
     git add <specific-files>
-    git commit -m "Add feature X for task Y"
+    git commit -m "Add method X to class Y"
     ```
 
 - **Push frequently** to keep the remote branch up-to-date:
