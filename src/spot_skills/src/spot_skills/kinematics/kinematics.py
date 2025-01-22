@@ -102,7 +102,7 @@ class Quaternion:
     def to_rotation_matrix(self) -> np.ndarray:
         """Convert the quaternion to a 3x3 rotation matrix."""
         matrix = quaternion_matrix([self.x, self.y, self.z, self.w])
-        assert matrix.shape == (4, 4), f"Homogeneous matrix must be 4x4: {matrix}"
+        assert matrix.shape == (4, 4), f"Homogeneous matrix must be 4x4; was {matrix.shape}."
         return matrix[:3, :3]
 
 
