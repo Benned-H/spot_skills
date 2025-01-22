@@ -33,7 +33,7 @@ class PoseEstimateClient:
         self.image_service_name = image_service_name
         self._image_service_caller = rospy.ServiceProxy(image_service_name, GetPairedRGBD)
 
-        # Find configuration for the pose estimation service from ROS params        
+        # Configure the pose estimation service based on ROS params        
         self.camera_name: str = get_ros_param("/spot/pose_estimation_camera")
         self._objects: list[str] = get_ros_param("known_objects")
 
