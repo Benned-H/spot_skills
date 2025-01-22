@@ -35,8 +35,10 @@ When you begin a "new task," create a branch on GitHub to track the effort. We'r
 - **Create a new feature branch**:
 
   ```bash
-  git checkout -b feature/<branch-name>
+  git checkout -b <branch-name>
   ```
+
+  Name the branch something short and relevant to its purpose (e.g. `edit-urdf`). There's not much point in prefixing `feature/` to the branch name, but you can if you want.
 
 ### 3. Push Early and Create a Draft Pull Request
 
@@ -44,64 +46,60 @@ When you begin a "new task," create a branch on GitHub to track the effort. We'r
 
   ```bash
   git add <changed-files>
-  git commit -m "Initial commit for <branch-name>"
+  git commit -m "<commit message>"
   ```
+
+  Once your branch has some local changes, commit and push them to GitHub.
 
 - **Push to the remote**:
 
   ```bash
-  git push origin feature/<branch-name>
+  git push --set-upstream origin <branch-name>
   ```
 
 - **Open a Draft Pull Request**:
 
-  - Create a PR on GitHub right away and mark it as a "Draft."
-  - Add a minimal description and focus on a **"Done When"** logic: A simple sentence explaining what outcome the reviewer should expect when the PR is considered "done."
+  - Create a PR on GitHub right away. If you've just pushed to your branch, the "Pull requests" tab should provide a pop-up button to create a PR for your branch.
+  - Set the base branch to `main` and the `compare` branch to your new `<branch-name>`.
+  - Add a minimal description to the PR. Focus on a **Done When** sentence: What outcome should a reviewer expect when this PR is considered "done"?
   - Example:
-    > "Done When: Spot robot can successfully execute the new pick-and-place skill without error in the simulated environment."
+    > "**Done When**: MoveIt can control Spot's gripper while executing the MoveIt-Spot demo."
 
 ### 4. Make Frequent Atomic Commits
 
 - **Implement and commit code iteratively**:
 
-  - Keep commits atomic and frequent. Each commit should reflect one logical change or update:
+  - Keep commits [atomic](https://www.aleksandrhovhannisyan.com/blog/atomic-git-commits/) and frequent. Each commit should reflect one logical change or update:
     ```bash
     git add <specific-files>
-    git commit -m "Add X feature for task Y"
+    git commit -m "Add feature X for task Y"
     ```
 
 - **Push frequently** to keep the remote branch up-to-date:
 
   ```bash
-  git push origin feature/<branch-name>
+  git push origin <branch-name>
   ```
 
-- Use the Draft PR for **self-review** and iteration.
+### 5. Iterate on the Draft PR
 
-### 5. Test the Changes
-
-- **Run tests locally** if they are available. If not, testing tools are optional for future use.
-  ```bash
-  # Run any available tests inside the container
-  pytest --cov=<path>  # Optional, if tests exist
-  ```
-
-### 6. Iterate on the Draft PR
-
-- Use GitHub’s **Review Tools** to leave comments and iterate on the code while the PR is in draft mode.
+- Use GitHub’s review tools to leave comments, track TODOs, and iterate on the code while the PR is in draft mode.
 - Continue making changes in the feature branch, pushing frequently.
+
   ```bash
-  git push origin feature/<branch-name>
+  git push origin <branch-name>
   ```
 
-### 7. Mark PR as Ready for Review
+### 6. Mark PR as Ready for Review
 
 - Once the feature is complete, mark the Draft PR as **"Ready for Review."**
   - Ensure the "Done When" statement is still accurate.
   - Example:
     > "Done When: Spot can execute the grasp skill reliably on a detected object."
 
-### 8. Code Review Process
+### 7. Code Review Process
+
+TODO: Continue reviewing from here.
 
 - The project lead will review the PR and provide feedback.
 
@@ -113,7 +111,7 @@ When you begin a "new task," create a branch on GitHub to track the effort. We'r
   git push origin feature/<branch-name>
   ```
 
-### 9. Merging to Main
+### 8. Merging to Main
 
 Once approved:
 
@@ -123,7 +121,7 @@ Once approved:
   git submodule update --remote
   ```
 
-### 10. Cleanup
+### 9. Cleanup
 
 - **Delete the feature branch** locally and remotely once merged:
   ```bash
