@@ -2,7 +2,7 @@
 
 ## Typical Workflow
 
-This section outlines a general workflow for contributing to `spot_skills` and related codebases.
+This section outlines the typical workflow for contributing to `spot_skills` and related codebases.
 
 ### 1. Set Up the Local Development Environment
 
@@ -23,13 +23,14 @@ This section outlines a general workflow for contributing to `spot_skills` and r
 
 ### 2. Create a Feature Branch
 
-When you begin a "new task," create a branch on GitHub to track the effort. We're following a [feature branch](https://martinfowler.com/bliki/FeatureBranch.html) style of development where changes are only integrated into the `main` branch once they're working.
+Whenever you begin a new task for the project, create a branch on GitHub to track the effort. In principle, each branch should introduce a single clearly defined new feature to the codebase. In this so-called [feature branch](https://martinfowler.com/bliki/FeatureBranch.html) style of development, changes are only integrated into the `main` branch once they're working. This keeps the `main` branch stable, providing a foundation on which others can simultaneously develop independent features in separate feature branches.
 
 - **Sync with `main`**:
 
   ```bash
   git checkout main
   git pull origin main
+  git submodule update --init --recursive
   ```
 
 - **Create a new feature branch**:
@@ -57,13 +58,16 @@ When you begin a "new task," create a branch on GitHub to track the effort. We'r
   git push --set-upstream origin <branch-name>
   ```
 
-- **Open a Draft Pull Request**:
+- **Open a Draft Pull Request (PR)**:
 
   - Create a PR on GitHub right away. If you've just pushed to your branch, the "Pull requests" tab should provide a pop-up button to create a PR for your branch.
   - Set the base branch to `main` and the `compare` branch to your new `<branch-name>`.
-  - Add a minimal description to the PR. Focus on a **Done When** sentence: What outcome should a reviewer expect when this PR is considered "done"?
-  - Example:
-    > "**Done When**: MoveIt can control Spot's gripper while executing the MoveIt-Spot demo."
+  - In the description, describe the purpose of the branch in a sentence or two. What is this branch supposed to do?
+  - End the description with a **Done When** sentence: _What outcome will have been accomplished when this PR can be considered "done"?_ For example:
+
+    > **Done When**: MoveIt controls Spot's gripper to open and close throughout the MoveIt-Spot demo.
+
+  - After you've created the necessary PR(s) for a task, add the relevant links in the "Pull Request(s)" column of the task within the team's Slack list.
 
 ### 4. Make Frequent Atomic Commits
 
@@ -83,7 +87,7 @@ When you begin a "new task," create a branch on GitHub to track the effort. We'r
 
 ### 5. Iterate on the Draft PR
 
-- Use GitHub’s review tools to leave comments, track TODOs, and iterate on the code while the PR is in draft mode.
+- You can use GitHub’s review tools to leave comments, track TODOs, and iterate on the code while the PR is in development.
 - Continue making changes in the feature branch, pushing frequently.
 
   ```bash
@@ -92,39 +96,25 @@ When you begin a "new task," create a branch on GitHub to track the effort. We'r
 
 ### 6. Mark PR as Ready for Review
 
-- Once the feature is complete, mark the Draft PR as **"Ready for Review."**
-  - Ensure the "Done When" statement is still accurate.
-  - Example:
-    > "Done When: Spot can execute the grasp skill reliably on a detected object."
+- Once the branch is ready, request a review on the _Reviewers_ section of the PR.
+  - Ensure that the **Done When** statement is still accurate.
+- Ping the relevant person on Slack, reminding them that the branch is ready for review.
 
 ### 7. Code Review Process
 
-TODO: Continue reviewing from here.
-
-- The project lead will review the PR and provide feedback.
-
-- **Respond to feedback** with additional commits, and update the PR as needed.
-
-- **Push revisions**:
-
-  ```bash
-  git push origin feature/<branch-name>
-  ```
+- The reviewer will read the current changes in the PR's _Files changed_ tab, leaving comments on any issues that need to be addressed before the branch can be merged.
+- You can respond to these comments within the PR on GitHub. If the branch needs any additional changes, address the relevant feedback with additional commits.
+- Iterate until all review comments have been addressed and resolved. This shouldn't take more than one cycle of review, under typical circumstances.
 
 ### 8. Merging to Main
 
-Once approved:
+- Once all review comments have been resolved, Benned will merge your PR into `main`. This automatically deletes the branch name remotely, which you can retrieve locally by running:
 
-- The project lead merges the feature branch into `main`, typically with **rebase and merge** to maintain clean history.
-- **Update submodules** if necessary:
   ```bash
-  git submodule update --remote
+  git fetch -p
   ```
 
-### 9. Cleanup
+### 9. Conclusion
 
-- **Delete the feature branch** locally and remotely once merged:
-  ```bash
-  git branch -d feature/<branch-name>
-  git push origin --delete feature/<branch-name>
-  ```
+- In the Slack task list, update your task as "Done" and double-check that its title reflects what has been accomplished.
+- Finally, communicate with the team to identify what should be done next.
