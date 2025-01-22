@@ -1,0 +1,21 @@
+<!-- Launch the nodes necessary to demonstrate the DetectObjectPose service -->
+<launch>
+
+    <!-- Which camera should be used for pose estimation? -->
+    <param name="spot/pose_estimation_camera" type="str", value="frontright"/>
+
+    <!-- Load the username, password, and IP used to connect to Spot -->
+    <rosparam command="load" file="$(arg spot_secrets_yaml)" ns="spot" />
+
+    <!-- Launch and authenticate with the Spot ROS driver -->
+    <include file="$(find spot_skills)/launch/authenticate_spot_driver.launch">
+        <arg name="load_robot_description" value="true" />
+    </include>
+
+    <!-- Load the list of known objects into the ROS parameters -->
+    <rosparam command="load" file="$(find spot_skills)/config/known_objects.yaml" />
+
+    <!-- Launch RViz with a demo-specific config file (TODO: Create RViz config) -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_viz)/rviz/robot.rviz" />
+
+</launch>
