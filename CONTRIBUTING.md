@@ -79,10 +79,10 @@ Whenever you begin a new task for the project, create a branch on GitHub to trac
 
 - **Implement and commit code iteratively**:
 
-  - Keep commits [atomic](https://www.aleksandrhovhannisyan.com/blog/atomic-git-commits/) and frequent. Each commit should reflect one logical change or update:
+  - Keep commits [atomic](https://www.aleksandrhovhannisyan.com/blog/atomic-git-commits/) (each commit should represent a single logical change or update) and frequent.
     ```bash
     git add <specific-files>
-    git commit -m "Add method X to class Y"
+    git commit -m "Add feature X to resolve Y"
     ```
 
 - **Push frequently** to keep the remote branch up-to-date:
@@ -91,10 +91,12 @@ Whenever you begin a new task for the project, create a branch on GitHub to trac
   git push origin <branch-name>
   ```
 
+  Always push your local changes at the end of each session, especially when using a shared machine, to keep your work accessible across machines.
+
 ### 5. Iterate on the Draft PR
 
-- You can use GitHub’s review tools to leave comments, track TODOs, and iterate on the code while the PR is in development.
-- Continue making changes in the feature branch, pushing frequently.
+- Use GitHub's review tools to leave comments and track TODOs within the PR.
+- Continue making changes and push frequently as you iterate on the PR.
 
   ```bash
   git push origin <branch-name>
