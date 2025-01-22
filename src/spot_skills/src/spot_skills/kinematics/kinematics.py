@@ -40,7 +40,7 @@ class Quaternion:
 
     def normalize(self) -> None:
         """Normalize the quaternion to ensure that it is a unit quaternion."""
-        norm: float = np.linalg.norm(self.to_array())
+        norm = float(np.linalg.norm(self.to_array()))
         assert norm != 0, "Cannot normalize a zero-valued quaternion."
 
         self.x /= norm
@@ -78,17 +78,17 @@ class Quaternion:
         :param roll_rad: Roll angle about the x-axis (radians)
         :param pitch_rad: Pitch angle about the y-axis (radians)
         :param yaw_rad: Yaw angle about the z-axis (radians)
+        :return: Unit quaternion corresponding to the Euler angles
         """
         return cls.from_array(quaternion_from_euler(roll_rad, pitch_rad, yaw_rad))
 
     def to_euler_rpy(self) -> tuple[float, float, float]:
         """Convert the quaternion to Euler roll, pitch, and yaw angles.
 
-        TODO: Output type?
-
         :return: Tuple of (roll, pitch, yaw) angles (radians)
         """
-        return euler_from_quaternion(self.to_array())
+        r, p, y = euler_from_quaternion(self.to_array())
+        return (r, p, y)
 
     @classmethod
     def from_rotation_matrix(cls, r_matrix: np.ndarray) -> Quaternion:
@@ -102,6 +102,7 @@ class Quaternion:
     def to_rotation_matrix(self) -> np.ndarray:
         """Convert the quaternion to a 3x3 rotation matrix."""
         matrix = quaternion_matrix([self.x, self.y, self.z, self.w])
+        assert matrix.shape == (4, 4), f"Homogeneous matrix must be 4x4: {matrix}"
         return matrix[:3, :3]
 
 
@@ -122,6 +123,7 @@ class Pose3D:
         return Pose3D(Point3D(0, 0, 0), Quaternion(0, 0, 0, 1))
 
     def __matmul__(self, other: Pose3D) -> Pose3D:
+        """Find the product of this pose and another pose's homogeneous transformation matrices."""
         m1 = self.to_homogeneous_matrix()
         m2 = other.to_homogeneous_matrix()
         frame = self.frame

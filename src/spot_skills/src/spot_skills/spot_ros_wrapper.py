@@ -13,7 +13,7 @@ from control_msgs.msg import (
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from spot_skills.joint_trajectory import JointTrajectory
-from spot_skills.ros_utilities import get_ros_params
+from spot_skills.ros_utilities import get_ros_param
 from spot_skills.spot_arm_controller import (
     ArmCommandOutcome,
     GripperCommandOutcome,
@@ -27,8 +27,9 @@ class SpotROS1Wrapper:
 
     def __init__(self) -> None:
         """Initialize the ROS interface by creating an internal SpotManager."""
-        spot_ros_params = ["/spot/hostname", "/spot/username", "/spot/password"]
-        spot_hostname, spot_username, spot_password = get_ros_params(spot_ros_params)
+        spot_rosparams = ["/spot/hostname", "/spot/username", "/spot/password"]
+        spot_rosparam_values = [get_ros_param(par) for par in spot_rosparams]
+        spot_hostname, spot_username, spot_password = spot_rosparam_values
 
         self._manager = SpotManager(
             client_name="SpotROS1Manager",

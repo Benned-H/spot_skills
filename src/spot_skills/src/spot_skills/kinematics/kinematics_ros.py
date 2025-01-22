@@ -1,4 +1,4 @@
-"""Define functions to convert 3D transform representations into ROS messages."""
+"""Define functions to convert 3D kinematic representations into ROS messages."""
 
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ from spot_skills.kinematics.kinematics import DEFAULT_FRAME, Point3D, Pose3D, Qu
 
 
 def get_pose_frame(pose_msg: Pose | PoseStamped) -> tuple[Pose, str]:
-    """Convert Pose and PoseStamped messages into a consistent format.
+    """Convert Pose and PoseStamped messages into a normalized format.
 
     :param pose_msg: ROS message representing a pose w.r.t. some frame
-    :returns: Tuple containing the corresponding (Pose, frame ID)
+    :returns: Tuple containing the corresponding (Pose message, frame ID)
     """
     frame_id = DEFAULT_FRAME  # Default frame (if given a Pose message)
     pose = pose_msg
@@ -44,7 +44,7 @@ def quaternion_to_msg(q: Quaternion) -> QuaternionMsg:
 
 
 def pose_to_msg(pose: Pose3D) -> Pose:
-    """Convert the given pose into an equivalent ROS message."""
+    """Convert the given pose into a geometry_msgs/Pose message."""
     return Pose(
         point_to_msg(pose.position),
         quaternion_to_msg(pose.orientation),
@@ -66,7 +66,7 @@ def pose_to_transform_msg(pose: Pose3D) -> Transform:
     return Transform(translation, rotation)
 
 
-def tf_msg_to_pose(tf_msg: Transform, frame_id: str) -> Pose3D:
+def pose_from_tf_msg(tf_msg: Transform, frame_id: str) -> Pose3D:
     """Convert the given geometry_msgs/Transform message into a Pose3D."""
     position = Point3D(tf_msg.translation.x, tf_msg.translation.y, tf_msg.translation.z)
     orientation = quaternion_from_msg(tf_msg.rotation)
@@ -74,26 +74,17 @@ def tf_msg_to_pose(tf_msg: Transform, frame_id: str) -> Pose3D:
 
 
 def point_from_msg(point_msg: Point) -> Point3D:
-    """Convert a geometry_msgs/Point message into a Point3D.
-
-    :param point_msg: ROS message representing a 3D point
-    """
+    """Convert a geometry_msgs/Point message into a Point3D."""
     return Point3D(point_msg.x, point_msg.y, point_msg.z)
 
 
 def quaternion_from_msg(q_msg: QuaternionMsg) -> Quaternion:
-    """Convert a geometry_msgs/Quaternion message into a quaternion.
-
-    :param q_msg: ROS message representing an orientation as a unit quaternion
-    """
+    """Convert a geometry_msgs/Quaternion message into a quaternion."""
     return Quaternion(q_msg.x, q_msg.y, q_msg.z, q_msg.w)
 
 
 def pose_from_msg(pose_msg: Pose | PoseStamped) -> Pose3D:
-    """Convert a pose message into a Pose3D.
-
-    :param pose_msg: ROS message representing a 3D pose
-    """
+    """Convert a pose message into a Pose3D."""
     pose, frame_id = get_pose_frame(pose_msg)
 
     return Pose3D(
