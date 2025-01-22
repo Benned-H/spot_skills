@@ -2,9 +2,9 @@
 
 ## Typical Workflow
 
-This section outlines the workflow generally followed by developers contributing to `spot_skills` and related codebases.
+This section outlines a general workflow for contributing to `spot_skills` and related codebases.
 
-### 1. Set up the Development Environment
+### 1. Set Up the Local Development Environment
 
 - **Clone the repository and submodules using SSH**:
 
@@ -13,25 +13,19 @@ This section outlines the workflow generally followed by developers contributing
   cd spot_skills
   ```
 
-- **Build the Docker environment**:
+- **Activate the Docker environment (builds or pulls the necessary image)**:
 
   ```bash
-  docker-compose up --build
+  bash docker/launch.sh
   ```
 
-  TODO: Create automated script to build/pull the correct image (GPU?) based on CLI commands
-
-- **Activate the development environment**:
-
-  ```bash
-  docker exec -it <container-name> bash
-  ```
-
-  TODO: Create automated script to automatically enter the correct service
+  You can use this script whenever you want to enter the Docker container.
 
 ### 2. Create a Feature Branch
 
-- **Sync with \*\***`main`\*\*:
+When you begin a "new task," create a branch on GitHub to track the effort. We're following a [feature branch](https://martinfowler.com/bliki/FeatureBranch.html) style of development where changes are only integrated into the `main` branch once they're working.
+
+- **Sync with `main`**:
 
   ```bash
   git checkout main
