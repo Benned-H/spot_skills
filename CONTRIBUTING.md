@@ -2,7 +2,13 @@
 
 ## Typical Workflow
 
-This section outlines the typical workflow for contributing to `spot_skills` and related codebases.
+This section outlines the typical workflow for contributing to `spot_skills` and related codebases, involving these high-level steps:
+
+1. Set up the environment.
+2. Create a feature branch.
+3. Push early and open a pull request (PR).
+4. Make iterative, atomic commits.
+5. Review and merge the PR.
 
 ### 1. Set Up the Local Development Environment
 
@@ -39,7 +45,7 @@ Whenever you begin a new task for the project, create a branch on GitHub to trac
   git checkout -b <branch-name>
   ```
 
-  Name the branch something short and relevant to its purpose (e.g. `edit-urdf`). There's not much point in prefixing `feature/` to the branch name, but you can if you want.
+  Name the branch descriptively (e.g. `edit-urdf`).
 
 ### 3. Push Early and Create a Draft Pull Request
 
@@ -67,7 +73,7 @@ Whenever you begin a new task for the project, create a branch on GitHub to trac
 
     > **Done When**: MoveIt controls Spot's gripper to open and close throughout the MoveIt-Spot demo.
 
-  - After you've created the necessary PR(s) for a task, add the relevant links in the "Pull Request(s)" column of the task within the team's Slack list.
+  - After you've created the task's PR(s), **add the relevant links to the Slack task** in the "Pull Request(s)" column.
 
 ### 4. Make Frequent Atomic Commits
 
@@ -102,9 +108,9 @@ Whenever you begin a new task for the project, create a branch on GitHub to trac
 
 ### 7. Code Review Process
 
-- The reviewer will read the current changes in the PR's _Files changed_ tab, leaving comments on any issues that need to be addressed before the branch can be merged.
-- You can respond to these comments within the PR on GitHub. If the branch needs any additional changes, address the relevant feedback with additional commits.
-- Iterate until all review comments have been addressed and resolved. This shouldn't take more than one cycle of review, under typical circumstances.
+- The reviewer will read the current changes in the PR's _Files changed_ tab, leaving comments on any issues that need to be addressed before the branch can be merged. You can respond to these comments within the PR on GitHub.
+- If feedback is given, address it in subsequent commits (`git add <files>` and `git commit -m "..."`), push them (`git push <branch-name>`), and continue resolving until all review comments are closed.
+- The reviewer will read the new changes, may leave additional feedback, and otherwise will resolve their comments once they've been addressed.
 
 ### 8. Merging to Main
 
