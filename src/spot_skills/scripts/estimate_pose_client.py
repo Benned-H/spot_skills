@@ -1,10 +1,10 @@
-"""Define a ROS node providing a client for the DetectObjectPose service."""
+"""Define a ROS node providing a client for the EstimatePose service."""
 
 from __future__ import annotations
 
 import rospy
 
-from object_detection_msgs.srv import DetectObjectPose, DetectObjectRequest, DetectObjectResponse
+from object_detection_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
 from spot_skills.kinematics.kinematics import DEFAULT_FRAME
 from spot_skills.kinematics.kinematics_ros import pose_from_msg
 from spot_skills.kinematics.transform_manager import TransformManager
@@ -13,7 +13,7 @@ from spot_skills.srv import GetPairedRGBD, GetPairedRGBDRequest, GetPairedRGBDRe
 
 
 class PoseEstimateClient:
-    """A wrapper that manages calling the DetectObjectPose service."""
+    """A wrapper that manages calling the EstimatePose service."""
 
     def __init__(
         self,
@@ -25,11 +25,11 @@ class PoseEstimateClient:
         :param pose_service_name: Name of the pose estimation ROS service
         :param image_service_name: Name of the ROS service used to capture RGBD image pairs
         """
-        rospy.wait_for_service(pose_service_name, timeout=rospy.Time.from_sec(30.0))
+        rospy.wait_for_service(pose_service_name, timeout=30.0)
         self.pose_service_name = pose_service_name
-        self._pose_service_caller = rospy.ServiceProxy(self.pose_service_name, DetectObjectPose)
+        self._pose_service_caller = rospy.ServiceProxy(self.pose_service_name, EstimatePose)
 
-        rospy.wait_for_service(image_service_name, timeout=rospy.Time.from_sec(30.0))
+        rospy.wait_for_service(image_service_name, timeout=30.0)
         self.image_service_name = image_service_name
         self._image_service_caller = rospy.ServiceProxy(image_service_name, GetPairedRGBD)
 
@@ -76,8 +76,8 @@ class PoseEstimateClient:
 
         :param rgbd_pair: Paired RGB and depth images with corresponding camera info
         """
-        request = DetectObjectRequest()
-        request.image = rgbd_pair.image
+        request = EstimatePoseRequest()
+        request.image = rgbd_pair.rgb
         request.depth = rgbd_pair.depth
         request.info = rgbd_pair.info
 
@@ -85,7 +85,7 @@ class PoseEstimateClient:
         request.query = object_to_find
 
         try:
-            response: DetectObjectResponse = self._pose_service_caller(request)
+            response: EstimatePoseResponse = self._pose_service_caller(request)
         except rospy.ServiceException as exc:
             rospy.logerr(f"[{self.pose_service_name}] Could not call service: {exc}")
         else:
@@ -108,7 +108,7 @@ class PoseEstimateClient:
 
 
 def main() -> None:
-    """Launch a client for the DetectObjectPose ROS service."""
+    """Launch a client for the EstimatePose ROS service."""
     rospy.init_node("pose_estimation_client")
     client = PoseEstimateClient()
     client.main_loop(freq_hz=2.0)
