@@ -149,9 +149,17 @@ class SpotROS1Wrapper:
         :param request_msg: Message specifying a camera name to use for the RGBD image
         :return: Response containing the RGB and depth images, alongside camera info
         """
+        # Convert the given camera name into an image source from Spot (TODO: Non-fisheye option?)
+        if request_msg.camera_name == "hand":
+            image_source_rgb = "hand_color_image"
+            image_source_depth = "hand_depth_in_hand_color_frame"
+        else:
+            image_source_rgb = f"{request_msg.camera_name}_fisheye_image"
+            image_source_depth = f"{request_msg.camera_name}_depth_in_visual_frame"
+
         image_request_protos = [
-            self._manager.make_image_request(request_msg.camera_name, "RGB"),
-            self._manager.make_image_request(request_msg.camera_name, "DEPTH"),
+            self._manager.make_image_request(image_source_rgb, "RGB"),
+            self._manager.make_image_request(image_source_depth, "DEPTH"),
         ]
         rgb_proto, depth_proto = self._manager.get_images(image_request_protos)
 
@@ -178,7 +186,7 @@ class SpotROS1Wrapper:
 
         response_msg = GetPairedRGBDResponse()
         response_msg.info = rgb_camera_info
-        response_msg.image = extract_image_msg(rgb_proto, ros_rgb_time)
+        response_msg.rgb = extract_image_msg(rgb_proto, ros_rgb_time)
         response_msg.depth = extract_image_msg(depth_proto, ros_depth_time)
 
         return response_msg

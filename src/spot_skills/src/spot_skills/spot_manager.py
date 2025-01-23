@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import time
-from enum import Enum
 
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
@@ -25,6 +24,7 @@ from bosdyn.client.robot_command import (
 from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_command
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
+from google.protobuf.json_format import MessageToDict
 from rospy import loginfo as ros_loginfo
 
 from spot_skills.spot_arm_controller import GripperCommandOutcome
@@ -85,6 +85,11 @@ class SpotManager:
         self._image_client: ImageClient = self._robot.ensure_client(
             ImageClient.default_service_name,
         )
+
+        image_sources_proto = self._image_client.list_image_sources()
+        self._image_source_dicts: list[dict] = [MessageToDict(src) for src in image_sources_proto]
+        self.image_source_names = [src["name"] for src in self._image_source_dicts]
+        self.log_info(f"Available image sources from Spot: {self.image_source_names}")
 
         # Define a client to later obtain control of Spot (i.e., Spot's "lease")
         self._lease_client: LeaseClient = self._robot.ensure_client(
@@ -370,25 +375,29 @@ class SpotManager:
         :param image_requests: List of images requested from the robot
         :return: List of resulting image responses from Spot
         """
+        image_responses = []
         try:
             image_responses = self._image_client.get_image(image_requests)
         except UnsupportedPixelFormatRequestedError as exc:
             self.log_info(f"Error in SpotManager: {exc}")
-            return []
 
-        if image_responses is None or (not isinstance(image_responses, list)):
-            self.log_info(f"Received unexpected image response list: {image_responses}")
-            return []
+        if image_responses is None:
+            self.log_info("Received 'None' instead of image responses")
+            raise Exception("Received 'None' instead of image responses")
+
+        assert len(image_responses) == len(image_requests)
 
         return image_responses
 
-    def make_image_request(self, camera_name: str, image_format: str) -> ImageRequest:
+    def make_image_request(self, image_source: str, image_format: str) -> ImageRequest:
         """Build an image request to be sent to Spot.
 
-        :param camera_name: Name of the camera to be used to capture the image
+        :param image_source: Name of the image source on Spot to be used to capture the image
         :param image_format: Which format of image is requested ('RGB', 'GREYSCALE', or 'DEPTH')
         :return: Image request protobuf message
         """
+        assert image_source in self.image_source_names, f"Invalid image source: '{image_source}'"
+
         # Map from image formats to the request-relevant Spot SDK data types (Format, PixelFormat)
         format_map: dict[str, tuple[int, int]] = {
             "RGB": (Image.FORMAT_JPEG, Image.PIXEL_FORMAT_RGB_U8),
@@ -398,7 +407,7 @@ class SpotManager:
         sdk_format, sdk_pixel_format = format_map[image_format]
 
         return build_image_request(
-            image_source_name=camera_name,
+            image_source_name=image_source,
             quality_percent=self._quality_pct,
             image_format=sdk_format,
             pixel_format=sdk_pixel_format,

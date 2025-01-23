@@ -168,6 +168,8 @@ catkin_install_python(PROGRAMS
   scripts/spot_wrapper_node.py
   scripts/spot_moveit_demo.py
   scripts/fake_gripper_action_server.py
+  scripts/estimate_pose_client.py
+  scripts/dummy_estimate_pose_server.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
