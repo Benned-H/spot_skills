@@ -22,7 +22,6 @@ from spot_skills.spot_arm_controller import (
 )
 from spot_skills.spot_manager import SpotManager
 from spot_skills.srv import GetPairedRGBD, GetPairedRGBDRequest, GetPairedRGBDResponse
-from spot_skills.time_stamp import TimeStamp
 
 
 class SpotROS1Wrapper:
