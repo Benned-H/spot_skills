@@ -96,7 +96,7 @@ class SpotTimeSync:
     def local_timestamp_from_proto(self, timestamp_proto: TimestampProto) -> TimeStamp:
         """Convert the given Spot-time Protobuf message to a local-time TimeStamp.
 
-        :param timestamp_proto: Protobuf message from Spot (in Spot time)
+        :param timestamp_proto: Protobuf message from Spot (time relative to robot clock)
         :return: TimeStamp object converted into the local time
         """
         assert self.robot_clock_skew_s is not None, "Cannot convert to local time without timesync"
