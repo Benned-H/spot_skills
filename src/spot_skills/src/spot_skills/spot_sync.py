@@ -17,6 +17,8 @@ from typing import TYPE_CHECKING
 from bosdyn.client.time_sync import TimeSyncClient, TimeSyncEndpoint
 from bosdyn.util import duration_to_seconds
 
+from spot_skills.time_stamp import TimeStamp, TimestampProto
+
 if TYPE_CHECKING:
     from bosdyn.client.robot import Robot
 
@@ -36,7 +38,8 @@ class SpotTimeSync:
         )
         self._time_sync_endpoint = TimeSyncEndpoint(self._time_sync_client)
 
-        self.clock_skew_s: float | None = None  # Estimated robot clock skew (seconds)
+        # Estimated robot clock skew from the local clock (seconds)
+        self.robot_clock_skew_s: float | None = None
 
         self.max_round_trip_s = -1.0  # Maximum duration (seconds) of any round trip
         self.max_sync_time_s = -1.0  # Maximum duration (seconds) a time-sync has taken
@@ -78,7 +81,7 @@ class SpotTimeSync:
             assert sync_success, "Could not establish a time sync with Spot!"
 
         # Update member variables based on the new sync information
-        self.clock_skew_s = duration_to_seconds(self._time_sync_endpoint.clock_skew)
+        self.robot_clock_skew_s = duration_to_seconds(self._time_sync_endpoint.clock_skew)
         self.max_round_trip_s = max(self.max_round_trip_s, self.get_round_trip_s())
 
         end_time_s = time.time()
@@ -89,3 +92,15 @@ class SpotTimeSync:
 
         self.total_sync_time_s += sync_duration_s
         self.total_sync_count += 1
+
+    def local_timestamp_from_proto(self, timestamp_proto: TimestampProto) -> TimeStamp:
+        """Convert the given Spot-time Protobuf message to a local-time TimeStamp.
+
+        :param timestamp_proto: Protobuf message from Spot (in Spot time)
+        :return: TimeStamp object converted into the local time
+        """
+        assert self.robot_clock_skew_s is not None, "Cannot convert to local time without timesync"
+
+        timestamp_spot = TimeStamp.from_proto(timestamp_proto)
+
+        return timestamp_spot.shift_by_duration_s(timestamp_spot, -self.robot_clock_skew_s)

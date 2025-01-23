@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from google.protobuf.timestamp_pb2 import Timestamp as TimestampProto
-
-if TYPE_CHECKING:
-    from typing import Self
 
 NSEC_PER_SEC = 10**9
 
@@ -24,7 +20,7 @@ class TimeStamp:
     time_ns: int  # Nanoseconds since the timestamp's second began
 
     @classmethod
-    def from_proto(cls, timestamp_proto: TimestampProto) -> Self:
+    def from_proto(cls, timestamp_proto: TimestampProto) -> TimeStamp:
         """Construct a TimeStamp from an equivalent Protobuf message.
 
         :param    timestamp_proto   Protobuf of a timestamp relative to the Unix epoch
@@ -34,7 +30,7 @@ class TimeStamp:
         return cls(timestamp_proto.seconds, timestamp_proto.nanos)
 
     @classmethod
-    def from_time_s(cls, time_s: float) -> Self:
+    def from_time_s(cls, time_s: float) -> TimeStamp:
         """Construct a TimeStamp from a time (in seconds) since the Unix epoch.
 
         :param      time_s      Time (seconds) since the Epoch
@@ -45,6 +41,17 @@ class TimeStamp:
         remaining_time_ns = int((time_s - rounded_time_s) * NSEC_PER_SEC)
 
         return cls(rounded_time_s, remaining_time_ns)
+
+    @classmethod
+    def shift_by_duration_s(cls, baseline: TimeStamp, shift_by_s: float) -> TimeStamp:
+        """Construct a timestamp based on the given one, but shifted by the given duration.
+
+        :param baseline: Timestamp providing the "baseline" time for the new timestamp
+        :param shift_by_s: Duration (seconds) by which to shift the new timestamp
+        :return: New timestamp corresponding to the given timestamp plus the shift duration
+        """
+        new_time_s = baseline.to_time_s() + shift_by_s
+        return TimeStamp.from_time_s(new_time_s)
 
     def to_time_s(self) -> float:
         """Convert this timestamp into a local time relative to the Unix epoch.

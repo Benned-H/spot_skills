@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import time
+from enum import Enum
 
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
-from bosdyn.api.image_pb2 import ImageRequest, ImageResponse
+from bosdyn.api.image_pb2 import Image, ImageRequest, ImageResponse
 from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.estop import EstopClient
@@ -90,6 +91,9 @@ class SpotManager:
             LeaseClient.default_service_name,
         )
         self._lease_keeper = None  # Stores a lease and keeps it alive once obtained
+
+        self._quality_pct = 100  # Default quality (percent) of image requests to Spot
+        assert 0 <= self._quality_pct <= 100, f"Invalid image quality %: {self._quality_pct}"
 
         assert self.wait_while_estopped()  # Wait until Spot isn't e-stopped
 
@@ -189,7 +193,7 @@ class SpotManager:
         max_round_trip_s = self.time_sync.max_round_trip_s
         self.log_info(f"Maximum observed round trip time: {max_round_trip_s} seconds.")
 
-        clock_skew_s = self.time_sync.clock_skew_s
+        clock_skew_s = self.time_sync.robot_clock_skew_s
         self.log_info(f"Current robot clock skew from local: {clock_skew_s} seconds.")
 
         max_sync_time_s = self.time_sync.max_sync_time_s
@@ -358,41 +362,44 @@ class SpotManager:
             self.safely_power_off()  # Send a "safe power off" command
             self.release_control()  # Return Spot's lease
 
-    def get_images(self, image_requests: list[ImageRequest]) -> dict[str, ImageResponse]:
+    def get_images(self, image_requests: list[ImageRequest]) -> list[ImageResponse]:
         """Request a collection of images from the robot.
 
         Note: Adapted from get_images() in the spot_wrapper/spot_images.py file.
 
         :param image_requests: List of images requested from the robot
-        :return: Dictionary mapping camera names (str) to image responses
+        :return: List of resulting image responses from Spot
         """
         try:
             image_responses = self._image_client.get_image(image_requests)
         except UnsupportedPixelFormatRequestedError as exc:
             self.log_info(f"Error in SpotManager: {exc}")
-            return {}
+            return []
 
-        return {response.source.name: response for response in image_responses}
+        if image_responses is None or (not isinstance(image_responses, list)):
+            self.log_info(f"Received unexpected image response list: {image_responses}")
+            return []
 
-    def make_image_request(self, camera_name: str, quality_pct: int) -> ImageRequest:
+        return image_responses
+
+    def make_image_request(self, camera_name: str, image_format: str) -> ImageRequest:
         """Build an image request to be sent to Spot.
 
         :param camera_name: Name of the camera to be used to capture the image
-        :param quality_pct: Image quality from 0 to 100 (percent)
+        :param image_format: Which format of image is requested ('RGB', 'GREYSCALE', or 'DEPTH')
         :return: Image request protobuf message
         """
-        request = build_image_request(camera_name)
+        # Map from image formats to the request-relevant Spot SDK data types (Format, PixelFormat)
+        format_map: dict[str, tuple[int, int]] = {
+            "RGB": (Image.FORMAT_JPEG, Image.PIXEL_FORMAT_RGB_U8),
+            "GREYSCALE": (Image.FORMAT_JPEG, Image.PIXEL_FORMAT_GREYSCALE_U8),
+            "DEPTH": (Image.FORMAT_RAW, Image.PIXEL_FORMAT_DEPTH_U16),
+        }
+        sdk_format, sdk_pixel_format = format_map[image_format]
 
-
-# Args:
-#     image_source_name (string): The image source to query.
-#     quality_percent (int): The image quality from [0,100] (percent-value).
-#     image_format (image_pb2.Image.Format): The type of format for the image
-#                                            data, such as JPEG, RAW, or RLE.
-#     pixel_format (image_pb2.Image.PixelFormat) The pixel format of the image.
-#     resize_ratio (double): Resize ratio for image dimensions. fallback_formats (image_pb2.Image.PixelFormat) Fallback pixel formats to use if the pixel_format is invalid.
-
-# Returns:
-#     The ImageRequest protobuf message for the given parameters.
-
-# build_image_request
+        return build_image_request(
+            image_source_name=camera_name,
+            quality_percent=self._quality_pct,
+            image_format=sdk_format,
+            pixel_format=sdk_pixel_format,
+        )
