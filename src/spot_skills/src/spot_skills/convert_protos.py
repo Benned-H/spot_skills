@@ -7,17 +7,14 @@ from bosdyn.api import image_pb2
 from sensor_msgs.msg import CameraInfo, Image
 
 
-def convert_to_image_and_camera_info_msgs(
-    data: image_pb2.ImageResponse,
-    local_time: rospy.Time,
-) -> tuple[Image, CameraInfo]:
-    """Convert the given image and camera data into equivalent ROS messages.
+def extract_image_msg(data: image_pb2.ImageResponse, local_time: rospy.Time) -> Image:
+    """Extract an Image ROS message from the given Protobuf message..
 
     Note: Adapted from the Spot ROS 1 repository's ros_helpers.py file.
 
     :param data: Protobuf message containing an image and associated data
     :param local_time: Local timestamp at which the image was captured
-    :return: Tuple of ROS messages: (sensor_msgs/Image, sensor_msgs/CameraInfo)
+    :return: Constructed sensor_msgs/Image message
     """
     image_msg = Image()
     image_msg.header.stamp = local_time
@@ -63,6 +60,18 @@ def convert_to_image_and_camera_info_msgs(
             image_msg.step = 2 * data.shot.image.cols
             image_msg.data = data.shot.image.data
 
+    return image_msg
+
+
+def extract_camera_info_msg(data: image_pb2.ImageResponse, local_time: rospy.Time) -> CameraInfo:
+    """Convert the given Protobuf data into a CameraInfo ROS message.
+
+    Note: Adapted from the Spot ROS 1 repository's ros_helpers.py file.
+
+    :param data: Protobuf message containing an image and associated data
+    :param local_time: Local timestamp at which the image was captured
+    :return: Constructed sensor_msgs/CameraInfo message
+    """
     # Reference: https://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/CameraInfo.html
     camera_info_msg = CameraInfo()
     camera_info_msg.distortion_model = "plumb_bob"
@@ -86,4 +95,4 @@ def convert_to_image_and_camera_info_msgs(
     camera_info_msg.height = data.shot.image.rows
     camera_info_msg.width = data.shot.image.cols
 
-    return (image_msg, camera_info_msg)
+    return camera_info_msg
