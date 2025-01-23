@@ -8,7 +8,7 @@ from sensor_msgs.msg import CameraInfo, Image
 
 
 def extract_image_msg(data: image_pb2.ImageResponse, local_time: rospy.Time) -> Image:
-    """Extract an Image ROS message from the given Protobuf message..
+    """Extract an Image ROS message from the given Protobuf message.
 
     Note: Adapted from the Spot ROS 1 repository's ros_helpers.py file.
 
