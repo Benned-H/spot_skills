@@ -19,22 +19,22 @@ class SpotSkill(ABC):
     @abstractmethod
     def localize_robot(self, **kwargs):
         '''Any skill needs the robot to be first localized before executing the skill'''
-        pass
+        return True, None
 
     @abstractmethod
     def localize_arguments(self, **kwargs):
         '''Any skill needs to localize the objects (in SLAM map and object pose) it is interacting provided as arguments to the skill'''
-        pass
+        return True, None
     
     @abstractmethod
     def detect_arguments(self, **kwargs):
         '''Any skill needs to detect the objects that it may be interacting with in the scene first'''
-        pass
+        return True, None
     
     @abstractmethod
     def generate_spline(self, **kwargs):
         '''Some skills might need to generate splines to move the SPOT arm to some specified/sampled 3D pose'''
-        pass
+        return True, None
 
     @abstractmethod
     def run_skill(self, **kwargs):
@@ -53,16 +53,14 @@ class StandUp(SpotSkill):
         #NOTE: all skills need to start __init__ with a init_node() call
         rospy.init_node(kwargs['skill_name'])
 
-        self.skill_client = rospy.ServiceProxy(kwargs['service'], kwargs['skill_function'])
+        self.skill_client = rospy.ServiceProxy
 
         self.precond_functions = [self.localize_robot, self.localize_arguments, self.detect_arguments, self.generate_spline]
 
         self.timeout = kwargs['service_timeout'] #NOTE: after timeout throw error
 
 
-    def localize_robot(self, **kwargs):
-        #TODO: finish this!!!
-        return True, None
+
     
     def run_skill(self, **kwargs):
         
@@ -85,23 +83,19 @@ class StandUp(SpotSkill):
         except rospy.ROSException as e:
             print("Timeout when waiting for service call: %s"%e)
         
-        #finally run the service using the client
+        #finally run the service using the client: skill might involve multiple service calls so sequence them
         try:
-           response = self.skill_client(kwargs)
-           return response
+            
+            for (service, skill_function) in zip(kwargs['services'], kwargs['skill_functions']):
+                self.skill_client(service, skill_function)
+                response = self.skill_client(kwargs)
+
+            return response
         except rospy.ServiceException as e:
             print("Service call failed: %s"%e)
 
 
-    def localize_arguments(self, **kwargs):
-        return True, None
-    
-    def detect_arguments(self, **kwargs):
-        return True, None
-    
-    def generate_spline(self, **kwargs):
-        return True, None
-    
+  
 
 
 
