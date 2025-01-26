@@ -77,7 +77,7 @@ class PoseEstimateClient:
         :param rgbd_pair: Paired RGB and depth images with corresponding camera info
         """
         request = EstimatePoseRequest()
-        request.image = rgbd_pair.rgb
+        request.rgb = rgbd_pair.rgb
         request.depth = rgbd_pair.depth
         request.info = rgbd_pair.info
 

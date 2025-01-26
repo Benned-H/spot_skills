@@ -2,7 +2,7 @@
 <launch>
 
     <!-- Which camera should be used for pose estimation? -->
-    <param name="spot/pose_estimation_camera" type="str", value="frontright"/>
+    <param name="spot/pose_estimation_camera" type="str" value="frontright"/>
 
     <!-- Launch and authenticate with the Spot ROS driver -->
     <include file="$(find spot_skills)/launch/authenticate_spot_driver.launch">
@@ -16,7 +16,13 @@
     <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen"/>
 
     <!-- Launch the object pose estimate client -->
-    <node name="pose_estimation_client" pkg="spot_skills" type="object_pose_estimate_client.py" output="screen"/>
+    <node name="estimate_pose_client" pkg="spot_skills" type="estimate_pose_client.py" output="screen"/>
+
+    <!-- Launch the dummy EstimatePose server only if its flag is specified -->
+    <arg name="dummy_pose_server" default="false"/>
+    <group if="$(arg dummy_pose_server)">
+        <node name="estimate_pose_server" pkg="spot_skills" type="dummy_estimate_pose_server.py" output="screen"/>
+    </group>
 
     <!-- Launch RViz with a demo-specific config file -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/pose_estimate.rviz"/>
