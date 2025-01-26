@@ -25,6 +25,7 @@ from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from google.protobuf.json_format import MessageToDict
+from rospy import logfatal as ros_logfatal
 from rospy import loginfo as ros_loginfo
 
 from spot_skills.spot_arm_controller import GripperCommandOutcome
@@ -187,6 +188,18 @@ class SpotManager:
 
         self._robot.logger.info(formatted_message)
         ros_loginfo(formatted_message)
+
+    def log_fatal(self, message: str) -> None:
+        """Log the given fatal message to the Spot and ROS logs.
+
+        :param message: Fatal message causing complete shutdown
+        """
+        manager_age_s = time.time() - self._created_time_s
+
+        formatted_message = f"[SpotManager at {manager_age_s:.3f} s] {message}"
+
+        self._robot.logger.fatal(formatted_message)
+        ros_logfatal(formatted_message)
 
     def resync_and_log(self) -> None:
         """Resync with Spot and log information describing the resulting time sync."""
@@ -382,10 +395,12 @@ class SpotManager:
             self.log_info(f"Error in SpotManager: {exc}")
 
         if image_responses is None:
-            self.log_info("Received 'None' instead of image responses")
-            raise Exception("Received 'None' instead of image responses")
+            self.log_fatal("Received 'None' instead of image responses")
 
-        assert len(image_responses) == len(image_requests)
+        num_requests = len(image_requests)
+        num_responses = len(image_responses)
+        if num_responses != num_requests:
+            self.log_fatal(f"Received {num_responses} image responses to {num_requests} requests")
 
         return image_responses
 
