@@ -27,7 +27,7 @@ class DummyPoseEstimateServer:
         del request_msg
 
         response_msg = EstimatePoseResponse()
-        response_msg.detected = True
+        response_msg.object_found = True
         response_msg.pose = pose_to_stamped_msg(Pose3D.identity())
 
         return response_msg
