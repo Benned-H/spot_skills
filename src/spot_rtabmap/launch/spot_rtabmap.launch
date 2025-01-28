@@ -64,7 +64,7 @@
             <remap from="scan_cloud" to="/filtered_pointcloud_passthrough" />
 
             <!-- Remap ROS topics related to navigation -->
-            <remap from="goal" to="$(arg in_pose_topic)" />
+            <remap from="goal" to="/rtabmap/goal" />
             <remap from="goal_out" to="/move_base_simple/goal" />
 
             <!-- params -->
