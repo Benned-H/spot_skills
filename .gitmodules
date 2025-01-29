@@ -7,3 +7,6 @@
 [submodule "src/object_detection_msgs"]
 	path = src/object_detection_msgs
 	url = git@github.com:Benned-H/object_detection_msgs.git
+[submodule "src/spot_skills/src/spot_skills/transform_utils"]
+	path = src/spot_skills/src/spot_skills/transform_utils
+	url = git@github.com:Benned-H/transform_utils.git
