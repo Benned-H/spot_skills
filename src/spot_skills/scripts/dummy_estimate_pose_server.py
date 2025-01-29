@@ -1,10 +1,10 @@
 """Define a ROS node providing a dummy version of the EstimatePose service."""
 
 import rospy
+from transform_utils.kinematics import Pose3D
+from transform_utils.kinematics_ros import pose_to_stamped_msg
 
 from object_detection_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
-from spot_skills.kinematics.kinematics import Pose3D
-from spot_skills.kinematics.kinematics_ros import pose_to_stamped_msg
 
 
 class DummyPoseEstimateServer:
