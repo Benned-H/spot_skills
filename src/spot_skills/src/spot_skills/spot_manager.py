@@ -6,15 +6,9 @@ import time
 
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
-from bosdyn.api.image_pb2 import Image, ImageRequest, ImageResponse
 from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.estop import EstopClient
-from bosdyn.client.image import (
-    ImageClient,
-    UnsupportedPixelFormatRequestedError,
-    build_image_request,
-)
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
@@ -30,6 +24,7 @@ from rospy import loginfo as ros_loginfo
 
 from spot_skills.spot_arm_controller import GripperCommandOutcome
 from spot_skills.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES, Configuration
+from spot_skills.spot_image_client import SpotImageClient
 from spot_skills.spot_sync import SpotTimeSync
 
 
@@ -82,24 +77,14 @@ class SpotManager:
         # Define a client to query Spot's e-stop status
         self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
 
-        # Define a client to request images from Spot
-        self._image_client: ImageClient = self._robot.ensure_client(
-            ImageClient.default_service_name,
-        )
-
-        image_sources_proto = self._image_client.list_image_sources()
-        self._image_source_dicts: list[dict] = [MessageToDict(src) for src in image_sources_proto]
-        self.image_source_names = [src["name"] for src in self._image_source_dicts]
-        self.log_info(f"Available image sources from Spot: {self.image_source_names}")
+        # Define an image client to interface with Spot's cameras
+        self.image_client = SpotImageClient(self._robot)
 
         # Define a client to later obtain control of Spot (i.e., Spot's "lease")
         self._lease_client: LeaseClient = self._robot.ensure_client(
             LeaseClient.default_service_name,
         )
         self._lease_keeper = None  # Stores a lease and keeps it alive once obtained
-
-        self._quality_pct = 100  # Default quality (percent) of image requests to Spot
-        assert 0 <= self._quality_pct <= 100, f"Invalid image quality %: {self._quality_pct}"
 
         assert self.wait_while_estopped()  # Wait until Spot isn't e-stopped
 
@@ -155,8 +140,7 @@ class SpotManager:
                 must_acquire=True,
                 return_at_exit=True,
             )
-            self.log_info("Lease acquired. Logging info for debugging...")
-            self.log_lease_info()
+            self.log_info("Lease acquired.")
 
         # 2. If needed, attempt to power on Spot
         if not self._robot.is_powered_on():
@@ -379,51 +363,3 @@ class SpotManager:
             self.stow_arm()
             self.safely_power_off()  # Send a "safe power off" command
             self.release_control()  # Return Spot's lease
-
-    def get_images(self, image_requests: list[ImageRequest]) -> list[ImageResponse]:
-        """Request a collection of images from the robot.
-
-        Note: Adapted from get_images() in the spot_wrapper/spot_images.py file.
-
-        :param image_requests: List of images requested from the robot
-        :return: List of resulting image responses from Spot
-        """
-        image_responses = []
-        try:
-            image_responses = self._image_client.get_image(image_requests)
-        except UnsupportedPixelFormatRequestedError as exc:
-            self.log_info(f"Error in SpotManager: {exc}")
-
-        if image_responses is None:
-            self.log_fatal("Received 'None' instead of image responses")
-
-        num_requests = len(image_requests)
-        num_responses = len(image_responses)
-        if num_responses != num_requests:
-            self.log_fatal(f"Received {num_responses} image responses to {num_requests} requests")
-
-        return image_responses
-
-    def make_image_request(self, image_source: str, image_format: str) -> ImageRequest:
-        """Build an image request to be sent to Spot.
-
-        :param image_source: Name of the image source on Spot to be used to capture the image
-        :param image_format: Which format of image is requested ('RGB', 'GREYSCALE', or 'DEPTH')
-        :return: Image request protobuf message
-        """
-        assert image_source in self.image_source_names, f"Invalid image source: '{image_source}'"
-
-        # Map from image formats to the request-relevant Spot SDK data types (Format, PixelFormat)
-        format_map: dict[str, tuple[int, int]] = {
-            "RGB": (Image.FORMAT_JPEG, Image.PIXEL_FORMAT_RGB_U8),
-            "GREYSCALE": (Image.FORMAT_JPEG, Image.PIXEL_FORMAT_GREYSCALE_U8),
-            "DEPTH": (Image.FORMAT_RAW, Image.PIXEL_FORMAT_DEPTH_U16),
-        }
-        sdk_format, sdk_pixel_format = format_map[image_format]
-
-        return build_image_request(
-            image_source_name=image_source,
-            quality_percent=self._quality_pct,
-            image_format=sdk_format,
-            pixel_format=sdk_pixel_format,
-        )

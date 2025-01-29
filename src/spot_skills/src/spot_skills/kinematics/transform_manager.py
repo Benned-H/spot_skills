@@ -31,6 +31,21 @@ class TransformManager:
     _tf_listener: TransformListener | None = None
 
     @staticmethod
+    def init_node(node_name: str = "transform_manager") -> None:
+        """Initialize a ROS node if this process does not yet have a ROS node.
+
+        The real purpose of this method is to initialize the TransformManager's
+            static transform listener as soon as it's in a named ROS node.
+
+        :param node_name: Name of the node, defaults to "transform_manager"
+        """
+        if rospy.get_name() in ["", "/unnamed"]:
+            rospy.init_node(node_name)
+            rospy.loginfo(f"Initialized node with name '{rospy.get_name()}'")
+
+        TransformManager.tf_listener()  # Begin listening for transforms ASAP
+
+    @staticmethod
     def tf_broadcaster() -> TransformBroadcaster:
         """Retrieve the transform broadcaster, initializing it if necessary.
 
@@ -106,7 +121,10 @@ class TransformManager:
                 )
                 break
             except TransformException as t_exc:
-                rospy.logwarn(f"[TransformManager.lookup_transform] {t_exc}")
+                rospy.logwarn(
+                    f"[TransformManager.lookup_transform] Looking for {source_frame} to "
+                    f"{target_frame} at time {when.to_time():.2f} gave exception: {t_exc}",
+                )
                 rate_hz.sleep()
 
         pose_t_s = pose_from_tf_stamped_msg(transform_msg)

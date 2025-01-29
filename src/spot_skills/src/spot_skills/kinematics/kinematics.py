@@ -106,7 +106,7 @@ class Quaternion:
         return matrix[:3, :3]
 
 
-DEFAULT_FRAME = "map"
+DEFAULT_FRAME = "vision"
 
 
 @dataclass

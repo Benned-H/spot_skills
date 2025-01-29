@@ -12,7 +12,6 @@ from control_msgs.msg import (
 )
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
-from spot_skills.convert_protos import extract_camera_info_msg, extract_image_msg
 from spot_skills.joint_trajectory import JointTrajectory
 from spot_skills.ros_utilities import get_ros_param
 from spot_skills.spot_arm_controller import (
@@ -20,6 +19,7 @@ from spot_skills.spot_arm_controller import (
     GripperCommandOutcome,
     SpotArmController,
 )
+from spot_skills.spot_image_client import ImageFormat, SpotImageClient
 from spot_skills.spot_manager import SpotManager
 from spot_skills.srv import GetPairedRGBD, GetPairedRGBDRequest, GetPairedRGBDResponse
 
@@ -149,45 +149,48 @@ class SpotROS1Wrapper:
         :param request_msg: Message specifying a camera name to use for the RGBD image
         :return: Response containing the RGB and depth images, alongside camera info
         """
-        # Convert the given camera name into an image source from Spot (TODO: Non-fisheye option?)
-        if request_msg.camera_name == "hand":
-            image_source_rgb = "hand_color_image"
-            image_source_depth = "hand_depth_in_hand_color_frame"
-        else:
-            image_source_rgb = f"{request_msg.camera_name}_fisheye_image"
-            image_source_depth = f"{request_msg.camera_name}_depth_in_visual_frame"
+        camera_name = request_msg.camera_name
 
         image_request_protos = [
-            self._manager.make_image_request(image_source_rgb, "RGB"),
-            self._manager.make_image_request(image_source_depth, "DEPTH"),
+            self._manager.image_client.make_image_request(camera_name, ImageFormat.RGB),
+            self._manager.image_client.make_image_request(camera_name, ImageFormat.DEPTH),
         ]
-        rgb_proto, depth_proto = self._manager.get_images(image_request_protos)
+        rgb_response, depth_response = self._manager.image_client.get_images(image_request_protos)
 
         # Find timestamps of the image responses
-        rgb_time_proto = rgb_proto.shot.acquisition_time
+        rgb_time_proto = rgb_response.shot.acquisition_time
         rgb_timestamp = self._manager.time_sync.local_timestamp_from_proto(rgb_time_proto)
         rgb_time_s = rgb_timestamp.to_time_s()
-        ros_rgb_time = rospy.Time.from_sec(rgb_time_s)
+        rgb_ros_time = rospy.Time.from_sec(rgb_time_s)
 
-        depth_time_proto = depth_proto.shot.acquisition_time
+        depth_time_proto = depth_response.shot.acquisition_time
         depth_timestamp = self._manager.time_sync.local_timestamp_from_proto(depth_time_proto)
         depth_time_s = depth_timestamp.to_time_s()
-        ros_depth_time = rospy.Time.from_sec(depth_time_s)
+        depth_ros_time = rospy.Time.from_sec(depth_time_s)
 
-        time_diff_s = rgb_time_s - depth_time_s
-        self._manager.log_info(f"Difference between RGB and depth timestamps: {time_diff_s} sec")
+        diff_s = rgb_time_s - depth_time_s
+        self._manager.log_info(f"Difference between RGB and depth timestamps: {diff_s} sec")
+        assert diff_s <= 0.1, f"Images differed by {diff_s} seconds!"
 
-        rgb_camera_info = extract_camera_info_msg(rgb_proto, ros_rgb_time)
-        depth_camera_info = extract_camera_info_msg(depth_proto, ros_depth_time)
+        rgb_camera_info = SpotImageClient.extract_camera_info_msg(rgb_response, rgb_ros_time)
+        depth_camera_info = SpotImageClient.extract_camera_info_msg(depth_response, depth_ros_time)
 
-        self._manager.log_info(f"RGB camera info response: {rgb_camera_info}")
-        self._manager.log_info(f"Depth camera info response: {depth_camera_info}")
+        # Expect that the camera information is identical, except the header
+        depth_camera_info.header = rgb_camera_info.header
         assert rgb_camera_info == depth_camera_info, "Expected camera info to match!"
 
         response_msg = GetPairedRGBDResponse()
         response_msg.info = rgb_camera_info
-        response_msg.rgb = extract_image_msg(rgb_proto, ros_rgb_time)
-        response_msg.depth = extract_image_msg(depth_proto, ros_depth_time)
+
+        response_msg.rgb = self._manager.image_client.extract_image_msg(
+            rgb_response.shot,
+            rgb_ros_time,
+        )
+
+        response_msg.depth = self._manager.image_client.extract_image_msg(
+            depth_response.shot,
+            depth_ros_time,
+        )
 
         return response_msg
 

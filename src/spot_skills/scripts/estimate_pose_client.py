@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import rospy
+from sensor_msgs.msg import Image
 
 from object_detection_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
 from spot_skills.kinematics.kinematics import DEFAULT_FRAME
@@ -34,7 +35,7 @@ class PoseEstimateClient:
         self._image_service_caller = rospy.ServiceProxy(image_service_name, GetPairedRGBD)
 
         # Configure the pose estimation service based on ROS params
-        self.camera_name: str = get_ros_param("/spot/pose_estimation_camera")
+        self.camera_name: str = get_ros_param("~default_camera")
         self._objects: list[str] = get_ros_param("known_objects")
 
         self._next_obj_idx = 0
@@ -55,11 +56,11 @@ class PoseEstimateClient:
         """
         rate_hz = rospy.Rate(freq_hz)
         while not rospy.is_shutdown():
-            rgbd_pair = self.call_paired_rgbd()
-            self.call_pose_estimation(rgbd_pair)
+            object_to_find = self.next_object()
+            self.call_pose_estimation(object_to_find)
             rate_hz.sleep()
 
-    def call_paired_rgbd(self) -> GetPairedRGBDResponse:
+    def get_paired_rgbd(self) -> GetPairedRGBDResponse:
         """Capture a paired RGB and depth image using the relevant ROS service."""
         request = GetPairedRGBDRequest(self.camera_name)
 
@@ -67,49 +68,55 @@ class PoseEstimateClient:
             response: GetPairedRGBDResponse = self._image_service_caller(request)
         except rospy.ServiceException as exc:
             rospy.logerr(f"[{self.image_service_name}] Could not call service: {exc}")
-        else:
-            rospy.loginfo(f"[{self.image_service_name}] Successful response: {response}")
-            return response
+            return None
 
-    def call_pose_estimation(self, rgbd_pair: GetPairedRGBDResponse) -> None:
-        """Call the pose estimation service using the given RGB and depth image pair.
+        if response is None:
+            rospy.logerr(f"[{self.image_service_name}] Response message was None")
 
-        :param rgbd_pair: Paired RGB and depth images with corresponding camera info
+        return response
+
+    def call_pose_estimation(self, object_name: str) -> None:
+        """Call the pose estimation service for the named object.
+
+        :param object_name: Name of the object whose pose is estimated
         """
+        rgbd_pair = self.get_paired_rgbd()
+
+        # Record the relative pose of the camera frame w.r.t. the world frame
+        camera_frame = rgbd_pair.info.header.frame_id  # Optical frame of the camera
+        capture_time = rgbd_pair.info.header.stamp  # Acquisition time of the images
+        pose_w_c = TransformManager.lookup_transform(camera_frame, DEFAULT_FRAME, capture_time)
+
         request = EstimatePoseRequest()
         request.rgb = rgbd_pair.rgb
         request.depth = rgbd_pair.depth
         request.info = rgbd_pair.info
-
-        object_to_find = self.next_object()
-        request.query = object_to_find
+        request.query = object_name
 
         try:
             response: EstimatePoseResponse = self._pose_service_caller(request)
         except rospy.ServiceException as exc:
             rospy.logerr(f"[{self.pose_service_name}] Could not call service: {exc}")
-        else:
-            rospy.loginfo(f"[{self.pose_service_name}] Successful response: {response}")
+            return
 
-            if not response.object_found:
-                return
+        if response is None:
+            rospy.logerr(f"[{self.pose_service_name}] Response message was None")
+            return
+        if not response.object_found:
+            return
 
-            camera_frame = rgbd_pair.info.header.frame_id  # Optical frame of the camera
-            capture_time = rgbd_pair.info.header.stamp  # Acquisition time of the images
+        pose_c_o = pose_from_msg(response.pose)  # Pose of object (o) w.r.t. camera (c)
+        pose_w_o = pose_w_c @ pose_c_o
 
-            # Find the camera pose w.r.t. the world frame at the time of the image capture
-            pose_w_c = TransformManager.lookup_transform(camera_frame, DEFAULT_FRAME, capture_time)
-
-            pose_c_o = pose_from_msg(response.pose)  # Pose of object (o) w.r.t. camera (c)
-            pose_w_o = pose_w_c @ pose_c_o
-
-            # Broadcast the estimated pose in the world frame using tf2
-            TransformManager.broadcast_transform(object_to_find, pose_w_o)
+        # Broadcast the estimated object pose w.r.t. to the camera (for debugging) and world
+        TransformManager.broadcast_transform(f"{object_name}_wrt_camera", pose_c_o)
+        TransformManager.broadcast_transform(object_name, pose_w_o)
 
 
 def main() -> None:
     """Launch a client for the EstimatePose ROS service."""
-    rospy.init_node("pose_estimation_client")
+    TransformManager.init_node("estimate_pose_client")
+
     client = PoseEstimateClient()
     client.main_loop(freq_hz=2.0)
 

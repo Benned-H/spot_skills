@@ -22,13 +22,15 @@ class DummyPoseEstimateServer:
         """Handle a service request to estimate an object's pose.
 
         :param request_msg: Message containing an RGB-D image pair and the name of an object
-        :return: Message containing the estimated pose, if the object was detected
+        :return: Message containing a dummy estimated pose (object is always detected)
         """
-        del request_msg
-
         response_msg = EstimatePoseResponse()
         response_msg.object_found = True
-        response_msg.pose = pose_to_stamped_msg(Pose3D.identity())
+
+        pose_stamped_msg = pose_to_stamped_msg(Pose3D.from_xyz_rpy(z=0.25))  # Camera faces +z-axis
+        pose_stamped_msg.header.frame_id = request_msg.info.header.frame_id
+
+        response_msg.pose = pose_stamped_msg
 
         return response_msg
 
