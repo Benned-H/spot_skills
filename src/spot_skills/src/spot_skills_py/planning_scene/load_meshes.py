@@ -16,10 +16,10 @@ from trimesh import Trimesh
 from trimesh import load as trimesh_load
 from trimesh.transformations import compose_matrix
 
-from spot_skills.make_geometry_msgs import create_pose
-from spot_skills.planning_scene.put_down_surface import PutDownSurface
-from spot_skills.ros_utilities import resolve_package_path
-from spot_skills.tamp.geometry.real_range import RealRange
+from spot_skills_py.make_geometry_msgs import create_pose
+from spot_skills_py.planning_scene.put_down_surface import PutDownSurface
+from spot_skills_py.ros_utilities import resolve_package_path
+from spot_skills_py.tamp.geometry.real_range import RealRange
 
 
 class ImportedMeshTypeError(Exception):
@@ -133,12 +133,9 @@ def trimesh_to_msg(mesh: Trimesh) -> shape_msgs.msg.Mesh:
     """
     mesh_msg = shape_msgs.msg.Mesh()
     mesh_msg.triangles = [
-        shape_msgs.msg.MeshTriangle(vertex_indices=list(triangle))
-        for triangle in mesh.faces
+        shape_msgs.msg.MeshTriangle(vertex_indices=list(triangle)) for triangle in mesh.faces
     ]
-    mesh_msg.vertices = [
-        geometry_msgs.msg.Point(v[0], v[1], v[2]) for v in mesh.vertices
-    ]
+    mesh_msg.vertices = [geometry_msgs.msg.Point(v[0], v[1], v[2]) for v in mesh.vertices]
 
     return mesh_msg
 

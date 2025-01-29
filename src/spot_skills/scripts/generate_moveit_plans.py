@@ -10,8 +10,7 @@ import rospy
 from actionlib.simple_action_client import SimpleActionClient
 from control_msgs.msg import GripperCommandAction, GripperCommandGoal
 from moveit_commander import MoveGroupCommander, roscpp_initialize
-
-from spot_skills.make_geometry_msgs import create_pose, stamp_pose
+from spot_skills_py.make_geometry_msgs import create_pose, stamp_pose
 
 
 def main() -> None:

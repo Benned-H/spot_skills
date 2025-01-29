@@ -5,8 +5,7 @@
 import time
 
 import rospy
-
-from spot_skills.ros_utilities import trigger_service
+from spot_skills_py.ros_utilities import trigger_service
 
 
 def main() -> None:

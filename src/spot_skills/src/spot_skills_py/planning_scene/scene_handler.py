@@ -10,7 +10,7 @@ import rospy
 from moveit_commander import PlanningSceneInterface
 from tf2_ros import Buffer, TransformBroadcaster, TransformException, TransformListener
 
-from spot_skills.make_geometry_msgs import pose_to_transform
+from spot_skills_py.make_geometry_msgs import pose_to_transform
 
 from .load_meshes import (
     load_objects_dict_from_yaml,

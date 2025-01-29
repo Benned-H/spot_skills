@@ -16,12 +16,11 @@ import sys
 import time
 
 import rospy
-
-from spot_skills.joint_trajectory import JointsPoint, JointTrajectory
-from spot_skills.ros_utilities import get_ros_param
-from spot_skills.spot_arm_controller import SpotArmController
-from spot_skills.spot_manager import SpotManager
-from spot_skills.time_stamp import TimeStamp
+from spot_skills_py.joint_trajectory import JointsPoint, JointTrajectory
+from spot_skills_py.ros_utilities import get_ros_param
+from spot_skills_py.spot_arm_controller import SpotArmController
+from spot_skills_py.spot_manager import SpotManager
+from spot_skills_py.time_stamp import TimeStamp
 
 RUN_TIME_S = 20  # Duration (seconds) to run our trajectory for
 
