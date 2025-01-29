@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import rospy
 from sensor_msgs.msg import Image
+from transform_utils.kinematics import DEFAULT_FRAME
+from transform_utils.kinematics_ros import pose_from_msg
+from transform_utils.transform_manager import TransformManager
 
 from object_detection_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
-from spot_skills.kinematics.kinematics import DEFAULT_FRAME
-from spot_skills.kinematics.kinematics_ros import pose_from_msg
-from spot_skills.kinematics.transform_manager import TransformManager
 from spot_skills.ros_utilities import get_ros_param
 from spot_skills.srv import GetPairedRGBD, GetPairedRGBDRequest, GetPairedRGBDResponse
 
