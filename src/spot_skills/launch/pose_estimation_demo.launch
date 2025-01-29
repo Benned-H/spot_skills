@@ -2,7 +2,7 @@
 <launch>
 
     <!-- Which camera should be used for pose estimation? -->
-    <param name="spot/pose_estimation_camera" type="str" value="frontright"/>
+    <param name="estimate_pose_client/default_camera" type="str" value="frontright"/>
 
     <!-- Launch and authenticate with the Spot ROS driver -->
     <include file="$(find spot_skills)/launch/authenticate_spot_driver.launch">
