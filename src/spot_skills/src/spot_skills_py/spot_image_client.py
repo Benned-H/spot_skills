@@ -57,7 +57,8 @@ class SpotImageClient:
         self.image_sources = [source.name for source in image_sources_proto]
 
         self._cv_bridge = CvBridge()
-        self._debug_image_pub = rospy.Publisher("~debug_image", ImageMsg, queue_size=5)
+        self._debug_rgb_pub = rospy.Publisher("~debug_rgb_image", ImageMsg, queue_size=5)
+        self._debug_depth_pub = rospy.Publisher("~debug_depth_image", ImageMsg, queue_size=5)
 
     def make_image_request(self, camera_name: str, format: ImageFormat) -> ImageRequest | None:
         """Build an image request Protobuf message to be sent to Spot.
@@ -158,8 +159,6 @@ class SpotImageClient:
         else:
             image_np = cv2.imdecode(image_np, -1)
 
-        rospy.loginfo(f"[extract_image_msg] Image converted to array of shape {image_np.shape}")
-
         image_msg = self._cv_bridge.cv2_to_imgmsg(image_np, encoding)
         image_msg.header.stamp = capture_time
         image_msg.header.frame_id = image_capture.frame_name_image_sensor
@@ -169,7 +168,9 @@ class SpotImageClient:
         assert image_msg.width == cols
 
         if pixel_format == Image.PIXEL_FORMAT_RGB_U8:
-            self._debug_image_pub.publish(image_msg)
+            self._debug_rgb_pub.publish(image_msg)
+        elif pixel_format == Image.PIXEL_FORMAT_DEPTH_U16:
+            self._debug_depth_pub.publish(image_msg)
 
         return image_msg
 

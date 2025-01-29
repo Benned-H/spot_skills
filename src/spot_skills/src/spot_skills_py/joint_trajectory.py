@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 
-from spot_skills.spot_configuration import (
+from spot_skills_py.spot_configuration import (
     MAP_JOINT_NAMES_URDF_TO_SPOT_SDK,
     SPOT_SDK_ARM_JOINT_NAMES,
     SPOT_URDF_ARM_JOINT_NAMES,
     Configuration,
 )
-from spot_skills.time_stamp import TimeStamp
+from spot_skills_py.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
     from typing import Self
@@ -138,9 +138,9 @@ class JointTrajectory:
         # Ensure the joint names are either all Spot SDK or all URDF
         using_sdk_names = all(name in SPOT_SDK_ARM_JOINT_NAMES for name in self.joint_names)
         using_urdf_names = all(name in SPOT_URDF_ARM_JOINT_NAMES for name in self.joint_names)
-        assert (
-            using_sdk_names or using_urdf_names
-        ), f"Cannot recognize arm joint names: {self.joint_names}."
+        assert using_sdk_names or using_urdf_names, (
+            f"Cannot recognize arm joint names: {self.joint_names}."
+        )
 
         def reorder_joint_values(points: list[JointsPoint], index_mapping: list[int]) -> None:
             """Reorder the joint values in the given list of JointsPoints."""

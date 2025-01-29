@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import rospy
-from sensor_msgs.msg import Image
+from spot_skills_py.ros_utilities import get_ros_param
 from transform_utils.kinematics import DEFAULT_FRAME
 from transform_utils.kinematics_ros import pose_from_msg
 from transform_utils.transform_manager import TransformManager
 
 from object_detection_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
-from spot_skills.ros_utilities import get_ros_param
 from spot_skills.srv import GetPairedRGBD, GetPairedRGBDRequest, GetPairedRGBDResponse
 
 
@@ -39,6 +38,8 @@ class PoseEstimateClient:
         self._objects: list[str] = get_ros_param("known_objects")
 
         self._next_obj_idx = 0
+
+        self.global_frame = "vision"  # Relative frame used as the static "world" frame
 
     def next_object(self) -> str:
         """Find the next object of interest for pose estimation.
@@ -85,7 +86,7 @@ class PoseEstimateClient:
         # Record the relative pose of the camera frame w.r.t. the world frame
         camera_frame = rgbd_pair.info.header.frame_id  # Optical frame of the camera
         capture_time = rgbd_pair.info.header.stamp  # Acquisition time of the images
-        pose_w_c = TransformManager.lookup_transform(camera_frame, DEFAULT_FRAME, capture_time)
+        pose_w_c = TransformManager.lookup_transform(camera_frame, self.global_frame, capture_time)
 
         request = EstimatePoseRequest()
         request.rgb = rgbd_pair.rgb

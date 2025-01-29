@@ -22,10 +22,10 @@ from google.protobuf.json_format import MessageToDict
 from rospy import logfatal as ros_logfatal
 from rospy import loginfo as ros_loginfo
 
-from spot_skills.spot_arm_controller import GripperCommandOutcome
-from spot_skills.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES, Configuration
-from spot_skills.spot_image_client import SpotImageClient
-from spot_skills.spot_sync import SpotTimeSync
+from spot_skills_py.spot_arm_controller import GripperCommandOutcome
+from spot_skills_py.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES, Configuration
+from spot_skills_py.spot_image_client import SpotImageClient
+from spot_skills_py.spot_sync import SpotTimeSync
 
 
 class SpotManager:

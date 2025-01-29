@@ -9,15 +9,15 @@ from typing import TYPE_CHECKING
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 
-from spot_skills.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
-from spot_skills.time_stamp import TimeStamp
+from spot_skills_py.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
+from spot_skills_py.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
     from actionlib import SimpleActionServer
     from bosdyn.api.robot_command_pb2 import RobotCommand
 
-    from spot_skills.joint_trajectory import JointTrajectory
-    from spot_skills.spot_manager import SpotManager
+    from spot_skills_py.joint_trajectory import JointTrajectory
+    from spot_skills_py.spot_manager import SpotManager
 
 
 class ArmCommandOutcome(Enum):

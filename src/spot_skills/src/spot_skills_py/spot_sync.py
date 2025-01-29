@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from bosdyn.client.time_sync import TimeSyncClient, TimeSyncEndpoint
 from bosdyn.util import duration_to_seconds
 
-from spot_skills.time_stamp import TimeStamp, TimestampProto
+from spot_skills_py.time_stamp import TimeStamp, TimestampProto
 
 if TYPE_CHECKING:
     from bosdyn.client.robot import Robot

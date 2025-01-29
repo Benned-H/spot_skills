@@ -12,16 +12,16 @@ from control_msgs.msg import (
 )
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
-from spot_skills.joint_trajectory import JointTrajectory
-from spot_skills.ros_utilities import get_ros_param
-from spot_skills.spot_arm_controller import (
+from spot_skills.srv import GetPairedRGBD, GetPairedRGBDRequest, GetPairedRGBDResponse
+from spot_skills_py.joint_trajectory import JointTrajectory
+from spot_skills_py.ros_utilities import get_ros_param
+from spot_skills_py.spot_arm_controller import (
     ArmCommandOutcome,
     GripperCommandOutcome,
     SpotArmController,
 )
-from spot_skills.spot_image_client import ImageFormat, SpotImageClient
-from spot_skills.spot_manager import SpotManager
-from spot_skills.srv import GetPairedRGBD, GetPairedRGBDRequest, GetPairedRGBDResponse
+from spot_skills_py.spot_image_client import ImageFormat, SpotImageClient
+from spot_skills_py.spot_manager import SpotManager
 
 
 class SpotROS1Wrapper:

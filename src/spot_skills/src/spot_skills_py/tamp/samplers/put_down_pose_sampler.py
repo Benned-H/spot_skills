@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from spot_skills.planning_scene.put_down_surface import PutDownSurface
-from spot_skills.tamp.geometry.real_range import RealRange
-from spot_skills.tamp.geometry.transforms_3d import Point3D, Pose3D, Quaternion
+from spot_skills_py.planning_scene.put_down_surface import PutDownSurface
+from spot_skills_py.tamp.geometry.real_range import RealRange
+from spot_skills_py.tamp.geometry.transforms_3d import Point3D, Pose3D, Quaternion
 
 from .sampler import Iterator, Sampler
 
