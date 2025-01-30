@@ -106,6 +106,7 @@ class PoseEstimateClient:
         if not response.object_found:
             return
 
+        rospy.loginfo(f"Received pose estimate for the object '{object_name}'")
         pose_c_o = pose_from_msg(response.pose)  # Pose of object (o) w.r.t. camera (c)
         pose_w_o = pose_w_c @ pose_c_o
 
