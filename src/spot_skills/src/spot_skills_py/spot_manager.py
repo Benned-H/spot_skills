@@ -18,12 +18,12 @@ from bosdyn.client.robot_command import (
 from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_command
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
-from google.protobuf.json_format import MessageToDict
 from rospy import logfatal as ros_logfatal
 from rospy import loginfo as ros_loginfo
+from transform_utils.kinematics import Configuration
 
 from spot_skills_py.spot_arm_controller import GripperCommandOutcome
-from spot_skills_py.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES, Configuration
+from spot_skills_py.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
 from spot_skills_py.spot_image_client import SpotImageClient
 from spot_skills_py.spot_sync import SpotTimeSync
 
@@ -173,18 +173,6 @@ class SpotManager:
         self._robot.logger.info(formatted_message)
         ros_loginfo(formatted_message)
 
-    def log_fatal(self, message: str) -> None:
-        """Log the given fatal message to the Spot and ROS logs.
-
-        :param message: Fatal message causing complete shutdown
-        """
-        manager_age_s = time.time() - self._created_time_s
-
-        formatted_message = f"[SpotManager at {manager_age_s:.3f} s] {message}"
-
-        self._robot.logger.fatal(formatted_message)
-        ros_logfatal(formatted_message)
-
     def resync_and_log(self) -> None:
         """Resync with Spot and log information describing the resulting time sync."""
         self.time_sync.resync()
@@ -225,13 +213,11 @@ class SpotManager:
         # Use the joint names as sent from Spot directly (differs from URDF names)
         # See Lines 81-87 of spot_ros/spot_driver/src/spot_driver/ros_helpers.py
 
-        arm_configuration = {}
-
-        for joint in sdk_joint_states:
-            if joint.name in SPOT_SDK_ARM_JOINT_NAMES:
-                arm_configuration[joint.name] = joint.position.value
-
-        return arm_configuration
+        return {
+            joint.name: joint.position.value
+            for joint in sdk_joint_states
+            if joint.name in SPOT_SDK_ARM_JOINT_NAMES
+        }
 
     def send_robot_command(self, command: RobotCommand) -> int:
         """Command Spot to execute the given robot command.

@@ -10,7 +10,8 @@ import rospy
 from actionlib.simple_action_client import SimpleActionClient
 from control_msgs.msg import GripperCommandAction, GripperCommandGoal
 from moveit_commander import MoveGroupCommander, roscpp_initialize
-from spot_skills_py.make_geometry_msgs import create_pose, stamp_pose
+from transform_utils.kinematics import Pose3D
+from transform_utils.kinematics_ros import pose_to_stamped_msg
 
 
 def main() -> None:
@@ -55,17 +56,17 @@ def main() -> None:
 
     # Set path's center as farther forward than its endpoints (so it's non-linear)
     center_x_m = forward_m + x_variation_m  # Push "forward" along x
-    endpoint_x_m = forward_m - x_variation_m  # Pull "back" along x
+    end_x_m = forward_m - x_variation_m  # Pull "back" along x
 
     to_side_m = 0.6  # Maximum extent of the end-effector to the side (meters)
 
-    z_in_body_frame = 0.35  # Path's z in body frame (meters)
+    z_wrt_body = 0.35  # Path's z in body frame (meters)
 
     # Specify end-effector (ee) target poses in Spot's body frame
     # Assume: Spot may begin at an arbitrary (x,y) location in the global frame
-    left_ee_pose = create_pose((endpoint_x_m, to_side_m, z_in_body_frame))
-    center_ee_pose = create_pose((center_x_m, 0, z_in_body_frame))
-    right_ee_pose = create_pose((endpoint_x_m, -to_side_m, z_in_body_frame))
+    left_ee_pose = Pose3D.from_xyz_rpy(x=end_x_m, y=to_side_m, z=z_wrt_body, ref_frame="body")
+    center_ee_pose = Pose3D.from_xyz_rpy(x=center_x_m, y=0, z=z_wrt_body, ref_frame="body")
+    right_ee_pose = Pose3D.from_xyz_rpy(x=end_x_m, y=-to_side_m, z=z_wrt_body, ref_frame="body")
 
     cycle_target_poses = [center_ee_pose, left_ee_pose, center_ee_pose, right_ee_pose]
     cycle_gripper_angles = [-np.pi / 2.0, -np.pi / 4.0, -np.pi / 8.0, 0]
@@ -79,14 +80,13 @@ def main() -> None:
     rate = rospy.Rate(switch_hz)
 
     while not rospy.is_shutdown():
-        curr_target_pose = cycle_target_poses[target_idx]
-        stamped_target_pose = stamp_pose(curr_target_pose, body_frame_name)
-        target_pose_publisher.publish(stamped_target_pose)
+        target_pose_stamped_msg = pose_to_stamped_msg(cycle_target_poses[target_idx])
+        target_pose_publisher.publish(target_pose_stamped_msg)
 
-        rospy.loginfo(f"Planning to pose:\n{stamped_target_pose}...")
+        rospy.loginfo(f"Planning to pose:\n{target_pose_stamped_msg}...")
 
         # Plan and move Spot's arm to the current target pose
-        move_group.set_pose_target(curr_target_pose)
+        move_group.set_pose_target(target_pose_stamped_msg)
         success, trajectory, _, error = move_group.plan()
         move_group.clear_pose_targets()  # Clear pose targets after planning
 
