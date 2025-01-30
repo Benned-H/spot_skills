@@ -3,8 +3,8 @@
 import numpy as np
 from transform_utils.kinematics import Point3D, Pose3D, Quaternion
 
-from from spot_skills_py.samplers.real_range import RealRange
 from spot_skills_py.planning_scene.put_down_surface import PutDownSurface
+from spot_skills_py.samplers.real_range import RealRange
 
 from .sampler import Iterator, Sampler
 
