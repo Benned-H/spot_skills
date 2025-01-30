@@ -84,8 +84,8 @@ def make_collision_object_msg(
     collision_object.header.frame_id = object_fields.get("frame", "map")
 
     pose_xyz_rpy = object_fields.get("pose", [0] * 6)  # Default to identity pose
-    x, y, z = tuple(pose_xyz_rpy[:3])
-    r_rad, p_rad, y_rad = pose_xyz_rpy[3:]
+
+    x, y, z, r_rad, p_rad, y_rad = pose_xyz_rpy
 
     # Subframes are defined relative to the object's pose
     collision_object.pose = pose_to_msg(Pose3D.from_xyz_rpy(x, y, z, r_rad, p_rad, y_rad))

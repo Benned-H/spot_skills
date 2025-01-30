@@ -18,7 +18,6 @@ from bosdyn.client.robot_command import (
 from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_command
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
-from rospy import logfatal as ros_logfatal
 from rospy import loginfo as ros_loginfo
 from transform_utils.kinematics import Configuration
 
