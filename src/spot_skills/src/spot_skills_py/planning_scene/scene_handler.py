@@ -9,8 +9,7 @@ import geometry_msgs.msg
 import rospy
 from moveit_commander import PlanningSceneInterface
 from tf2_ros import Buffer, TransformBroadcaster, TransformException, TransformListener
-
-from spot_skills_py.make_geometry_msgs import pose_to_transform
+from transform_utils.kinematics_ros import pose_to_tf_msg
 
 from .load_meshes import (
     load_objects_dict_from_yaml,
@@ -89,7 +88,7 @@ class SceneHandler:
             obj_tf.header.frame_id = obj_msg.header.frame_id
 
             obj_tf.child_frame_id = obj_id
-            obj_tf.transform = pose_to_transform(obj_msg.pose)
+            obj_tf.transform = pose_to_tf_msg(obj_msg.pose)
             self._broadcaster.sendTransform(obj_tf)
 
             assert len(obj_msg.subframe_names) == len(obj_msg.subframe_poses)
@@ -105,7 +104,7 @@ class SceneHandler:
                 subframe_tf.header.frame_id = obj_id  # Subframe is w.r.t. object
 
                 subframe_tf.child_frame_id = f"{obj_id}/{subframe_name}"
-                subframe_tf.transform = pose_to_transform(subframe_pose)
+                subframe_tf.transform = pose_to_tf_msg(subframe_pose)
                 self._broadcaster.sendTransform(subframe_tf)
 
     def add_collision_object(
