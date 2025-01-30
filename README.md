@@ -171,9 +171,9 @@ rosrun spot_skills spot_moveit_demo.py
 
 ## Sample Put-Down and Grasp Poses
 
-In this demonstration, we visualize numerous randomly sampled put-down and grasping poses in RViz.
+In this demo, we visualize numerous randomly sampled put-down and grasping poses in RViz.
 
-To run this demonstration, use the following commands from the top `spot_skills` directory:
+**Note**: This demo has been superseded by sampling code from a separate, TAMP-dedicated codebase. When the demo _was_ working, it could be run using the commands:
 
 ```bash
 pip install -r src/spot_skills/requirements.txt
