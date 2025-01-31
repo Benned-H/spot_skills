@@ -3,27 +3,22 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import rospy
 from rospkg import RosPack
 from std_srvs.srv import Trigger, TriggerResponse
 
 
-def get_ros_params(ros_param_names: list[str]) -> list:
-    """Read and return the given ROS parameters from the parameter server.
+def get_ros_param(param_name: str) -> Any:
+    """Read and return the requested ROS parameter from the parameter server.
 
-    :param      ros_param_names     Names of the desired ROS parameters
+    :param param_name: Name of the ROS parameter
 
-    :returns    List of the resulting values, else asserts on unfound parameter
+    :returns: Value of the parameter, else asserts if unfound
     """
-    param_values = []
-
-    for param_name in ros_param_names:
-        assert rospy.has_param(param_name), f"Cannot find '{param_name}' rosparam."
-
-        param_values.append(rospy.get_param(param_name))
-
-    return param_values
+    assert rospy.has_param(param_name), f"Cannot find '{param_name}' rosparam."
+    return rospy.get_param(param_name)
 
 
 def trigger_service(service_name: str) -> bool:

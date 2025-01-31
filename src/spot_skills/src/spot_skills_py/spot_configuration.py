@@ -1,9 +1,5 @@
 """Define objects used to specify configurations of Spot."""
 
-from typing import Dict
-
-Configuration = Dict[str, float]  # Maps joint names to their positions
-
 # Names (per the Spot SDK) of the joints in Spot's arm
 # Reference: https://tinyurl.com/SpotSDK-ArmJointPosition
 SPOT_SDK_ARM_JOINT_NAMES = [

@@ -1,5 +1,7 @@
 """Define a class to manage a sustained connection to a Spot robot."""
 
+from __future__ import annotations
+
 import time
 
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
@@ -17,10 +19,12 @@ from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from rospy import loginfo as ros_loginfo
+from transform_utils.kinematics import Configuration
 
-from spot_skills.spot_arm_controller import GripperCommandOutcome
-from spot_skills.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES, Configuration
-from spot_skills.spot_sync import SpotTimeSync
+from spot_skills_py.spot_arm_controller import GripperCommandOutcome
+from spot_skills_py.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
+from spot_skills_py.spot_image_client import SpotImageClient
+from spot_skills_py.spot_sync import SpotTimeSync
 
 
 class SpotManager:
@@ -64,17 +68,16 @@ class SpotManager:
         self.resync_and_log()
 
         # Define a client that can command Spot to move
-        self.command_client = self._robot.ensure_client(
-            RobotCommandClient.default_service_name,
-        )
+        self.command_client = self._robot.ensure_client(RobotCommandClient.default_service_name)
 
         # Define a client to query the state of the robot
-        self._state_client = self._robot.ensure_client(
-            RobotStateClient.default_service_name,
-        )
+        self._state_client = self._robot.ensure_client(RobotStateClient.default_service_name)
 
         # Define a client to query Spot's e-stop status
         self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
+
+        # Define an image client to interface with Spot's cameras
+        self.image_client = SpotImageClient(self._robot)
 
         # Define a client to later obtain control of Spot (i.e., Spot's "lease")
         self._lease_client: LeaseClient = self._robot.ensure_client(
@@ -136,8 +139,7 @@ class SpotManager:
                 must_acquire=True,
                 return_at_exit=True,
             )
-            self.log_info("Lease acquired. Logging info for debugging...")
-            self.log_lease_info()
+            self.log_info("Lease acquired.")
 
         # 2. If needed, attempt to power on Spot
         if not self._robot.is_powered_on():
@@ -180,7 +182,7 @@ class SpotManager:
         max_round_trip_s = self.time_sync.max_round_trip_s
         self.log_info(f"Maximum observed round trip time: {max_round_trip_s} seconds.")
 
-        clock_skew_s = self.time_sync.clock_skew_s
+        clock_skew_s = self.time_sync.robot_clock_skew_s
         self.log_info(f"Current robot clock skew from local: {clock_skew_s} seconds.")
 
         max_sync_time_s = self.time_sync.max_sync_time_s
@@ -210,13 +212,11 @@ class SpotManager:
         # Use the joint names as sent from Spot directly (differs from URDF names)
         # See Lines 81-87 of spot_ros/spot_driver/src/spot_driver/ros_helpers.py
 
-        arm_configuration = {}
-
-        for joint in sdk_joint_states:
-            if joint.name in SPOT_SDK_ARM_JOINT_NAMES:
-                arm_configuration[joint.name] = joint.position.value
-
-        return arm_configuration
+        return {
+            joint.name: joint.position.value
+            for joint in sdk_joint_states
+            if joint.name in SPOT_SDK_ARM_JOINT_NAMES
+        }
 
     def send_robot_command(self, command: RobotCommand) -> int:
         """Command Spot to execute the given robot command.

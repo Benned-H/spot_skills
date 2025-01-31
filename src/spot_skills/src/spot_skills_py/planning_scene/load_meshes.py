@@ -12,14 +12,15 @@ import numpy as np
 import rospy
 import shape_msgs.msg
 import yaml
+from transform_utils.kinematics import Pose3D
+from transform_utils.kinematics_ros import pose_to_msg
 from trimesh import Trimesh
 from trimesh import load as trimesh_load
 from trimesh.transformations import compose_matrix
 
-from spot_skills.make_geometry_msgs import create_pose
-from spot_skills.planning_scene.put_down_surface import PutDownSurface
-from spot_skills.ros_utilities import resolve_package_path
-from spot_skills.tamp.geometry.real_range import RealRange
+from spot_skills_py.planning_scene.put_down_surface import PutDownSurface
+from spot_skills_py.ros_utilities import resolve_package_path
+from spot_skills_py.samplers.real_range import RealRange
 
 
 class ImportedMeshTypeError(Exception):
@@ -83,11 +84,11 @@ def make_collision_object_msg(
     collision_object.header.frame_id = object_fields.get("frame", "map")
 
     pose_xyz_rpy = object_fields.get("pose", [0] * 6)  # Default to identity pose
-    xyz = tuple(pose_xyz_rpy[:3])
-    r_rad, p_rad, y_rad = pose_xyz_rpy[3:]
+
+    x, y, z, r_rad, p_rad, y_rad = pose_xyz_rpy
 
     # Subframes are defined relative to the object's pose
-    collision_object.pose = create_pose(xyz, r_rad, p_rad, y_rad)
+    collision_object.pose = pose_to_msg(Pose3D.from_xyz_rpy(x, y, z, r_rad, p_rad, y_rad))
 
     collision_object.id = object_fields["ID"]
 
@@ -133,12 +134,9 @@ def trimesh_to_msg(mesh: Trimesh) -> shape_msgs.msg.Mesh:
     """
     mesh_msg = shape_msgs.msg.Mesh()
     mesh_msg.triangles = [
-        shape_msgs.msg.MeshTriangle(vertex_indices=list(triangle))
-        for triangle in mesh.faces
+        shape_msgs.msg.MeshTriangle(vertex_indices=list(triangle)) for triangle in mesh.faces
     ]
-    mesh_msg.vertices = [
-        geometry_msgs.msg.Point(v[0], v[1], v[2]) for v in mesh.vertices
-    ]
+    mesh_msg.vertices = [geometry_msgs.msg.Point(v[0], v[1], v[2]) for v in mesh.vertices]
 
     return mesh_msg
 
@@ -148,9 +146,9 @@ def get_subframes(mesh: Trimesh) -> dict[str, geometry_msgs.msg.Pose]:
     (min_x, min_y, _), (max_x, max_y, max_z) = mesh.bounds
 
     return {
-        "top": create_pose((0, 0, max_z)),
-        "top_min_xy": create_pose((min_x, min_y, max_z)),
-        "top_max_xy": create_pose((max_x, max_y, max_z)),
+        "top": pose_to_msg(Pose3D.from_xyz_rpy(z=max_z)),
+        "top_min_xy": pose_to_msg(Pose3D.from_xyz_rpy(x=min_x, y=min_y, z=max_z)),
+        "top_max_xy": pose_to_msg(Pose3D.from_xyz_rpy(x=max_x, y=max_y, z=max_z)),
     }
 
 

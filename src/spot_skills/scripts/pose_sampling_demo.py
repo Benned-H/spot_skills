@@ -6,12 +6,11 @@ import moveit_commander
 import numpy as np
 import rospy
 from geometry_msgs.msg import PoseArray
-
-from spot_skills.planning_scene.scene_handler import SceneHandler
-from spot_skills.tamp.geometry.real_range import RealRange
-from spot_skills.tamp.geometry.transforms_3d_ros import pose_to_msg
-from spot_skills.tamp.samplers.grasp_pose_sampler import GraspPoseSampler
-from spot_skills.tamp.samplers.put_down_pose_sampler import PutDownPoseSampler
+from spot_skills_py.planning_scene.scene_handler import SceneHandler
+from spot_skills_py.samplers.grasp_pose_sampler import GraspPoseSampler
+from spot_skills_py.samplers.put_down_pose_sampler import PutDownPoseSampler
+from spot_skills_py.samplers.real_range import RealRange
+from transform_utils.kinematics_ros import pose_to_msg
 
 
 def main() -> None:

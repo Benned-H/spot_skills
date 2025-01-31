@@ -126,3 +126,17 @@ Whenever you begin a new task for the project, create a branch on GitHub to trac
 
 - In the Slack task list, update your task as "Done" and double-check that its title reflects what has been accomplished.
 - Finally, communicate with the team to identify what should be done next.
+
+## Software Tools
+
+This project uses GitHub, Docker, and tmux to support development. The software itself uses the ROS 1 Noetic ecosystem, including MoveIt for motion planning, RTAB-Map for SLAM, and TRAC-IK for inverse kinematics. We also use the Spot SDK and Spot ROS 1 driver to interface with the Spot robot.
+
+### Multi-Docker Launch Script (`tmux`)
+
+To install `tmux` and use it to launch into the Spot skills and pose estimation Dockers, run the command:
+
+```bash
+bash docker/tmux-launch.sh
+```
+
+Then, follow any instructions output to the console to finish your `tmux` setup.

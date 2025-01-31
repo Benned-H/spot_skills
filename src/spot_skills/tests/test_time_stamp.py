@@ -3,7 +3,7 @@
 import time
 from math import isclose
 
-from spot_skills.time_stamp import TimeStamp
+from spot_skills_py.time_stamp import TimeStamp
 
 
 def test_to_from_time_s() -> None:

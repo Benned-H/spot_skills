@@ -1,0 +1,3 @@
+# Names of the objects to look for during pose estimation
+known_objects:
+  - expo_spray
