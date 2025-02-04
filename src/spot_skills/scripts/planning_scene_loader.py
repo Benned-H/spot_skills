@@ -4,8 +4,7 @@ import sys
 
 import moveit_commander
 import rospy
-
-from spot_skills.planning_scene.scene_handler import SceneHandler
+from spot_skills_py.planning_scene.scene_handler import SceneHandler
 
 
 def main() -> None:

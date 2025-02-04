@@ -1,0 +1,6 @@
+{
+    "autoDocstring.docstringFormat": "sphinx-notypes",
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/devel/lib/python3/dist-packages"
+    ]
+}

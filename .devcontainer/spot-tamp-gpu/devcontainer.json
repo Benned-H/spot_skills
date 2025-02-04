@@ -1,58 +1,58 @@
 {
-    "name": "Spot-TAMP-GPU Dev Container",
-    "dockerComposeFile": [
-        "../../compose.yaml"
-    ],
-    "service": "spot-tamp-gpu",
-    "runServices": [
-        "spot-tamp-gpu"
-    ],
-    "workspaceFolder": "/docker/spot_skills",
-    "customizations": {
-        "vscode": {
-            "settings": {
-                "editor.rulers": [
-                    80,
-                    100
-                ],
-                "editor.insertSpaces": true,
-                "editor.tabSize": 4,
-                "editor.stickyTabStops": true,
-                "editor.formatOnSave": true,
-                "editor.defaultFormatter": "esbenp.prettier-vscode",
-                "[json]": {
-                    "editor.defaultFormatter": "vscode.json-language-features"
-                },
-                "[jsonc]": {
-                    "editor.defaultFormatter": "vscode.json-language-features"
-                },
-                "[python]": {
-                    "editor.defaultFormatter": "charliermarsh.ruff",
-                    "editor.codeActionsOnSave": {
-                        "source.fixAll": "explicit",
-                        "source.organizeImports": "explicit"
-                    }
-                },
-                "autoDocstring.docstringFormat": "sphinx-notypes",
-                "notebook.codeActionsOnSave": {
-                    "notebook.source.fixAll": "explicit",
-                    "notebook.source.organizeImports": "explicit"
-                },
-                "[toml]": {
-                    "editor.defaultFormatter": "tamasfe.even-better-toml"
-                }
-            },
-            "extensions": [
-                "charliermarsh.ruff",
-                "esbenp.prettier-vscode",
-                "Gruntfuggly.todo-tree",
-                "ms-azuretools.vscode-docker",
-                "ms-python.debugpy",
-                "ms-python.mypy-type-checker",
-                "ms-python.python",
-                "njpwerner.autodocstring",
-                "tamasfe.even-better-toml"
-            ]
+  "name": "Spot-TAMP-GPU Dev Container",
+  "dockerComposeFile": [
+    "../../compose.yaml"
+  ],
+  "service": "spot-tamp-gpu",
+  "runServices": [
+    "spot-tamp-gpu"
+  ],
+  "workspaceFolder": "/docker/spot_skills",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor.rulers": [
+          80,
+          100
+        ],
+        "editor.insertSpaces": true,
+        "editor.tabSize": 4,
+        "editor.stickyTabStops": true,
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "[json]": {
+          "editor.defaultFormatter": "vscode.json-language-features"
+        },
+        "[jsonc]": {
+          "editor.defaultFormatter": "vscode.json-language-features"
+        },
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.organizeImports": "explicit"
+          }
+        },
+        "autoDocstring.docstringFormat": "sphinx-notypes",
+        "notebook.codeActionsOnSave": {
+          "notebook.source.fixAll": "explicit",
+          "notebook.source.organizeImports": "explicit"
+        },
+        "[toml]": {
+          "editor.defaultFormatter": "tamasfe.even-better-toml"
         }
+      },
+      "extensions": [
+        "charliermarsh.ruff",
+        "esbenp.prettier-vscode",
+        "Gruntfuggly.todo-tree",
+        "ms-azuretools.vscode-docker",
+        "ms-python.debugpy",
+        "ms-python.mypy-type-checker",
+        "ms-python.python",
+        "njpwerner.autodocstring",
+        "tamasfe.even-better-toml"
+      ]
     }
+  }
 }
