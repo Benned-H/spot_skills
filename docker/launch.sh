@@ -17,9 +17,10 @@ source current_services.sh
 serviceName="${env_to_service[$env_type]}"
 echo "Selected Docker service: '${serviceName}'"
 
+xhost +local:docker
+
 # Attempt to enter the selected Docker service
 # Reference: https://docs.docker.com/reference/cli/docker/compose/up/
-xhost +local:docker
 docker compose up --pull missing --remove-orphans --detach "$serviceName"
 
 if [[ $? -ne 0 ]]; then

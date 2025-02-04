@@ -6,18 +6,18 @@ import time
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from bosdyn.client.robot_command import claw_gripper_open_angle_command
+from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 
-from spot_skills.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
-from spot_skills.time_stamp import TimeStamp
+from spot_skills_py.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
+from spot_skills_py.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
     from actionlib import SimpleActionServer
     from bosdyn.api.robot_command_pb2 import RobotCommand
 
-    from spot_skills.joint_trajectory import JointTrajectory
-    from spot_skills.spot_manager import SpotManager
+    from spot_skills_py.joint_trajectory import JointTrajectory
+    from spot_skills_py.spot_manager import SpotManager
 
 
 class ArmCommandOutcome(Enum):
@@ -248,7 +248,7 @@ class SpotArmController:
             self._manager.log_info(f"Rejected gripper command requesting: {target_rad} rad.\n")
             return GripperCommandOutcome.FAILURE
 
-        robot_command = claw_gripper_open_angle_command(target_rad)
+        robot_command = RobotCommandBuilder.claw_gripper_open_angle_command(target_rad)
 
         self._command_id = self._manager.send_robot_command(robot_command)
         self._manager.log_info("Gripper command sent.\n")
