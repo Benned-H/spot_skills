@@ -25,13 +25,13 @@ class PoseEstimateClient:
         :param pose_service_name: Name of the pose estimation ROS service
         :param image_service_name: Name of the ROS service used to capture RGBD image pairs
         """
-        rospy.wait_for_service(pose_service_name, timeout=30.0)
-        self.pose_service_name = pose_service_name
-        self._pose_service_caller = rospy.ServiceProxy(self.pose_service_name, EstimatePose)
-
         rospy.wait_for_service(image_service_name, timeout=30.0)
         self.image_service_name = image_service_name
         self._image_service_caller = rospy.ServiceProxy(image_service_name, GetPairedRGBD)
+
+        rospy.wait_for_service(pose_service_name, timeout=120.0)
+        self.pose_service_name = pose_service_name
+        self._pose_service_caller = rospy.ServiceProxy(self.pose_service_name, EstimatePose)
 
         # Configure the pose estimation service based on ROS params
         self.camera_name: str = get_ros_param("~default_camera")

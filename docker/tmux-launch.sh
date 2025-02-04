@@ -12,7 +12,7 @@ pose_remote="git@github.com:SpotIncarnated/pose.git"
 check_repo "$HOME/Documents/spot_skills" "git@github.com:Benned-H/spot_skills.git"
 check_repo "$HOME/Documents/pose" "git@github.com:SpotIncarnated/pose.git"
 
-# Verify that tmux is installed (script can't install it itself)
+# Verify that tmux is installed (script can't install it without sudo)
 source ros_docker/scripts/commandline.sh
 check_command "tmux" "sudo apt install tmux"
 
@@ -32,17 +32,20 @@ check_file "$tmux_conf"
 if [ ! -d "$tpm_path" ]; then
 	git clone https://github.com/tmux-plugins/tpm "$tpm_path"
 fi
-tmux source "$tmux_conf"
+
+# Create the tmux session
+session="pose-estimate"
+if [ "$(tmux ls 2>/dev/null | grep ${session})" ]; then
+	tmux kill-session -t "$session"
+fi
+tmux new-session -d -s "$session"
+
+tmux source-file "$tmux_conf"
 "${tpm_path}/bin/install_plugins"
 
 # Ask for user input once all environment verification is complete
 echo "Environment verification is complete. Press any key to continue..."
 read -n1
-
-# Create the tmux session
-session="pose-estimate"
-tmux kill-session -t "$session"
-tmux new-session -d -s "$session"
 
 # Window 1: Docker containers
 w1="docker"
