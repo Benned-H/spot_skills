@@ -12,14 +12,16 @@ from control_msgs.msg import (
 )
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
-from spot_skills.joint_trajectory import JointTrajectory
-from spot_skills.ros_utilities import get_ros_params
-from spot_skills.spot_arm_controller import (
+from spot_skills.srv import GetPairedRGBD, GetPairedRGBDRequest, GetPairedRGBDResponse
+from spot_skills_py.joint_trajectory import JointTrajectory
+from spot_skills_py.ros_utilities import get_ros_param
+from spot_skills_py.spot_arm_controller import (
     ArmCommandOutcome,
     GripperCommandOutcome,
     SpotArmController,
 )
-from spot_skills.spot_manager import SpotManager
+from spot_skills_py.spot_image_client import ImageFormat, SpotImageClient
+from spot_skills_py.spot_manager import SpotManager
 
 
 class SpotROS1Wrapper:
@@ -27,8 +29,9 @@ class SpotROS1Wrapper:
 
     def __init__(self) -> None:
         """Initialize the ROS interface by creating an internal SpotManager."""
-        spot_ros_params = ["/spot/hostname", "/spot/username", "/spot/password"]
-        spot_hostname, spot_username, spot_password = get_ros_params(spot_ros_params)
+        spot_rosparams = ["/spot/hostname", "/spot/username", "/spot/password"]
+        spot_rosparam_values = [get_ros_param(par) for par in spot_rosparams]
+        spot_hostname, spot_username, spot_password = spot_rosparam_values
 
         self._manager = SpotManager(
             client_name="SpotROS1Manager",
@@ -61,6 +64,12 @@ class SpotROS1Wrapper:
             "spot/stow_arm",
             Trigger,
             self.handle_stow_arm,
+        )
+
+        self._get_paired_rgbd_service = rospy.Service(
+            "spot/get_paired_rgbd",
+            GetPairedRGBD,
+            self.handle_get_paired_rgbd,
         )
 
         # Initialize all ROS action servers provided by the class
@@ -133,6 +142,57 @@ class SpotROS1Wrapper:
         message = "Spot's arm has been stowed." if success else "Could not stow Spot's arm."
 
         return TriggerResponse(success, message)
+
+    def handle_get_paired_rgbd(self, request_msg: GetPairedRGBDRequest) -> GetPairedRGBDResponse:
+        """Handle a request to capture an RGBD image pair from a specific camera on Spot.
+
+        :param request_msg: Message specifying a camera name to use for the RGBD image
+        :return: Response containing the RGB and depth images, alongside camera info
+        """
+        camera_name = request_msg.camera_name
+
+        image_request_protos = [
+            self._manager.image_client.make_image_request(camera_name, ImageFormat.RGB),
+            self._manager.image_client.make_image_request(camera_name, ImageFormat.DEPTH),
+        ]
+        rgb_response, depth_response = self._manager.image_client.get_images(image_request_protos)
+
+        # Find timestamps of the image responses
+        rgb_time_proto = rgb_response.shot.acquisition_time
+        rgb_timestamp = self._manager.time_sync.local_timestamp_from_proto(rgb_time_proto)
+        rgb_time_s = rgb_timestamp.to_time_s()
+        rgb_ros_time = rospy.Time.from_sec(rgb_time_s)
+
+        depth_time_proto = depth_response.shot.acquisition_time
+        depth_timestamp = self._manager.time_sync.local_timestamp_from_proto(depth_time_proto)
+        depth_time_s = depth_timestamp.to_time_s()
+        depth_ros_time = rospy.Time.from_sec(depth_time_s)
+
+        diff_s = rgb_time_s - depth_time_s
+        self._manager.log_info(f"Difference between RGB and depth timestamps: {diff_s} sec")
+        assert diff_s <= 0.1, f"Images differed by {diff_s} seconds!"
+
+        rgb_camera_info = SpotImageClient.extract_camera_info_msg(rgb_response, rgb_ros_time)
+        depth_camera_info = SpotImageClient.extract_camera_info_msg(depth_response, depth_ros_time)
+
+        # Expect that the camera information is identical, except the header
+        depth_camera_info.header = rgb_camera_info.header
+        assert rgb_camera_info == depth_camera_info, "Expected camera info to match!"
+
+        response_msg = GetPairedRGBDResponse()
+        response_msg.info = rgb_camera_info
+
+        response_msg.rgb = self._manager.image_client.extract_image_msg(
+            rgb_response.shot,
+            rgb_ros_time,
+        )
+
+        response_msg.depth = self._manager.image_client.extract_image_msg(
+            depth_response.shot,
+            depth_ros_time,
+        )
+
+        return response_msg
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
