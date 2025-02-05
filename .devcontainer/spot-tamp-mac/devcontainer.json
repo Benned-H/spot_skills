@@ -1,5 +1,5 @@
 {
-  "name": "Spot-TAMP Dev Container (on macOS)",
+  "name": "Spot-TAMP-macOS Dev Container",
   "dockerComposeFile": [
     "../../compose.yaml"
   ],
@@ -33,6 +33,7 @@
             "source.organizeImports": "explicit"
           }
         },
+        "autoDocstring.docstringFormat": "sphinx-notypes",
         "notebook.codeActionsOnSave": {
           "notebook.source.fixAll": "explicit",
           "notebook.source.organizeImports": "explicit"
@@ -44,10 +45,12 @@
       "extensions": [
         "charliermarsh.ruff",
         "esbenp.prettier-vscode",
+        "Gruntfuggly.todo-tree",
         "ms-azuretools.vscode-docker",
         "ms-python.debugpy",
         "ms-python.mypy-type-checker",
         "ms-python.python",
+        "njpwerner.autodocstring",
         "tamasfe.even-better-toml"
       ]
     }
