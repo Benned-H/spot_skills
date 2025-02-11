@@ -9,8 +9,28 @@
     <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg reload)" />
     <arg name="rtabmap_args" value="" unless="$(arg reload)" />
 
-    <!-- MAIN GROUP -->
+    <!-- Parametrize any external interface topic names -->
+    <arg name="pointcloud2_input_topic" default="/spot/lidar/points" />
+    <arg name="filtered_pointcloud2_topic" default="/spot/lidar/filtered_points" />
+
+    <!-- TODO: How to make move_bsase subscribe? https://wiki.ros.org/costmap_2d -->
+    <arg name="bounding_box_topic" default="/spot/footprint" />
+
     <group ns="rtabmap">
+
+        <!-- <node name="point_cloud_sphere_filter" pkg="spot_rtabmap"
+            type="point_cloud_filtering.py" output="screen">
+            <param name="moving_frame" value="base_link" />
+            <param name="sphere_radius" value="1.5" />
+        </node> -->
+
+        <node name="laser_filter" pkg="sensor_filters" type="pointcloud2_filter_chain" output="screen">
+            <rosparam command="load" file="$(find spot_rtabmap)/config/spot_cloud_filter.yaml" />
+            <remap from="~input" to="$(arg pointcloud2_input_topic)" />
+            <remap from="~output" to="$(arg filtered_pointcloud2_topic)" />
+            <remap from="~robot_local_bounding_box" to="$(arg bounding_box_topic)" />
+        </node>
+
         <!-- Use RGBD synchronization -->
         <!-- Here is a general example using a standalone nodelet, 
          but it is recommended to attach this nodelet to nodelet 
@@ -20,20 +40,6 @@
             <arg name="camera0" value="$(arg camera0)" />
             <arg name="camera1" value="$(arg camera1)" />
         </include>
-
-        <node name="point_cloud_sphere_filter" pkg="spot_rtabmap"
-            type="point_cloud_filtering.py" output="screen">
-            <param name="moving_frame" value="base_link" />
-            <param name="sphere_radius" value="1.5" />
-        </node>
-
-        <node pkg="sensor_filters" type="pointcloud2_filter_chain"
-            name="passthrough_z" output="screen">
-            <rosparam command="load"
-                file="$(find spot_rtabmap)/config/spot_cloud_filter.yaml" />
-            <remap from="~input" to="/filtered_pointcloud_sphere" />
-            <remap from="~output" to="/filtered_pointcloud_passthrough" />
-        </node>
 
         <!-- args="delete_db_on_start" if you want to start a new map -->
         <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen"
@@ -56,8 +62,7 @@
             <!-- remapping -->
             <remap from="odom" to="/spot/odometry" />
             <remap from="initialpose" to="/initialpose" />
-            <!-- <remap from="scan_cloud" to="/spot/lidar/points" /> -->
-            <remap from="scan_cloud" to="/filtered_pointcloud_passthrough" />
+            <remap from="scan_cloud" to="$(arg filtered_pointcloud2_topic)" />
 
             <!-- Remap ROS topics related to navigation -->
             <remap from="goal" to="/spot/go_to_pose" />
@@ -83,8 +88,7 @@
                 unless="$(arg localization_mode)" />
             <param name="RGBD/StartAtOrigin" type="string" value="true"
                 unless="$(arg localization_mode)" />
-            <!-- <param name="Mem/InitWMWithAllNodes" type="string" value="$(arg localization_mode)"
-            /> -->
+            <!-- <param name="Mem/InitWMWithAllNodes" type="string" value="$(arg localization_mode)" /> -->
 
             <!-- RTAB-Map's parameters, taken from kaiyu and the tutorial -->
             <param name="RGBD/ProximityBySpace" type="string" value="true" />
@@ -122,7 +126,7 @@
             <remap from="rgb/image" to="$(arg camera0)_rgbd_image" />
             <!-- <remap from="depth/image" to="/data_throttled_image_depth" /> -->
             <!-- <remap from="rgb/camera_info" to="/data_throttled_camera_info" /> -->
-            <remap from="scan" to="/spot/lidar/points" />
+            <remap from="scan_cloud" to="$(arg filtered_pointcloud2_topic)" />
             <!-- <remap from="odom" to="/az3/base_controller/odom" /> -->
 
             <param name="rgb/image_transport" type="string" value="compressed" />
