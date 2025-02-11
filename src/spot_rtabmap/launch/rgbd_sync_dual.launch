@@ -8,8 +8,7 @@
         output="screen">
         <remap from="rgb/image" to="/spot/camera/$(arg camera0)/image" />
         <remap from="depth/image" to="/spot/depth/$(arg camera0)/depth_in_visual" />
-        <remap from="rgb/camera_info"
-            to="/spot/camera/$(arg camera0)/camera_info" />
+        <remap from="rgb/camera_info" to="/spot/camera/$(arg camera0)/camera_info" />
         <remap from="rgbd_image" to="$(arg camera0)_rgbd_image" /> <!-- output -->
         <param name="approx_sync" value="true" />
     </node>
@@ -18,8 +17,7 @@
         output="screen">
         <remap from="rgb/image" to="/spot/camera/$(arg camera1)/image" />
         <remap from="depth/image" to="/spot/depth/$(arg camera1)/depth_in_visual" />
-        <remap from="rgb/camera_info"
-            to="/spot/camera/$(arg camera1)/camera_info" />
+        <remap from="rgb/camera_info" to="/spot/camera/$(arg camera1)/camera_info" />
         <remap from="rgbd_image" to="$(arg camera1)_rgbd_image" /> <!-- output -->
         <param name="approx_sync" value="true" />
     </node>

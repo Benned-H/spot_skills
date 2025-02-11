@@ -13,7 +13,7 @@
     <arg name="pointcloud2_input_topic" default="/spot/lidar/points" />
     <arg name="filtered_pointcloud2_topic" default="/spot/lidar/filtered_points" />
 
-    <!-- TODO: How to make move_bsase subscribe? https://wiki.ros.org/costmap_2d -->
+    <!-- TODO: How to make move_base subscribe? https://wiki.ros.org/costmap_2d -->
     <arg name="bounding_box_topic" default="/spot/footprint" />
 
     <group ns="rtabmap">
@@ -32,18 +32,19 @@
         </node>
 
         <!-- Use RGBD synchronization -->
-        <!-- Here is a general example using a standalone nodelet, 
-         but it is recommended to attach this nodelet to nodelet 
-         manager of the camera to avoid topic serialization -->
-        <!-- RGBD sync -->
-        <include file="$(find spot_rtabmap)/launch/rgbd_sync_dual.launch">
+        <!--<include file="$(find spot_rtabmap)/launch/rgbd_sync_dual.launch">
             <arg name="camera0" value="$(arg camera0)" />
             <arg name="camera1" value="$(arg camera1)" />
-        </include>
+        </include>-->
+
+        <!-- Launch an RGB-D image publisher for four (rtabmap's limit) of Spot's cameras -->
+        <node name="rgbd_image_publisher" pkg="spot_rtabmap" type="rgbd_image_publisher.py" output="screen">
+            <param name="rgbd_cameras" type="string" value="frontleft,frontright,left,right" />
+            <param name="pub_frequency" type="double" value="5.0" /> <!-- Frequency for each camera (Hz) -->
+        </node>
 
         <!-- args="delete_db_on_start" if you want to start a new map -->
-        <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen"
-            args="$(arg rtabmap_args)">
+        <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen" args="$(arg rtabmap_args)">
             <param name="frame_id" type="string" value="body" />
 
             <!-- Use RGB-D instead of just depth images -->
@@ -54,11 +55,6 @@
             <param name="subscribe_scan" type="bool" value="false" /> <!-- Used for 2D LIDAR -->
             <param name="subscribe_scan_cloud" type="bool" value="true" /> <!-- Used for 3D LIDAR publishing sensor_msgs/PointCloud2 -->
 
-            <!-- rgbd image -->
-            <param name="rgbd_cameras" type="int" value="2" />
-            <remap from="rgbd_image0" to="$(arg camera0)_rgbd_image" />
-            <remap from="rgbd_image1" to="$(arg camera1)_rgbd_image" />
-
             <!-- remapping -->
             <remap from="odom" to="/spot/odometry" />
             <remap from="initialpose" to="/initialpose" />
@@ -68,38 +64,35 @@
             <remap from="goal" to="/spot/go_to_pose" />
             <remap from="goal_out" to="/move_base_simple/goal" />
 
-            <!-- params -->
-            <param name="sync_queue_size" type="int" value="100" />
-            <param name="approx_sync" type="bool" value="true" />
-            <param name="approx_sync_max_interval" type="double" value="0.01" /> <!-- (sec) 0 means infinite interval duration (used with approx_sync=true) -->
+            <!-- Params related to synchronizing RGB-D cameras -->
+            <param name="rgbd_cameras" type="int" value="4" />
+
+            <!--<param name="sync_queue_size" type="int" value="100" />
+                <param name="approx_sync" type="bool" value="true" />
+                <param name="approx_sync_max_interval" type="double" value="0.01" />-->
 
             <!-- Localization mode -->
-            <param name="Mem/IncrementalMemory" type="string" value="true"
-                if="$(arg localization_mode)" />
-            <param name="Mem/ReduceGraph" type="string" value="false"
-                if="$(arg localization_mode)" />
-            <param name="RGBD/StartAtOrigin" type="string" value="false"
-                if="$(arg localization_mode)" />
+            <param name="Mem/IncrementalMemory" type="bool" value="true" if="$(arg localization_mode)" />
+            <param name="Mem/ReduceGraph" type="bool" value="false" if="$(arg localization_mode)" />
+            <param name="RGBD/StartAtOrigin" type="bool" value="false" if="$(arg localization_mode)" />
 
             <!-- Mapping mode (i.e. not localization mode) -->
-            <param name="Mem/IncrementalMemory" type="string" value="true"
-                unless="$(arg localization_mode)" />
-            <param name="Mem/ReduceGraph" type="string" value="true"
-                unless="$(arg localization_mode)" />
-            <param name="RGBD/StartAtOrigin" type="string" value="true"
-                unless="$(arg localization_mode)" />
-            <!-- <param name="Mem/InitWMWithAllNodes" type="string" value="$(arg localization_mode)" /> -->
+            <param name="Mem/IncrementalMemory" type="bool" value="true" unless="$(arg localization_mode)" />
+            <param name="Mem/ReduceGraph" type="bool" value="true" unless="$(arg localization_mode)" />
+            <param name="RGBD/StartAtOrigin" type="bool" value="true" unless="$(arg localization_mode)" />
+            <!-- <param name="Mem/InitWMWithAllNodes" type="bool" value="$(arg localization_mode)" /> -->
 
-            <!-- RTAB-Map's parameters, taken from kaiyu and the tutorial -->
-            <param name="RGBD/ProximityBySpace" type="string" value="true" />
-            <param name="RGBD/NeighborLinkRefining" type="string" value="true" />
-            <param name="RGBD/AngularUpdate" type="string" value="0.01" />
-            <param name="RGBD/LinearUpdate" type="string" value="0.01" />
-            <param name="RGBD/OptimizeFromGraphEnd" type="string" value="false" />
-            <!-- <param name="RGBD/OptimizeMaxError" type="string" value="0" /> -->
-            <param name="RGBD/StartAtOrigin" type="string" value="false" />
-            <param name="Reg/Force3DoF" type="string" value="true" />
-            <param name="Reg/Strategy" type="string" value="1" /> <!-- 1 == ICP -->
+            <!-- RTAB-Map's parameters, adapted from Kaiyu and the tutorial -->
+            <param name="RGBD/ProximityBySpace" type="bool" value="true" />
+            <param name="RGBD/NeighborLinkRefining" type="bool" value="true" />
+            <param name="RGBD/AngularUpdate" type="double" value="0.01" />
+            <param name="RGBD/LinearUpdate" type="double" value="0.01" />
+            <param name="RGBD/OptimizeFromGraphEnd" type="bool" value="false" />
+            <param name="RGBD/ProximityPathMaxNeighbors" type="int" value="1" />
+
+            <!-- Spot can stand/sit, so allow more than 3-DoF transform -->
+            <param name="Reg/Force3DoF" type="string" value="false" />
+            <param name="Reg/Strategy" type="string" value="1" /> <!-- 1 = ICP -->
             <param name="Vis/MinInliers" type="string" value="12" />
             <param name="Vis/EstimationType" type="string" value="0" />
             <param name="Grid/CellSize" type="string" value="0.02" />

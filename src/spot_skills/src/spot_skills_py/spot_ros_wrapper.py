@@ -169,8 +169,7 @@ class SpotROS1Wrapper:
         depth_ros_time = rospy.Time.from_sec(depth_time_s)
 
         diff_s = rgb_time_s - depth_time_s
-        self._manager.log_info(f"Difference between RGB and depth timestamps: {diff_s} sec")
-        assert diff_s <= 0.1, f"Images differed by {diff_s} seconds!"
+        assert diff_s <= 0.1, f"Synchronized RGB and depth images differed by {diff_s} seconds!"
 
         rgb_camera_info = SpotImageClient.extract_camera_info_msg(rgb_response, rgb_ros_time)
         depth_camera_info = SpotImageClient.extract_camera_info_msg(depth_response, depth_ros_time)
