@@ -1,13 +1,47 @@
 cloud_filter_chain:
-  - name: PassThroughFilter
+  # Filter points for height before filtering for body collisions
+  - name: PassThroughFilter # Reference: https://wiki.ros.org/point_cloud2_filters
     type: point_cloud2_filters/PassThroughFilterPointCloud2
     params:
       active: True
+
+      # Input/output frames transformed into before/after processing
+      # TODO: Shouldn't this be the ground? Check location of this frame
       input_frame: "sensor_origin_velodyne-point-cloud"
       output_frame: "sensor_origin_velodyne-point-cloud"
-      keep_organized: True
-      negative: False
-      #user_filter_value: 3
-      filter_field_name: "z"
-      filter_limit_min: 0.2
-      filter_limit_max: 1.8
+
+      filter_field_name: "z" # Field to be used for filtering data
+      filter_limit_min: 0.2 # Minimum allowed z-value
+      filter_limit_max: 3.0 # Maximum allowed z-value (3 meters)
+
+  # Filter points likely to have resulted from laser-body collisions
+  - name: body_filter
+    type: robot_body_filter/RobotBodyFilterPointCloud2
+    params:
+      frames/sensor: "body" # TODO: Identify frames of the various point cloud sensors
+      # TODO: Filtering frame would ideally be the frame of the sensor
+      frames/filtering: "body" # Frame into which points are transformed, then filter applied
+      frames/output: "map" # Frame into which filtered point clouds are transformed
+
+      sensor/min_distance: 0.0
+      sensor/max_distance: 0.0 # Set to zero to disable (TODO: Sensors?)
+
+      filter/do_clipping: True # Enables clipping points outside of min/max distance
+      filter/do_contains_test: True # Enables marking points as inside/outside robot body
+      filter/do_shadow_test: False # Enables ray-tracing to identify points shadowed by robot body
+
+      body_model/inflation/scale: 1.05 # Scale applied to the body model
+      body_model/inflation/padding: 0.02 # Padding (m) added to the body model
+
+      # Name of ROS parameter where the robot model can be found
+      body_model/robot_description_param: "robot_description"
+
+      # Note that links can be indiviually ignored for any of these tests
+      # Reference: https://github.com/peci1/robot_body_filter
+
+      # TODO: Create RViz setup to visualize various filtered point categories:
+      #   scan_point_cloud_inside, scan_point_cloud_clip, scan_point_cloud_shadow
+
+      # Compute and publish the robot's axis-aligned bounding box in its local frame
+      local_bounding_box/compute: True
+      local_bounding_box/frame_id: "body" # Frame in which local bounding box is axis-aligned (TODO: Verify correct!)
