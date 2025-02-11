@@ -10,10 +10,10 @@ This repository includes others, such as [`spot_ros`](https://github.com/heurist
 git clone --recurse-submodules https://github.com/Benned-H/spot_skills.git
 ```
 
-If you have already cloned the repository, run the following command to ensure that the submodules are initialized and updated:
+If you have already cloned the repository, run the following command to ensure that all submodules are initialized and updated:
 
 ```bash
-git submodule update --init --recursive
+sh scripts/git_pull_all.sh
 ```
 
 ## Docker Commands
