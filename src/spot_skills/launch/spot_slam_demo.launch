@@ -4,13 +4,16 @@
     <!-- Default: Assume Spot's name is "snouter" - To override, use all-lowercase -->
     <arg name="spot_name" default="snouter" />
 
-    <!-- Launch BDAI's Spot ROS driver (used to publish sensor data into ROS) -->
+    <!-- Launch and authenticate with the Spot ROS driver -->
     <include file="$(find spot_skills)/launch/authenticate_spot_driver.launch">
         <arg name="spot_name" value="$(arg spot_name)" />
 
         <!-- Load Spot's URDF using the Spot driver, as this demo doesn't use MoveIt -->
-        <arg name="load_robot_description" value="true" />
+        <arg name="load_robot_description" value="true"/>
     </include>
+
+    <!-- Launch the Spot ROS wrapper (provides RGBD image pair service) -->
+    <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen"/>
 
     <!-- Launch the main launch file from spot_rtabmap in localization mode -->
     <include file="$(find spot_rtabmap)/launch/spot_rtabmap.launch">

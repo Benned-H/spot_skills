@@ -10,7 +10,7 @@ This repository includes others, such as [`spot_ros`](https://github.com/heurist
 git clone --recurse-submodules https://github.com/Benned-H/spot_skills.git
 ```
 
-If you have already cloned the repository, run the following command to ensure that all submodules are initialized and updated:
+If you have already cloned the repository, run the following command to ensure that all submodules are up-to-date:
 
 ```bash
 sh scripts/git_pull_all.sh
@@ -18,28 +18,18 @@ sh scripts/git_pull_all.sh
 
 ## Docker Commands
 
-This repository uses Docker to standardize its workspace across machines. The `compose.yaml` defines a Docker service for several development use cases, varying across the inclusion or exclusion of ROS 1 Noetic and MoveIt 1, the Spot SDK, and GPU support:
+This repository uses Docker to standardize its workspace across machines. Ignoring most of the details, you'll only need to know the following:
 
-- **Spot SDK** - `spot-sdk`
-- **Spot SDK with ROS 1 Noetic and MoveIt 1 (w/o GPU)** - `spot-moveit`
-- **Spot SDK with ROS 1 Noetic and MoveIt 1 (w/ NVIDIA GPU)** - `spot-moveit-gpu`
+- To run the Spot skills code, you'll need to enter a Docker container, which has all the dependencies pre-installed.
+- The exact Docker container you should enter depends on your local machine: Is it macOS or Ubuntu? Does it have NVIDIA?
 
-To select a service, you'll need its service name (e.g., `spot-moveit`), which you can copy to your clipboard. In the following commands, replace `<SERVICE_NAME>` with the chosen name.
-
-To create, start, and enter the selected container, run the commands:
+Run the following script to select, launch, and then enter the appropriate container for your machine:
 
 ```bash
-docker compose up --detach --pull missing <SERVICE_NAME>
-xhost +local:docker
-docker compose exec <SERVICE_NAME> bash
+bash docker/launch.sh
 ```
 
-To enter the running container in another terminal, just run the `docker compose exec`
-command, using the correct service name:
-
-```bash
-docker compose exec <SERVICE_NAME> bash
-```
+To enter the running container in another terminal, just run the same script again.
 
 ## Working with the Spot ROS 1 Driver
 
@@ -50,12 +40,10 @@ rosdep install -y --from-paths src --ignore-src --rosdistro noetic
 pip3 install -e src/spot_ros/spot_wrapper/
 ```
 
-Then, run each of these commands:
+Then, rebuild and source the Catkin workspace by running:
 
 ```bash
-catkin clean
-catkin build
-source devel/setup.bash
+bash scripts/catkin_rebuild.sh
 ```
 
 ## Example Demonstrations
