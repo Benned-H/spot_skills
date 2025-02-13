@@ -1,27 +1,41 @@
-<!-- Launch only the nodes needed to demonstrate the SLAM system on Spot -->
+<!-- Launch all nodes needed to demonstrate the SLAM system on Spot 
+
+    This file launches/includes the following nodes/launch files:
+        - spot_moveit_bringup.launch - Launches all nodes to control Spot using MoveIt, including:
+            - moveit_core.launch - All MoveIt-specific nodes for controlling any robot
+            - authenticate_spot_driver.launch - Connects to Spot using its ROS driver
+            - spot_wrapper_node - Connects to Spot using the ROS wrapper, to control the robot
+        
+        - spot_rtabmap.launch - Launches all nodes to run SLAM for Spot using rtabmap, including:
+            - pointcloud2_filter_chain - Filters Spot's point cloud data to remove noise
+            - rgbd_image_publisher - Publishes synchronized RGB-D images from Spot to rtabmap
+            - rtabmap - Core node that runs SLAM using rtabmap
+            - rtabmap_viz - TODO: What does this look like, compared to RViz?
+        
+        - RViz - Launched with a SLAM-specific configuration file
+-->
 <launch>
 
-    <!-- Default: Assume Spot's name is "snouter" - To override, use all-lowercase -->
-    <arg name="spot_name" default="snouter" />
+    <!-- We can only run the SLAM system on the real robot -->
+    <arg name="real_robot" value="true" />
 
-    <!-- Launch and authenticate with the Spot ROS driver -->
-    <include file="$(find spot_skills)/launch/authenticate_spot_driver.launch">
-        <arg name="spot_name" value="$(arg spot_name)" />
+    <!-- TODO: What are these two arguments doing? Can one inform the other? -->
+    <arg name="localization_mode" default="true" />
+    <arg name="reload" default="true" />
 
-        <!-- Load Spot's URDF using the Spot driver, as this demo doesn't use MoveIt -->
-        <arg name="load_robot_description" value="true"/>
-    </include>
-
-    <!-- Launch the Spot ROS wrapper (provides RGBD image pair service) -->
-    <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen"/>
+    <!-- Launch all nodes to control Spot, simulated or real, using MoveIt
+    
+        Optional arguments that can be modified and forwarded to the Spot-MoveIt bringup:
+            spot_name (Default: snouter)
+    -->
+    <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true" />
 
     <!-- Launch the main launch file from spot_rtabmap in localization mode -->
     <include file="$(find spot_rtabmap)/launch/spot_rtabmap.launch">
-        <arg name="localization_mode" value="true" />
-        <arg name="reload" default="true" />
+        <arg name="localization_mode" value="$(arg localization_mode)" />
+        <arg name="reload" value="$(arg reload)" />
     </include>
 
-    <!-- Run RViz using a bringup-specific config file -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" />
 
 </launch>
