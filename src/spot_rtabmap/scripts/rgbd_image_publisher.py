@@ -1,52 +1,66 @@
 """Define a ROS node to publish synchronized RGB-D images for rtabmap odometry."""
 
-from concurrent.futures import ThreadPoolExecutor
+from __future__ import annotations
 
 import rospy
 from rtabmap_msgs.msg import RGBDImage
 
-from spot_skills.srv import GetPairedRGBD, GetPairedRGBDRequest, GetPairedRGBDResponse
+from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
 
 
-def publish_rgbd_image(
-    camera_name: str,
-    camera_idx: int,
-    rgbd_service_caller: rospy.ServiceProxy,
-    pub_freq_hz: float,
-) -> None:
-    """Request and publish RGB-D images for a single camera at a given frequency.
+class RGBDImagePublisher:
+    """A publisher of rtabmap_msgs/RGBDImage messages."""
 
-    :param camera_name: Name of the camera from which to request RGB-D images
-    :param camera_idx: Index of the camera among all used for rtabmap odometry
-    :param rgbd_service_caller: Service proxy used to call the GetPairedRGBD service
-    :param pub_freq_hz: Frequency (Hz) at which to request/publish images
-    """
-    pub = rospy.Publisher(f"rgbd_image{camera_idx}", RGBDImage, queue_size=10)
+    def __init__(self, image_service_name: str, camera_names: list[str]) -> None:
+        """Initialize a publisher for RGBD images for each of the given cameras.
 
-    rate = rospy.Rate(pub_freq_hz)
-    while not rospy.is_shutdown():
-        request = GetPairedRGBDRequest(camera_name)
+        :param image_service_name: Name of the ROS service used to request RGBD image pairs
+        :param camera_names: Names of the RGBD cameras to publish images from
+        """
+        self.publishers = {
+            camera_name: rospy.Publisher(f"rgbd_image{camera_idx}", RGBDImage, queue_size=10)
+            for (camera_idx, camera_name) in enumerate(camera_names)
+        }
 
-        # Call ROS service to get paired RGB-D images
-        try:
-            response: GetPairedRGBDResponse = rgbd_service_caller(request)
-        except rospy.ServiceException as exc:
-            rospy.logerr(f"[{camera_name}] Could not call service: {exc}")
-        else:
-            if response is None:
-                rospy.logerr(f"[{camera_name}] Received None response.")
+        rospy.wait_for_service(image_service_name, timeout=60.0)
+        self.rgbd_service_caller = rospy.ServiceProxy(image_service_name, GetRGBDPairs)
+        self.rgbd_service_name = image_service_name
+
+    @property
+    def camera_names(self) -> list[str]:
+        """Retrieve the list of cameras whose images are requested by the publisher."""
+        return list(self.publishers.keys())
+
+    def publish_rgbd_images_loop(self, pub_frequency_hz: float) -> None:
+        """Request and publish RGB-D images for the cameras at a given frequency.
+
+        :param pub_frequency_hz: Frequency (Hz) at which all cameras are queried for RGBD images
+        """
+        rate = rospy.Rate(pub_frequency_hz)
+        while not rospy.is_shutdown():
+            request = GetRGBDPairsRequest(camera_names=self.camera_names)
+
+            # Call ROS service to get paired RGB-D images
+            try:
+                response: GetRGBDPairsResponse = self.rgbd_service_caller(request)
+            except rospy.ServiceException as exc:
+                rospy.logerr(f"[{self.rgbd_service_name}] Could not call service: {exc}")
             else:
-                rgbd_msg = RGBDImage()
-                rgbd_msg.header.frame_id = response.info.header.frame_id
-                rgbd_msg.header.stamp = response.info.header.stamp
-                rgbd_msg.rgb_camera_info = response.info
-                rgbd_msg.depth_camera_info = response.info
-                rgbd_msg.rgb = response.rgb
-                rgbd_msg.depth = response.depth
+                if response is None:
+                    rospy.logerr(f"[{self.rgbd_service_name}] Received None response.")
+                else:
+                    for rgbd_pair in response.rgbd_pairs:
+                        rgbd_msg = RGBDImage()
+                        rgbd_msg.header.frame_id = rgbd_pair.info.header.frame_id
+                        rgbd_msg.header.stamp = rgbd_pair.info.header.stamp
+                        rgbd_msg.rgb_camera_info = rgbd_pair.camera_info
+                        rgbd_msg.depth_camera_info = rgbd_pair.camera_info
+                        rgbd_msg.rgb = rgbd_pair.rgb
+                        rgbd_msg.depth = rgbd_pair.depth
 
-                pub.publish(rgbd_msg)
+                        self.publishers[rgbd_pair.camera_name].publish(rgbd_msg)
 
-        rate.sleep()
+            rate.sleep()
 
 
 def main() -> None:
@@ -57,22 +71,12 @@ def main() -> None:
     cameras_str = rospy.get_param("~rgbd_cameras", "")
     cameras = [c.strip() for c in cameras_str.split(",")]
 
-    pub_frequency_hz = rospy.get_param("~pub_frequency", 10.0)
+    pub_frequency_hz = rospy.get_param("~pub_frequency", 5.0)
 
-    image_service_name = "/spot/get_paired_rgbd"
-    rospy.wait_for_service(image_service_name, timeout=30.0)
-    rgbd_service_caller = rospy.ServiceProxy(image_service_name, GetPairedRGBD)
+    image_service_name = "/spot/get_paired_rgbds"
 
-    # Use ThreadPoolExecutor to parallelize image publishing for each camera
-    with ThreadPoolExecutor(max_workers=len(cameras)) as executor:
-        for camera_idx, camera_name in enumerate(cameras):
-            executor.submit(
-                publish_rgbd_image,
-                camera_name,
-                camera_idx,
-                rgbd_service_caller,
-                pub_frequency_hz,
-            )
+    rgbd_pub = RGBDImagePublisher(image_service_name, cameras)
+    rgbd_pub.publish_rgbd_images_loop(pub_frequency_hz)
 
     rospy.spin()
 
