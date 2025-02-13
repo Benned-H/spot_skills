@@ -1,1 +1,9 @@
-sensors: []
+sensors:
+  - sensor_plugin: occupancy_map_monitor/PointCloudOctomapUpdater
+    point_cloud_topic: /camera/depth_registered/points # TODO
+    max_range: 3.0 # MoveIt won't use points further than this (m)
+    point_subsample: 1 # Use one of every N points
+    padding_offset: 0.05 # Absolute padding (m) around scaled collision shapes
+    padding_scale: 1.03 # Scale collision shapes by this factor
+    max_update_rate: 4.0 # Octomap is updated at rate less or equal to this (Hz)
+    filtered_cloud_topic: filtered_cloud
