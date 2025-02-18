@@ -18,11 +18,6 @@
 
     <group ns="rtabmap">
 
-        <!-- <node name="point_cloud_sphere_filter" pkg="spot_rtabmap" type="point_cloud_filtering.py" output="screen">
-            <param name="moving_frame" value="base_link" />
-            <param name="sphere_radius" value="1.5" />
-        </node> -->
-
         <node name="laser_filter" pkg="sensor_filters" type="pointcloud2_filter_chain" output="screen">
             <rosparam command="load" file="$(find spot_rtabmap)/config/spot_cloud_filter.yaml" />
             <remap from="~input" to="$(arg pointcloud2_input_topic)" />
@@ -38,9 +33,8 @@
 
         <!-- Launch an RGB-D image publisher for four (rtabmap's limit) of Spot's cameras -->
         <node name="rgbd_image_publisher" pkg="spot_rtabmap" type="rgbd_image_publisher.py" output="screen">
-            <param name="rgbd_cameras" type="string" value="frontleft,frontright,left,right" />
-            <param name="pub_frequency" type="double" value="5.0" />
-            <!-- Frequency for each camera (Hz) -->
+            <param name="rgbd_camera_names" type="string" value="frontleft,frontright,left,right" />
+            <param name="pub_frequency" type="double" value="1.0" />
         </node>
 
         <!-- args="delete_db_on_start" if you want to start a new map -->
@@ -70,10 +64,12 @@
 
             <!-- Synchronization parameters for RGB-D cameras -->
             <param name="rgbd_cameras" type="int" value="4" />
-            <param name="approx_sync" type="bool" value="false" />
+            <param name="approx_sync" type="bool" value="true" />
+            <param name="approx_sync_max_interval" type="double" value="0.2" /> <!-- Max interval (sec) allowed between the synchronized input topics -->
 
             <!-- Increase the flexibility of synchronizing across all rtabmap inputs -->
-            <param name="queue_size" type="int" value="30" />
+            <param name="sync_queue_size" type="int" value="30" />
+            <param name="topic_queue_size" type="int" value="30" />
 
             <!-- Localization mode -->
             <param name="Mem/IncrementalMemory" type="bool" value="true" if="$(arg localization_mode)" />

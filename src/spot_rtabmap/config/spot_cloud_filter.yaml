@@ -30,26 +30,20 @@ cloud_filter_chain:
 
       filter/do_clipping: True # Enables clipping points outside of min/max distance
       filter/do_contains_test: True # Enables marking points as inside/outside robot body
-      filter/do_shadow_test: False # Uses ray-tracing to identify points shadowed by robot body
+      filter/do_shadow_test: False # Enables ray-tracing to identify points shadowed by robot body
 
-      body_model/inflation/scale: 1.05 # Scale applied to the body model
+      body_model/robot_description_param: "/robot_description" # ROS parameter defining the body model
+      body_model/inflation/scale: 1.1 # Scale applied to the body model
       body_model/inflation/padding: 0.02 # Padding (m) added to the body model
-
-      # Name of ROS parameter where the robot model can be found
-      body_model/robot_description_param: "/robot_description"
 
       # Note that links can be indiviually ignored for any of these tests
       # Reference: https://github.com/peci1/robot_body_filter
 
-      debug/pcl/inside: True # Publish debugging pointcloud with points marked as INSIDE
       debug/pcl/clip: True # Publish debugging pointcloud with points marked as CLIP
+      debug/pcl/inside: True # Publish debugging pointcloud with points marked as INSIDE
+      debug/marker/contains: True # Publish a marker showing the model used for body containment test
 
-      # TODO: Create RViz setup to visualize various filtered point categories:
-      #   scan_point_cloud_inside, scan_point_cloud_clip, scan_point_cloud_shadow
-
-      # Compute and publish the robot's axis-aligned bounding box in its local frame
-      local_bounding_box/compute: True
-      local_bounding_box/frame_id: "body" # Frame in which local bounding box is axis-aligned (TODO: Verify correct!)
+      oriented_bounding_box/compute: True # Compute and publish the robot's oriented bounding box
 
 
   # TODO: robot_body_filter can also be used to filter RGB-D depth collisions with Spot's body

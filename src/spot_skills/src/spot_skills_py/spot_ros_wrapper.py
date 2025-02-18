@@ -163,8 +163,9 @@ class SpotROS1Wrapper:
             )
 
         response_protos = self._manager.image_client.get_images(request_protos)
+        assert len(response_protos) == len(request_protos)
 
-        response_msg = GetRGBDPairs()
+        response_msg = GetRGBDPairsResponse()
         for camera_idx, camera_name in enumerate(request_msg.camera_names):
             rgb_response = response_protos[2 * camera_idx]
             depth_response = response_protos[2 * camera_idx + 1]
