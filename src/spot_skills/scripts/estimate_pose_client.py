@@ -82,7 +82,7 @@ class PoseEstimateClient:
         """
         rgbd_pairs_msg = self.get_rgbd_pairs()  # One pair of RGB-D images per camera of interest
 
-        for rgbd_pair in rgbd_pairs_msg.rgbd_pair:
+        for rgbd_pair in rgbd_pairs_msg.rgbd_pairs:
             # Record the relative pose of the camera frame w.r.t. the world frame
             camera_frame = rgbd_pair.camera_info.header.frame_id  # Optical frame of the camera
             capture_time = rgbd_pair.camera_info.header.stamp  # Acquisition time of the images
