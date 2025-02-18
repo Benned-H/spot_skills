@@ -1,0 +1,4 @@
+# Command the robot to capture simultaneous RGB and depth images from the specified cameras.
+string[] camera_names
+---
+spot_skills/RGBDPair[] rgbd_pairs

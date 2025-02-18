@@ -5,9 +5,10 @@
             "name": "TMP3 Debugger",
             "type": "debugpy",
             "request": "launch",
-            "program": "TMP.py",
+            "program": "src/tmp3/TMP.py",
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/src/tmp3"
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Prepare for TMP3"
         }
     ]
 }

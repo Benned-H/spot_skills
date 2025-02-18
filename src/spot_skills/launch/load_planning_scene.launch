@@ -32,8 +32,7 @@
     </include>
 
     <!-- Launch the node that runs a SceneHandler to populate the scene -->
-    <node name="planning_scene_loader" pkg="spot_skills" type="planning_scene_loader.py"
-        output="screen" />
+    <node name="planning_scene_loader" pkg="spot_skills" type="planning_scene_loader.py" output="screen" />
 
     <!-- Run Rviz using a default config file provided by MoveIt -->
     <node name="rviz" pkg="rviz" type="rviz"
