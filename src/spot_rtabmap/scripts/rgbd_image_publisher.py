@@ -49,10 +49,12 @@ class RGBDImagePublisher:
                 if response is None:
                     rospy.logerr(f"[{self.rgbd_service_name}] Received None response.")
                 else:
+                    assert len(response.rgbd_pairs) == len(self.camera_names)
+
                     for rgbd_pair in response.rgbd_pairs:
                         rgbd_msg = RGBDImage()
-                        rgbd_msg.header.frame_id = rgbd_pair.info.header.frame_id
-                        rgbd_msg.header.stamp = rgbd_pair.info.header.stamp
+                        rgbd_msg.header.frame_id = rgbd_pair.camera_info.header.frame_id
+                        rgbd_msg.header.stamp = rgbd_pair.camera_info.header.stamp
                         rgbd_msg.rgb_camera_info = rgbd_pair.camera_info
                         rgbd_msg.depth_camera_info = rgbd_pair.camera_info
                         rgbd_msg.rgb = rgbd_pair.rgb
@@ -68,12 +70,13 @@ def main() -> None:
     rospy.init_node("rgbd_image_publisher")
 
     # Get the list of camera names from the ROS parameter server
-    cameras_str = rospy.get_param("~rgbd_cameras", "")
+    cameras_str = rospy.get_param("~rgbd_camera_names")
     cameras = [c.strip() for c in cameras_str.split(",")]
+    assert cameras, "Cannot publish RGB-D images without any cameras!"
 
     pub_frequency_hz = rospy.get_param("~pub_frequency", 5.0)
 
-    image_service_name = "/spot/get_paired_rgbds"
+    image_service_name = "/spot/get_rgbd_pairs"
 
     rgbd_pub = RGBDImagePublisher(image_service_name, cameras)
     rgbd_pub.publish_rgbd_images_loop(pub_frequency_hz)

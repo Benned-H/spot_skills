@@ -6,7 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Point Clouds1
-      Splitter Ratio: 0.4442700147628784
+      Splitter Ratio: 0.8372703194618225
     Tree Height: 803
   - Class: rviz/Selection
     Name: Selection
@@ -26,7 +26,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: Filtered Point Cloud
+    SyncSource: Resulting Point Cloud
   - Class: spot_viz/SpotControlPanel
     Name: SpotControlPanel
 Preferences:
@@ -212,21 +212,17 @@ Visualization Manager:
           Value: true
         arm_link_wr1:
           Value: true
+        back:
+          Value: true
+        back_fisheye:
+          Value: true
         base_link:
           Value: true
         body:
           Value: true
         feet_center:
           Value: true
-        fiducial_118:
-          Value: true
-        fiducial_128:
-          Value: true
         fiducial_129:
-          Value: true
-        filtered_fiducial_118:
-          Value: true
-        filtered_fiducial_128:
           Value: true
         filtered_fiducial_129:
           Value: true
@@ -250,11 +246,27 @@ Visualization Manager:
           Value: true
         front_right_upper_leg:
           Value: true
+        frontleft:
+          Value: true
+        frontleft_fisheye:
+          Value: true
+        frontright:
+          Value: true
+        frontright_fisheye:
+          Value: true
         gpe:
           Value: true
         hand:
           Value: true
+        head:
+          Value: true
+        left:
+          Value: true
+        left_fisheye:
+          Value: true
         link_wr1:
+          Value: true
+        map:
           Value: true
         odom:
           Value: true
@@ -276,6 +288,10 @@ Visualization Manager:
           Value: true
         rear_right_upper_leg:
           Value: true
+        right:
+          Value: true
+        right_fisheye:
+          Value: true
         sensor:
           Value: true
         sensor_origin_velodyne-point-cloud:
@@ -289,81 +305,90 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        vision:
-          body:
-            arm0.link_wr1:
-              {}
-            arm_link_sh0:
-              arm_link_sh1:
-                arm_link_hr0:
-                  arm_link_el0:
-                    arm_link_el1:
-                      arm_link_wr0:
-                        arm_link_wr1:
-                          arm_link_fngr:
-                            {}
-            base_link:
-              {}
-            feet_center:
-              {}
-            flat_body:
-              {}
-            front_left_foot:
-              {}
-            front_left_hip:
-              front_left_upper_leg:
-                front_left_lower_leg:
-                  {}
-            front_rail:
-              {}
-            front_right_foot:
-              {}
-            front_right_hip:
-              front_right_upper_leg:
-                front_right_lower_leg:
-                  {}
-            hand:
-              {}
-            link_wr1:
-              {}
-            odom:
-              gpe:
+        map:
+          vision:
+            body:
+              arm0.link_wr1:
                 {}
-              sensor_origin_velodyne-point-cloud:
+              arm_link_sh0:
+                arm_link_sh1:
+                  arm_link_hr0:
+                    arm_link_el0:
+                      arm_link_el1:
+                        arm_link_wr0:
+                          arm_link_wr1:
+                            arm_link_fngr:
+                              {}
+              base_link:
                 {}
-            rear_left_foot:
-              {}
-            rear_left_hip:
-              rear_left_upper_leg:
-                rear_left_lower_leg:
+              feet_center:
+                {}
+              flat_body:
+                {}
+              front_left_foot:
+                {}
+              front_left_hip:
+                front_left_upper_leg:
+                  front_left_lower_leg:
+                    {}
+              front_rail:
+                {}
+              front_right_foot:
+                {}
+              front_right_hip:
+                front_right_upper_leg:
+                  front_right_lower_leg:
+                    {}
+              hand:
+                {}
+              head:
+                back:
+                  back_fisheye:
+                    {}
+                frontleft:
+                  frontleft_fisheye:
+                    {}
+                frontright:
+                  frontright_fisheye:
+                    {}
+                left:
+                  left_fisheye:
+                    {}
+                right:
+                  right_fisheye:
+                    {}
+              link_wr1:
+                {}
+              odom:
+                gpe:
                   {}
-            rear_rail:
-              {}
-            rear_right_foot:
-              {}
-            rear_right_hip:
-              rear_right_upper_leg:
-                rear_right_lower_leg:
+                sensor_origin_velodyne-point-cloud:
                   {}
-            sensor:
+              rear_left_foot:
+                {}
+              rear_left_hip:
+                rear_left_upper_leg:
+                  rear_left_lower_leg:
+                    {}
+              rear_rail:
+                {}
+              rear_right_foot:
+                {}
+              rear_right_hip:
+                rear_right_upper_leg:
+                  rear_right_lower_leg:
+                    {}
+              sensor:
+                {}
+            fiducial_129:
               {}
-          fiducial_118:
-            {}
-          fiducial_128:
-            {}
-          fiducial_129:
-            {}
-          filtered_fiducial_118:
-            {}
-          filtered_fiducial_128:
-            {}
-          filtered_fiducial_129:
-            {}
+            filtered_fiducial_129:
+              {}
       Update Interval: 0
       Value: true
     - Class: rviz/Group
       Displays:
-        - Alpha: 1
+        - Alpha: 0.5
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
             Max Value: 10
@@ -379,7 +404,7 @@ Visualization Manager:
           Invert Rainbow: false
           Max Color: 255; 0; 0
           Min Color: 0; 0; 0
-          Name: Range-Clipped Points
+          Name: Range-Filtered Points
           Position Transformer: XYZ
           Queue Size: 10
           Selectable: true
@@ -391,7 +416,7 @@ Visualization Manager:
           Use Fixed Frame: true
           Use rainbow: false
           Value: true
-        - Alpha: 1
+        - Alpha: 0.5
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
             Max Value: 10
@@ -407,7 +432,7 @@ Visualization Manager:
           Invert Rainbow: false
           Max Color: 255; 255; 0
           Min Color: 255; 255; 0
-          Name: Inside-Body Points
+          Name: Body-Filtered Points
           Position Transformer: XYZ
           Queue Size: 10
           Selectable: true
@@ -431,11 +456,11 @@ Visualization Manager:
           Color: 85; 170; 255
           Color Transformer: FlatColor
           Decay Time: 0
-          Enabled: false
+          Enabled: true
           Invert Rainbow: false
           Max Color: 255; 255; 255
           Min Color: 0; 0; 0
-          Name: Filtered Point Cloud
+          Name: Resulting Point Cloud
           Position Transformer: XYZ
           Queue Size: 10
           Selectable: true
@@ -446,203 +471,19 @@ Visualization Manager:
           Unreliable: false
           Use Fixed Frame: true
           Use rainbow: true
-          Value: false
+          Value: true
       Enabled: true
       Name: Point Clouds
-    - Class: rviz/Group
-      Displays:
-        - Alpha: 1
-          Auto Size:
-            Auto Size Factor: 1
-            Value: true
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 1.5422112941741943
-            Min Value: -13.729979515075684
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/DepthCloud
-          Color: 255; 255; 255
-          Color Image Topic: ""
-          Color Transformer: AxisColor
-          Color Transport Hint: raw
-          Decay Time: 0
-          Depth Map Topic: /spot/depth/frontleft/image
-          Depth Map Transport Hint: raw
-          Enabled: true
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: FrontLeftDepthCloud
-          Occlusion Compensation:
-            Occlusion Time-Out: 30
-            Value: false
-          Position Transformer: XYZ
-          Queue Size: 5
-          Selectable: true
-          Size (Pixels): 3
-          Style: Flat Squares
-          Topic Filter: true
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: true
-        - Alpha: 1
-          Auto Size:
-            Auto Size Factor: 1
-            Value: true
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 2.3710060119628906
-            Min Value: -6.938358306884766
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/DepthCloud
-          Color: 255; 255; 255
-          Color Image Topic: ""
-          Color Transformer: AxisColor
-          Color Transport Hint: raw
-          Decay Time: 0
-          Depth Map Topic: /spot/depth/frontright/image
-          Depth Map Transport Hint: raw
-          Enabled: true
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: FrontRightDepthCloud
-          Occlusion Compensation:
-            Occlusion Time-Out: 30
-            Value: false
-          Position Transformer: XYZ
-          Queue Size: 5
-          Selectable: true
-          Size (Pixels): 3
-          Style: Flat Squares
-          Topic Filter: true
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: true
-        - Alpha: 1
-          Auto Size:
-            Auto Size Factor: 1
-            Value: true
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 1.8236514329910278
-            Min Value: -2.351337194442749
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/DepthCloud
-          Color: 255; 255; 255
-          Color Image Topic: ""
-          Color Transformer: AxisColor
-          Color Transport Hint: raw
-          Decay Time: 0
-          Depth Map Topic: /spot/depth/left/image
-          Depth Map Transport Hint: raw
-          Enabled: true
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: LeftDepthCloud
-          Occlusion Compensation:
-            Occlusion Time-Out: 30
-            Value: false
-          Position Transformer: XYZ
-          Queue Size: 5
-          Selectable: true
-          Size (Pixels): 3
-          Style: Flat Squares
-          Topic Filter: true
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: true
-        - Alpha: 1
-          Auto Size:
-            Auto Size Factor: 1
-            Value: true
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 2.603226661682129
-            Min Value: -3.571293830871582
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/DepthCloud
-          Color: 255; 255; 255
-          Color Image Topic: ""
-          Color Transformer: AxisColor
-          Color Transport Hint: raw
-          Decay Time: 0
-          Depth Map Topic: /spot/depth/right/image
-          Depth Map Transport Hint: raw
-          Enabled: true
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: RightDepthCloud
-          Occlusion Compensation:
-            Occlusion Time-Out: 30
-            Value: false
-          Position Transformer: XYZ
-          Queue Size: 5
-          Selectable: true
-          Size (Pixels): 3
-          Style: Flat Squares
-          Topic Filter: true
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: true
-        - Alpha: 1
-          Auto Size:
-            Auto Size Factor: 1
-            Value: true
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 1.576756477355957
-            Min Value: -2.3970136642456055
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/DepthCloud
-          Color: 255; 255; 255
-          Color Image Topic: ""
-          Color Transformer: AxisColor
-          Color Transport Hint: raw
-          Decay Time: 0
-          Depth Map Topic: /spot/depth/back/image
-          Depth Map Transport Hint: raw
-          Enabled: true
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: RearDepthCloud
-          Occlusion Compensation:
-            Occlusion Time-Out: 30
-            Value: false
-          Position Transformer: XYZ
-          Queue Size: 5
-          Selectable: true
-          Size (Pixels): 3
-          Style: Flat Squares
-          Topic Filter: true
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: true
-      Enabled: true
-      Name: DepthClouds
     - Alpha: 0.699999988079071
       Class: rviz/Map
       Color Scheme: map
       Draw Behind: false
-      Enabled: true
+      Enabled: false
       Name: Map
       Topic: /rtabmap/grid_map
       Unreliable: false
       Use Timestamp: false
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -675,7 +516,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 6.248493194580078
+      Distance: 2.309854507446289
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -691,9 +532,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.3547964096069336
+      Pitch: 0.3197961449623108
       Target Frame: <Fixed Frame>
-      Yaw: 0.030868127942085266
+      Yaw: 6.249042510986328
     Saved: ~
 Window Geometry:
   Displays:
@@ -701,7 +542,7 @@ Window Geometry:
   Height: 1011
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd00000004000000000000027f0000035efc0200000012fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000002a000000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b0000035e000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006700000002300000018e0000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000000a0049006d00610067006501000002f4000000ca0000000000000000fb0000000a0049006d00610067006501000002f4000000ca0000000000000000fb0000000a0049006d006100670065000000013f000000660000000000000000fb0000000a0049006d0061006700650000000164000000940000000000000000fb0000000a0049006d00610067006500000001a3000000e80000000000000000fc00000227000001970000000000fffffffa000000000100000002fb0000000a0049006d0061006700650000000000ffffffff0000000000000000fb0000000a0049006d0061006700650000000000000002ad0000000000000000fb0000001c00530070006f0074002000430041004d00200069006d00610067006500000004d9000000c8000000000000000000000001000001b80000035efc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fc0000003b0000035e000002c30100001afa000000000100000002fb0000002000530070006f00740043006f006e00740072006f006c00500061006e0065006c0100000000ffffffff000001b600fffffffb0000000a0056006900650077007301000005c8000001b80000010000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000073e00000039fc0100000002fb0000000800540069006d006501000000000000073e0000030700fffffffb0000000800540069006d00650100000000000004500000000000000000000002fb0000035e00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000004000000000000017f0000035efc0200000012fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000002a000000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b0000035e000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006700000002300000018e0000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000000a0049006d00610067006501000002f4000000ca0000000000000000fb0000000a0049006d00610067006501000002f4000000ca0000000000000000fb0000000a0049006d006100670065000000013f000000660000000000000000fb0000000a0049006d0061006700650000000164000000940000000000000000fb0000000a0049006d00610067006500000001a3000000e80000000000000000fc00000227000001970000000000fffffffa000000000100000002fb0000000a0049006d0061006700650000000000ffffffff0000000000000000fb0000000a0049006d0061006700650000000000000002ad0000000000000000fb0000001c00530070006f0074002000430041004d00200069006d00610067006500000004d9000000c8000000000000000000000001000001b80000035efc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fc0000003b0000035e000002c30100001afa000000000100000002fb0000002000530070006f00740043006f006e00740072006f006c00500061006e0065006c0100000000ffffffff000001b600fffffffb0000000a0056006900650077007301000005c8000001b80000010000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000073e00000039fc0100000002fb0000000800540069006d006501000000000000073e0000030700fffffffb0000000800540069006d00650100000000000004500000000000000000000003fb0000035e00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   SpotControlPanel:
