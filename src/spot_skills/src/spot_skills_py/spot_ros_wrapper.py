@@ -189,7 +189,7 @@ class SpotROS1Wrapper:
             # Expect that the camera information is identical, except the header
             d_camera_info_copy = deepcopy(d_camera_info)
             d_camera_info_copy.header = rgb_camera_info.header
-            assert rgb_camera_info == d_camera_info, "Expected identical camera information!"
+            assert rgb_camera_info == d_camera_info_copy, "Expected identical camera information!"
 
             rgbd_pair_msg = RGBDPair()
             rgbd_pair_msg.camera_name = camera_name
