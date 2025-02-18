@@ -1,0 +1,129 @@
+<launch>
+    <arg name="camera0" default="frontleft" />
+    <arg name="camera1" default="frontright" />
+    <arg name="localization_mode" default="false" />
+    <arg name="reload" default="false" />
+    <arg name="rtabmap_viz" default="false" />
+
+    <!--  should reload? -->
+    <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg reload)" />
+    <arg name="rtabmap_args" value="" unless="$(arg reload)" />
+
+    <!-- Parametrize any external interface topic names -->
+    <arg name="pointcloud2_input_topic" default="/spot/lidar/points" />
+    <arg name="filtered_pointcloud2_topic" default="/spot/lidar/filtered_points" />
+
+    <!-- TODO: How to make move_base subscribe? https://wiki.ros.org/costmap_2d -->
+    <arg name="bounding_box_topic" default="/spot/footprint" />
+
+    <group ns="rtabmap">
+
+        <node name="laser_filter" pkg="sensor_filters" type="pointcloud2_filter_chain" output="screen">
+            <rosparam command="load" file="$(find spot_rtabmap)/config/spot_cloud_filter.yaml" />
+            <remap from="~input" to="$(arg pointcloud2_input_topic)" />
+            <remap from="~output" to="$(arg filtered_pointcloud2_topic)" />
+            <remap from="~robot_local_bounding_box" to="$(arg bounding_box_topic)" />
+        </node>
+
+        <!-- Use RGBD synchronization -->
+        <!--<include file="$(find spot_rtabmap)/launch/rgbd_sync_dual.launch">
+            <arg name="camera0" value="$(arg camera0)" />
+            <arg name="camera1" value="$(arg camera1)" />
+        </include>-->
+
+        <!-- Launch an RGB-D image publisher for four (rtabmap's limit) of Spot's cameras -->
+        <node name="rgbd_image_publisher" pkg="spot_rtabmap" type="rgbd_image_publisher.py" output="screen">
+            <param name="rgbd_camera_names" type="string" value="frontleft,frontright,left,right" />
+            <param name="pub_frequency" type="double" value="1.0" />
+        </node>
+
+        <!-- args="delete_db_on_start" if you want to start a new map -->
+        <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen" args="$(arg rtabmap_args)">
+            <param name="frame_id" type="string" value="body" />
+
+            <!-- Use RGB-D instead of just depth images -->
+            <param name="subscribe_depth" type="bool" value="false" />
+            <param name="subscribe_stereo" type="bool" value="false" />
+            <param name="subscribe_rgb" type="bool" value="false" />
+            <param name="subscribe_rgbd" type="bool" value="true" />
+
+            <!-- Used for 2D LIDAR -->
+            <param name="subscribe_scan" type="bool" value="false" />
+
+            <!-- Used for 3D LIDAR publishing sensor_msgs/PointCloud2 -->
+            <param name="subscribe_scan_cloud" type="bool" value="true" />
+
+            <!-- remapping -->
+            <remap from="odom" to="/spot/odometry" />
+            <remap from="initialpose" to="/initialpose" />
+            <remap from="scan_cloud" to="$(arg filtered_pointcloud2_topic)" />
+
+            <!-- Remap ROS topics related to navigation -->
+            <remap from="goal" to="/spot/go_to_pose" />
+            <remap from="goal_out" to="/move_base_simple/goal" />
+
+            <!-- Synchronization parameters for RGB-D cameras -->
+            <param name="rgbd_cameras" type="int" value="4" />
+            <param name="approx_sync" type="bool" value="true" />
+            <param name="approx_sync_max_interval" type="double" value="0.2" /> <!-- Max interval (sec) allowed between the synchronized input topics -->
+
+            <!-- Increase the flexibility of synchronizing across all rtabmap inputs -->
+            <param name="sync_queue_size" type="int" value="30" />
+            <param name="topic_queue_size" type="int" value="30" />
+
+            <!-- Localization mode -->
+            <param name="Mem/IncrementalMemory" type="bool" value="true" if="$(arg localization_mode)" />
+            <param name="Mem/ReduceGraph" type="bool" value="false" if="$(arg localization_mode)" />
+            <param name="RGBD/StartAtOrigin" type="bool" value="false" if="$(arg localization_mode)" />
+
+            <!-- Mapping mode (i.e. not localization mode) -->
+            <param name="Mem/IncrementalMemory" type="bool" value="true" unless="$(arg localization_mode)" />
+            <param name="Mem/ReduceGraph" type="bool" value="true" unless="$(arg localization_mode)" />
+            <param name="RGBD/StartAtOrigin" type="bool" value="true" unless="$(arg localization_mode)" />
+            <!-- <param name="Mem/InitWMWithAllNodes" type="bool" value="$(arg localization_mode)" /> -->
+
+            <!-- RTAB-Map's parameters, adapted from Kaiyu and the tutorial -->
+            <param name="RGBD/ProximityBySpace" type="bool" value="true" />
+            <param name="RGBD/NeighborLinkRefining" type="bool" value="true" />
+            <param name="RGBD/AngularUpdate" type="double" value="0.01" />
+            <param name="RGBD/LinearUpdate" type="double" value="0.01" />
+            <param name="RGBD/OptimizeFromGraphEnd" type="bool" value="false" />
+            <param name="RGBD/ProximityPathMaxNeighbors" type="int" value="1" />
+
+            <!-- Spot can stand/sit, so allow more than 3-DoF transform -->
+            <param name="Reg/Force3DoF" type="string" value="false" />
+            <param name="Reg/Strategy" type="string" value="1" />
+            <!-- 1 = ICP -->
+            <param name="Vis/MinInliers" type="string" value="12" />
+            <param name="Vis/EstimationType" type="string" value="0" />
+            <param name="Grid/CellSize" type="string" value="0.02" />
+
+            <!-- Create the occupancy grid using both the laser scan and depth image(s) -->
+            <param name="Grid/Sensor" type="string" value="2" />
+            <param name="Rtabmap/DetectionRate" type="string" value="0" />
+
+            <!-- ICP parameters -->
+            <param name="Icp/VoxelSize" type="string" value="0.05" />
+            <param name="Icp/MaxCorrespondenceDistance" type="string" value="0.1" />
+        </node>
+
+        <!-- Visualisation RTAB-Map -->
+        <node if="$(arg rtabmap_viz)" pkg="rtabmap_viz" type="rtabmap_viz" name="rtabmap_viz" args="-d $(find rtabmap_demos)/launch/config/rgbd_gui.ini" output="screen">
+            <param name="subscribe_depth" type="bool" value="false" />
+            <param name="subscribe_rgb" type="bool" value="false" />
+            <param name="subscribe_rgbd" type="bool" value="true" />
+            <param name="subscribe_scan_cloud" type="bool" value="true" />
+            <param name="frame_id" type="string" value="body" />
+            <param name="wait_for_transform" type="bool" value="true" />
+
+            <remap from="rgb/image" to="$(arg camera0)_rgbd_image" />
+            <!-- <remap from="depth/image" to="/data_throttled_image_depth" /> -->
+            <!-- <remap from="rgb/camera_info" to="/data_throttled_camera_info" /> -->
+            <remap from="scan_cloud" to="$(arg filtered_pointcloud2_topic)" />
+            <!-- <remap from="odom" to="/az3/base_controller/odom" /> -->
+
+            <param name="rgb/image_transport" type="string" value="compressed" />
+            <!-- <param name="depth/image_transport" type="string" value="compressedDepth" /> -->
+        </node>
+    </group>
+</launch>

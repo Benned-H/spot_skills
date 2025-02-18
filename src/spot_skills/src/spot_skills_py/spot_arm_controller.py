@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from enum import Enum
+from enum import IntEnum
 from typing import TYPE_CHECKING
 
 from bosdyn.client.robot_command import RobotCommandBuilder
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from spot_skills_py.spot_manager import SpotManager
 
 
-class ArmCommandOutcome(Enum):
+class ArmCommandOutcome(IntEnum):
     """Enumerates the possible outcomes from a trajectory command for Spot's arm."""
 
     INVALID_START = -1  # Indicates that the command didn't begin where Spot's arm is
@@ -29,7 +29,7 @@ class ArmCommandOutcome(Enum):
     ARM_LOCKED = 2  # Indicates that the ArmController cannot yet control Spot's arm
 
 
-class GripperCommandOutcome(Enum):
+class GripperCommandOutcome(IntEnum):
     """Enumerates the possible outcomes from a gripper command to Spot."""
 
     FAILURE = -1  # Indicates the command could not be completed
@@ -231,7 +231,7 @@ class SpotArmController:
     def command_gripper(self, target_rad: float) -> GripperCommandOutcome:
         """Command Spot's gripper to move to the specified angle (radians).
 
-        Fully open gripper is -1.5708 radians, whereas fully closed gripper is 0 radians.
+        Fully open gripper is -1.5707 radians, whereas fully closed gripper is 0 radians.
 
         If contact is detected while closing the gripper, the default maximum torque is 5.5 Nm.
 

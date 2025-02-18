@@ -1,6 +1,39 @@
 <!-- Launch the core nodes required to control a robot using MoveIt -->
 <launch>
 
+    <!-- Should MoveIt plan to control a simulated or real robot? -->
+    <arg name="real_robot" />
+    <arg name="load_robot_description" />
+
+    <!-- Choose MoveIt's controller manager: fake, simple, or ros_control
+
+     - fake - Provides fake trajectory execution, when we don't have a real robot
+
+     - simple - Interfaces with any low-level controller supporting either the
+        JointTrajectoryController or GripperActionController API from the ROS controllers package
+
+     - ros_control - Directly interfaces with the ROS Controller Manager
+    
+     Reference: https://tinyurl.com/moveit-noetic-controllers
+
+     Simulation: Use "fake" controller manager | Real robot: Use "simple" -->
+    <arg name="moveit_controller_manager" value="fake" unless="$(arg real_robot)"/>
+    <arg name="moveit_controller_manager" value="simple" if="$(arg real_robot)"/>
+
+    <!-- Default planning pipeline: OMPL -->
+    <arg name="pipeline" default="ompl" />
+
+    <!-- Default: Don't provide a GUI for manual control of the robot joint states -->
+    <arg name="joints_gui" default="false" />
+
+    <!-- Default not in debug mode -->
+    <arg name="debug" default="false" />
+
+    <!-- Set execution mode for fake execution controllers
+        Options: interpolate, via points, or last point
+        Reference: https://tinyurl.com/noetic-fake-controller-manager -->
+    <arg name="fake_execution_type" default="interpolate" />
+
     <!-- Launch the main MoveIt executable (move_group) -->
     <include file="$(find spot_moveit_config)/launch/move_group.launch">
         <arg name="allow_trajectory_execution" value="true" />
@@ -18,7 +51,7 @@
     <!-- When there's no real robot connected, we need to publish fake joint states
         using the joint_state_publisher node. We tell this node to listen to the
         fake MoveIt controller using its `source_list` parameter -->
-    <group if="$(eval arg('moveit_controller_manager') == 'fake')">
+    <group unless="$(arg real_robot)">
 
         <!-- If no `joints_gui`, use a joint state publisher without a GUI -->
         <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" unless="$(arg joints_gui)">
@@ -27,7 +60,7 @@
 
         <!-- Otherwise, use a joint state publisher with a joint-controlling GUI -->
         <node name="joint_state_publisher" pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" if="$(arg joints_gui)">
-            <rosparam param="source_list">[move_group/fake_controller_joint_states]</rosparam>
+            <rosparam param="source_list" subst_value="true">$(arg joint_state_source_list)</rosparam>
         </node>
 
         <!-- Given the published joint states, publish tf for the robot links -->

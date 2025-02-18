@@ -1,0 +1,49 @@
+cloud_filter_chain:
+  # Filter points for height before filtering for body collisions
+  # Reference: https://wiki.ros.org/point_cloud2_filters
+  - name: pass_through_filter
+    type: point_cloud2_filters/PassThroughFilterPointCloud2
+    params:
+      active: True
+
+      # Input/output frames transformed into before/after processing
+      # TODO: Shouldn't this be the ground? Check location of this frame
+      input_frame: "sensor_origin_velodyne-point-cloud"
+      output_frame: "sensor_origin_velodyne-point-cloud"
+
+      filter_field_name: "z" # Field to be used for filtering data
+      filter_limit_min: 0.2 # Minimum allowed z-value
+      filter_limit_max: 3.0 # Maximum allowed z-value (3 meters)
+
+  # Filter points likely to have resulted from laser-body collisions
+  - name: lidar_body_filter
+    type: robot_body_filter/RobotBodyFilterPointCloud2
+    params:
+      frames/fixed: "vision" # Fixed frame (used for filtering if `frames/filtering` isn't set)
+      frames/output: "vision" # Frame into which filtered point clouds are transformed
+
+      # References:
+      #   https://bostondynamics.com/wp-content/uploads/2023/05/spot-eap-2.pdf
+      #   https://docs.clearpathrobotics.com/docs/robots/accessories/sensors/lidar_3d/velodyne_puck
+      sensor/min_distance: 0.9
+      sensor/max_distance: 100.0
+
+      filter/do_clipping: True # Enables clipping points outside of min/max distance
+      filter/do_contains_test: True # Enables marking points as inside/outside robot body
+      filter/do_shadow_test: False # Enables ray-tracing to identify points shadowed by robot body
+
+      body_model/robot_description_param: "/robot_description" # ROS parameter defining the body model
+      body_model/inflation/scale: 1.1 # Scale applied to the body model
+      body_model/inflation/padding: 0.02 # Padding (m) added to the body model
+
+      # Note that links can be indiviually ignored for any of these tests
+      # Reference: https://github.com/peci1/robot_body_filter
+
+      debug/pcl/clip: True # Publish debugging pointcloud with points marked as CLIP
+      debug/pcl/inside: True # Publish debugging pointcloud with points marked as INSIDE
+      debug/marker/contains: True # Publish a marker showing the model used for body containment test
+
+      oriented_bounding_box/compute: True # Compute and publish the robot's oriented bounding box
+
+
+  # TODO: robot_body_filter can also be used to filter RGB-D depth collisions with Spot's body

@@ -7,7 +7,7 @@
     <arg name="spot_name" default="snouter" />
     <arg name="spot_secrets_yaml" value="$(find spot_skills)/secrets/$(arg spot_name)_rosparams.yaml" />
 
-    <!-- Provides the username, password, and IP used to connect to Spot -->
+    <!-- Load the username, password, and IP used to connect to Spot -->
     <rosparam command="load" file="$(arg spot_secrets_yaml)" ns="spot" />
 
     <!-- Launch the Spot ROS 1 driver using its primary launch file -->

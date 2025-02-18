@@ -1,5 +1,7 @@
 """Define a class providing a ROS 1 interface to the Spot robot."""
 
+from copy import deepcopy
+
 import rospy
 from actionlib import SimpleActionServer
 from control_msgs.msg import (
@@ -12,7 +14,8 @@ from control_msgs.msg import (
 )
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
-from spot_skills.srv import GetPairedRGBD, GetPairedRGBDRequest, GetPairedRGBDResponse
+from spot_skills.msg import RGBDPair
+from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
 from spot_skills_py.joint_trajectory import JointTrajectory
 from spot_skills_py.ros_utilities import get_ros_param
 from spot_skills_py.spot_arm_controller import (
@@ -66,10 +69,10 @@ class SpotROS1Wrapper:
             self.handle_stow_arm,
         )
 
-        self._get_paired_rgbd_service = rospy.Service(
-            "spot/get_paired_rgbd",
-            GetPairedRGBD,
-            self.handle_get_paired_rgbd,
+        self._get_rgbd_pairs_service = rospy.Service(
+            "spot/get_rgbd_pairs",
+            GetRGBDPairs,
+            self.handle_get_rgbd_pairs,
         )
 
         # Initialize all ROS action servers provided by the class
@@ -83,7 +86,7 @@ class SpotROS1Wrapper:
         self._arm_action_server.start()
         rospy.loginfo(f"[{self._arm_action_name}] Action server has started.")
 
-        self._gripper_action_name = "end_effector_controller/gripper_action"
+        self._gripper_action_name = "gripper_controller/gripper_action"
         self._gripper_action_server = SimpleActionServer(
             self._gripper_action_name,
             GripperCommandAction,
@@ -143,54 +146,64 @@ class SpotROS1Wrapper:
 
         return TriggerResponse(success, message)
 
-    def handle_get_paired_rgbd(self, request_msg: GetPairedRGBDRequest) -> GetPairedRGBDResponse:
-        """Handle a request to capture an RGBD image pair from a specific camera on Spot.
+    def handle_get_rgbd_pairs(self, request_msg: GetRGBDPairsRequest) -> GetRGBDPairsResponse:
+        """Handle a request to capture RGBD image pairs from the specified camera(s) on Spot.
 
-        :param request_msg: Message specifying a camera name to use for the RGBD image
+        :param request_msg: Message specifying the name of the RGBD camera(s) to be used
         :return: Response containing the RGB and depth images, alongside camera info
         """
-        camera_name = request_msg.camera_name
+        request_protos = []
 
-        image_request_protos = [
-            self._manager.image_client.make_image_request(camera_name, ImageFormat.RGB),
-            self._manager.image_client.make_image_request(camera_name, ImageFormat.DEPTH),
-        ]
-        rgb_response, depth_response = self._manager.image_client.get_images(image_request_protos)
+        for camera_name in request_msg.camera_names:
+            request_protos.append(
+                self._manager.image_client.make_image_request(camera_name, ImageFormat.RGB),
+            )
+            request_protos.append(
+                self._manager.image_client.make_image_request(camera_name, ImageFormat.DEPTH),
+            )
 
-        # Find timestamps of the image responses
-        rgb_time_proto = rgb_response.shot.acquisition_time
-        rgb_timestamp = self._manager.time_sync.local_timestamp_from_proto(rgb_time_proto)
-        rgb_time_s = rgb_timestamp.to_time_s()
-        rgb_ros_time = rospy.Time.from_sec(rgb_time_s)
+        response_protos = self._manager.image_client.get_images(request_protos)
+        assert len(response_protos) == len(request_protos)
 
-        depth_time_proto = depth_response.shot.acquisition_time
-        depth_timestamp = self._manager.time_sync.local_timestamp_from_proto(depth_time_proto)
-        depth_time_s = depth_timestamp.to_time_s()
-        depth_ros_time = rospy.Time.from_sec(depth_time_s)
+        response_msg = GetRGBDPairsResponse()
+        for camera_idx, camera_name in enumerate(request_msg.camera_names):
+            rgb_response = response_protos[2 * camera_idx]
+            depth_response = response_protos[2 * camera_idx + 1]
 
-        diff_s = rgb_time_s - depth_time_s
-        self._manager.log_info(f"Difference between RGB and depth timestamps: {diff_s} sec")
-        assert diff_s <= 0.1, f"Images differed by {diff_s} seconds!"
+            # Find ROS timestamps of the image responses
+            rgb_time_proto = rgb_response.shot.acquisition_time
+            rgb_timestamp = self._manager.time_sync.local_timestamp_from_proto(rgb_time_proto)
+            rgb_time_s = rgb_timestamp.to_time_s()
+            rgb_ros_time = rospy.Time.from_sec(rgb_time_s)
 
-        rgb_camera_info = SpotImageClient.extract_camera_info_msg(rgb_response, rgb_ros_time)
-        depth_camera_info = SpotImageClient.extract_camera_info_msg(depth_response, depth_ros_time)
+            depth_time_proto = depth_response.shot.acquisition_time
+            depth_timestamp = self._manager.time_sync.local_timestamp_from_proto(depth_time_proto)
+            depth_time_s = depth_timestamp.to_time_s()
+            depth_ros_time = rospy.Time.from_sec(depth_time_s)
 
-        # Expect that the camera information is identical, except the header
-        depth_camera_info.header = rgb_camera_info.header
-        assert rgb_camera_info == depth_camera_info, "Expected camera info to match!"
+            diff_s = rgb_time_s - depth_time_s
+            assert diff_s <= 0.1, f"Synchronized RGB and depth images differed by {diff_s} seconds!"
 
-        response_msg = GetPairedRGBDResponse()
-        response_msg.info = rgb_camera_info
+            rgb_camera_info = SpotImageClient.extract_camera_info_msg(rgb_response, rgb_ros_time)
+            d_camera_info = SpotImageClient.extract_camera_info_msg(depth_response, depth_ros_time)
 
-        response_msg.rgb = self._manager.image_client.extract_image_msg(
-            rgb_response.shot,
-            rgb_ros_time,
-        )
+            # Expect that the camera information is identical, except the header
+            d_camera_info_copy = deepcopy(d_camera_info)
+            d_camera_info_copy.header = rgb_camera_info.header
+            assert rgb_camera_info == d_camera_info_copy, "Expected identical camera information!"
 
-        response_msg.depth = self._manager.image_client.extract_image_msg(
-            depth_response.shot,
-            depth_ros_time,
-        )
+            rgbd_pair_msg = RGBDPair()
+            rgbd_pair_msg.camera_name = camera_name
+            rgbd_pair_msg.camera_info = rgb_camera_info
+            rgbd_pair_msg.rgb = self._manager.image_client.extract_image_msg(
+                rgb_response.shot,
+                rgb_ros_time,
+            )
+            rgbd_pair_msg.depth = self._manager.image_client.extract_image_msg(
+                depth_response.shot,
+                depth_ros_time,
+            )
+            response_msg.rgbd_pairs.append(rgbd_pair_msg)
 
         return response_msg
 
@@ -232,7 +245,7 @@ class SpotROS1Wrapper:
 
         # Update the ROS action server based on the outcome of the trajectory
         if outcome == ArmCommandOutcome.SUCCESS:
-            result.error_code = outcome
+            result.error_code = int(outcome)
             result.error_string = "Success!"
             self._arm_action_server.set_succeeded(result)
 
