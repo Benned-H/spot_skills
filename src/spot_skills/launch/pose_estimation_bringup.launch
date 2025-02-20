@@ -1,0 +1,23 @@
+<!-- Launch the nodes specific to pose estimation on Spot
+
+    Note: Assumes that other launch files bring up the Spot ROS driver and Spot ROS wrapper
+-->
+<launch>
+
+    <!-- Enable/disable using GUI showing the images used for pose estimation (default: true) -->
+    <arg name="image_gui" value="true"/>
+    <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" args="--perspective-file $(find spot_skills)/rviz/pose_estimate.perspective" if="$(arg image_gui)"/>
+
+    <!-- Launch the object pose estimate client -->
+    <node name="estimate_pose_client" pkg="spot_skills" type="estimate_pose_client.py" output="screen">
+        <!-- Specify which camera(s) to use for pose estimation as a comma-separated list -->
+        <param name="default_cameras" type="str" value="frontleft,frontright"/>
+    </node>
+
+    <!-- Launch the dummy EstimatePose server only if explicitly requested -->
+    <arg name="dummy_pose_server" default="false"/>
+    <group if="$(arg dummy_pose_server)">
+        <node name="estimate_pose_server" pkg="spot_skills" type="dummy_estimate_pose_server.py" output="screen"/>
+    </group>
+
+</launch>

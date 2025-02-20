@@ -3,7 +3,7 @@
     This file launches/includes the following nodes/launch files:
         - spot_moveit_bringup.launch - Launches all nodes to control Spot using MoveIt, including:
             - moveit_core.launch - All MoveIt-specific nodes for controlling any robot
-            - authenticate_spot_driver.launch - Connects to Spot using its ROS driver
+            - spot_driver_bringup.launch - Connects to Spot using its ROS driver
             - spot_wrapper_node - Connects to Spot using the ROS wrapper, to control the robot
         
         - spot_rtabmap.launch - Launches all nodes to run SLAM for Spot using rtabmap, including:

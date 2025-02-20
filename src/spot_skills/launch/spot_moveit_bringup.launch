@@ -3,7 +3,7 @@
     This file launches/includes the following nodes/launch files:
         - moveit_core.launch - All MoveIt-specific nodes for controlling any robot
         - fake_gripper_action_server - Fake controller for Spot's gripper (if simulated robot)
-        - authenticate_spot_driver.launch - Connects to Spot using its ROS driver (if real robot)
+        - spot_driver_bringup.launch - Connects to Spot using its ROS driver (if real robot)
         - spot_wrapper_node - Connects to Spot using the ROS wrapper (to control real robot)
 -->
 <launch>
@@ -29,7 +29,7 @@
     <group if="$(arg real_robot)">
 
         <!-- Launch the Spot ROS 1 driver for the named Spot -->
-        <include file="$(find spot_skills)/launch/authenticate_spot_driver.launch">
+        <include file="$(find spot_skills)/launch/spot_driver_bringup.launch">
             <arg name="spot_name" value="$(arg spot_name)" />
 
             <!-- Load Spot's URDF/SRDF using MoveIt, not the Spot driver -->

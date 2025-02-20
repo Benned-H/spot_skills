@@ -8,7 +8,8 @@
             "program": "src/tmp3/TMP.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
-            "preLaunchTask": "Prepare for TMP3"
+            "preLaunchTask": "Prepare for TMP3",
+            "envFile": "${workspaceFolder}/devel/setup.bash"
         }
     ]
 }

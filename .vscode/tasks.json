@@ -4,7 +4,7 @@
         {
             "label": "Prepare for TMP3",
             "type": "shell",
-            "command": "source devel/setup.bash && pip install -e src/tmp3",
+            "command": "pip install -e src/tmp3",
             "group": "build",
             "presentation": {
                 "reveal": "always",
