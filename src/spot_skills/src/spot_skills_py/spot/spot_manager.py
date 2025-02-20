@@ -10,21 +10,17 @@ from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
-from bosdyn.client.robot_command import (
-    RobotCommandBuilder,
-    RobotCommandClient,
-    blocking_stand,
-)
+from bosdyn.client.robot_command import RobotCommandBuilder, RobotCommandClient
 from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_command
+from bosdyn.client.robot_command import blocking_stand
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from rospy import loginfo as ros_loginfo
+from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
+from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
+from spot_skills_py.spot.spot_image_client import SpotImageClient
+from spot_skills_py.spot.spot_sync import SpotTimeSync
 from transform_utils.kinematics import Configuration
-
-from spot_skills_py.spot_arm_controller import GripperCommandOutcome
-from spot_skills_py.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
-from spot_skills_py.spot_image_client import SpotImageClient
-from spot_skills_py.spot_sync import SpotTimeSync
 
 
 class SpotManager:
@@ -147,18 +143,23 @@ class SpotManager:
             self._robot.power_on(timeout_sec=20)
 
         # Verify that the attempted operations succeeded
-        lease_alive = self.check_lease_alive()
         power_success = self._robot.is_powered_on()
 
-        self.log_info("Spot powered on." if power_success else "Spot power on failed.")
+        self.log_info("Spot powered on." if power_success else "Spot power on failed!")
 
         self.log_info("Exiting SpotManager.take_control()...\n")
 
-        return lease_alive and power_success
+        return self.check_control()
 
-    def check_lease_alive(self) -> bool:
-        """Check whether the SpotManager has a live lease for Spot."""
-        return self._lease_keeper is not None and self._lease_keeper.is_alive()
+    def check_control(self) -> bool:
+        """Check whether the SpotManager has control of a powered-on robot.
+
+        :returns: Boolean indicating if the manager has the lease and Spot is powered on
+        """
+        lease_alive = self._lease_keeper is not None and self._lease_keeper.is_alive()
+        powered_on = self._robot.is_powered_on()
+
+        return lease_alive and powered_on
 
     def log_info(self, message: str) -> None:
         """Log the given message to the Spot and ROS information logs.
@@ -243,7 +244,7 @@ class SpotManager:
         :param timeout_s: Timeout (seconds) for the blocking stand command
         :returns: True if Spot stood up, otherwise False
         """
-        if not self.check_lease_alive():
+        if not self.check_control():
             return False
 
         blocking_stand(self.command_client, timeout_sec=timeout_s)
@@ -302,7 +303,7 @@ class SpotManager:
 
         :returns: True if Spot's arm was deployed, otherwise False
         """
-        if not self.check_lease_alive():
+        if not self.check_control():
             return False
 
         self.log_info("Deploying Spot's arm to the 'ready' position...")
@@ -317,7 +318,7 @@ class SpotManager:
 
         :returns: True if Spot's arm was stowed, otherwise False
         """
-        if not self.check_lease_alive():
+        if not self.check_control():
             return False
 
         self.log_info("Stowing Spot's arm...")
@@ -344,7 +345,7 @@ class SpotManager:
         """Shut-down by stowing the arm, sitting, powering off, and releasing Spot."""
         self.log_info("Shutting down Spot manager...")
 
-        if self.check_lease_alive():
+        if self.check_control():
             self.stow_arm()
             self.safely_power_off()  # Send a "safe power off" command
             self.release_control()  # Return Spot's lease
