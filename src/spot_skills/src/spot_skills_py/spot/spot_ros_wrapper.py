@@ -45,7 +45,6 @@ class SpotROS1Wrapper:
 
         max_segment_len = 30  # Limit the points/segment in ArmController trajectories
         self._arm_controller = SpotArmController(self._manager, max_segment_len)
-        self._took_control = False  # Don't take control of Spot until necessary
         self._arm_locked = True  # Begin without ROS control of Spot's arm
 
         self._manager.log_info("Manager and ArmController created.")
@@ -109,11 +108,11 @@ class SpotROS1Wrapper:
         """
         del request_msg
 
-        if not self._took_control:
-            self._manager.take_control()
-            self._took_control = True
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
 
-        stood_up = self._manager.stand_up(20)
+        stood_up = self._manager.stand_up(20) if has_control else False
         message = "Spot is now standing." if stood_up else "Spot could not stand up."
 
         return TriggerResponse(stood_up, message)
@@ -127,14 +126,15 @@ class SpotROS1Wrapper:
         """
         del request_msg
 
-        if not self._took_control:
-            self._manager.take_control()
-            self._took_control = True
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
 
-        self._arm_locked = False
-        self._arm_controller.unlock_arm()
+        if has_control:
+            self._arm_locked = False
+            self._arm_controller.unlock_arm()
 
-        return TriggerResponse(True, "Spot's arm is now unlocked.")
+        return TriggerResponse(has_control, "Spot's arm is now unlocked.")
 
     def handle_stow_arm(self, request_msg: TriggerRequest) -> TriggerResponse:
         """Handle a service request to stow Spot's arm.
@@ -147,18 +147,18 @@ class SpotROS1Wrapper:
         """
         del request_msg
 
-        if not self._took_control:
-            self._manager.take_control()
-            self._took_control = True
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
 
         if self._arm_locked:
             message = "Spot's arm was not stowed because Spot's arm remains locked."
             return TriggerResponse(False, message)
 
-        success = self._manager.stow_arm()
-        message = "Spot's arm has been stowed." if success else "Could not stow Spot's arm."
+        arm_stowed = self._manager.stow_arm() if has_control else False
+        message = "Spot's arm has been stowed." if arm_stowed else "Could not stow Spot's arm."
 
-        return TriggerResponse(success, message)
+        return TriggerResponse(arm_stowed, message)
 
     def handle_get_rgbd_pairs(self, request_msg: GetRGBDPairsRequest) -> GetRGBDPairsResponse:
         """Handle a request to capture RGBD image pairs from the specified camera(s) on Spot.
@@ -230,9 +230,17 @@ class SpotROS1Wrapper:
 
         :param      goal        Joint trajectory to be followed
         """
-        if not self._took_control:
-            self._manager.take_control()
-            self._took_control = True
+        result = FollowJointTrajectoryResult()
+        result.error_code = -1  # Default error code: INVALID_GOAL
+
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
+
+        if not has_control:
+            result.error_string = "Could not obtain control of Spot nor control Spot's arm."
+            self._arm_action_server.set_aborted(result)
+            return
 
         # Extract all fields of the received action goal message
         trajectory = JointTrajectory.from_ros_msg(goal.trajectory)
@@ -251,9 +259,6 @@ class SpotROS1Wrapper:
             f"[{self._arm_action_name}] Received trajectory of length "
             f"{len(trajectory.points)}, lasting {traj_duration_s} seconds.",
         )
-
-        result = FollowJointTrajectoryResult()
-        result.error_code = -1  # Default error code: INVALID_GOAL
 
         # Attempt to send the trajectory using the SpotArmController
         outcome = self._arm_controller.command_trajectory(
@@ -292,15 +297,17 @@ class SpotROS1Wrapper:
 
         :param goal: Gripper command to be executed
         """
-        if not self._took_control:
-            self._manager.take_control()
-            self._took_control = True
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
 
         goal_position_rad = goal.command.position  # Ignoring goal.command.max_effort
 
         gripper_command_result = GripperCommandResult()
 
-        outcome = self._arm_controller.command_gripper(goal_position_rad)
+        outcome = GripperCommandOutcome.FAILURE
+        if has_control:
+            outcome = self._arm_controller.command_gripper(goal_position_rad)
 
         if outcome == GripperCommandOutcome.FAILURE:
             gripper_command_result.reached_goal = False
