@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import rospy
 from spot_skills_py.ros_utilities import get_ros_param
+from transform_utils.kinematics import DEFAULT_FRAME
 from transform_utils.kinematics_ros import pose_from_msg
 from transform_utils.transform_manager import TransformManager
 
@@ -30,10 +31,15 @@ class PoseEstimateClient:
 
         rospy.wait_for_service(pose_service_name, timeout=120.0)
         self.pose_service_name = pose_service_name
-        self._pose_service_caller = rospy.ServiceProxy(self.pose_service_name, EstimatePose)
+        self._pose_service_caller = rospy.ServiceProxy(
+            self.pose_service_name,
+            EstimatePose,
+            persistent=True,
+        )
 
         # Configure the pose estimation service based on ROS params
-        self.camera_names: list[str] = get_ros_param("~default_cameras")
+        cameras_list_str = get_ros_param("~default_cameras")
+        self.camera_names: list[str] = [c.strip() for c in cameras_list_str.split(",")]
         self._objects: list[str] = get_ros_param("known_objects")
 
         self._next_obj_idx = 0
@@ -67,11 +73,10 @@ class PoseEstimateClient:
         try:
             response: GetRGBDPairsResponse = self._image_service_caller(request)
         except rospy.ServiceException as exc:
-            rospy.logerr(f"[{self.image_service_name}] Could not call service: {exc}")
-            return None
+            rospy.signal_shutdown(f"[{self.image_service_name}] Could not call service: {exc}")
 
         if response is None:
-            rospy.logerr(f"[{self.image_service_name}] Response message was None")
+            rospy.signal_shutdown(f"[{self.image_service_name}] Response message was None")
 
         return response
 
@@ -88,7 +93,7 @@ class PoseEstimateClient:
             capture_time = rgbd_pair.camera_info.header.stamp  # Acquisition time of the images
             pose_w_c = TransformManager.lookup_transform(
                 camera_frame,
-                self.global_frame,
+                DEFAULT_FRAME,
                 capture_time,
             )
 

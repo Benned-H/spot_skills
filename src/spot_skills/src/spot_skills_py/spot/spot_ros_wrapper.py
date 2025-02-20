@@ -12,19 +12,19 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
-from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
-
-from spot_skills.msg import RGBDPair
-from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
 from spot_skills_py.joint_trajectory import JointTrajectory
 from spot_skills_py.ros_utilities import get_ros_param
-from spot_skills_py.spot_arm_controller import (
+from spot_skills_py.spot.spot_arm_controller import (
     ArmCommandOutcome,
     GripperCommandOutcome,
     SpotArmController,
 )
-from spot_skills_py.spot_image_client import ImageFormat, SpotImageClient
-from spot_skills_py.spot_manager import SpotManager
+from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient
+from spot_skills_py.spot.spot_manager import SpotManager
+from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
+
+from spot_skills.msg import RGBDPair
+from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
 
 
 class SpotROS1Wrapper:
@@ -45,10 +45,10 @@ class SpotROS1Wrapper:
 
         max_segment_len = 30  # Limit the points/segment in ArmController trajectories
         self._arm_controller = SpotArmController(self._manager, max_segment_len)
+        self._took_control = False  # Don't take control of Spot until necessary
         self._arm_locked = True  # Begin without ROS control of Spot's arm
 
-        self._manager.log_info("Manager and ArmController created. Taking lease...")
-        self._manager.take_control()
+        self._manager.log_info("Manager and ArmController created.")
 
         # Initialize all ROS services provided by the class
         self._stand_service = rospy.Service(
@@ -108,6 +108,11 @@ class SpotROS1Wrapper:
         :returns    Response conveying whether Spot has successfully stood up
         """
         del request_msg
+
+        if not self._took_control:
+            self._manager.take_control()
+            self._took_control = True
+
         stood_up = self._manager.stand_up(20)
         message = "Spot is now standing." if stood_up else "Spot could not stand up."
 
@@ -121,6 +126,11 @@ class SpotROS1Wrapper:
         :returns    Response conveying that Spot's arm has been unlocked
         """
         del request_msg
+
+        if not self._took_control:
+            self._manager.take_control()
+            self._took_control = True
+
         self._arm_locked = False
         self._arm_controller.unlock_arm()
 
@@ -136,6 +146,10 @@ class SpotROS1Wrapper:
         :returns    Response conveying whether Spot's arm has been stowed
         """
         del request_msg
+
+        if not self._took_control:
+            self._manager.take_control()
+            self._took_control = True
 
         if self._arm_locked:
             message = "Spot's arm was not stowed because Spot's arm remains locked."
@@ -216,6 +230,10 @@ class SpotROS1Wrapper:
 
         :param      goal        Joint trajectory to be followed
         """
+        if not self._took_control:
+            self._manager.take_control()
+            self._took_control = True
+
         # Extract all fields of the received action goal message
         trajectory = JointTrajectory.from_ros_msg(goal.trajectory)
 
@@ -274,6 +292,10 @@ class SpotROS1Wrapper:
 
         :param goal: Gripper command to be executed
         """
+        if not self._took_control:
+            self._manager.take_control()
+            self._took_control = True
+
         goal_position_rad = goal.command.position  # Ignoring goal.command.max_effort
 
         gripper_command_result = GripperCommandResult()
