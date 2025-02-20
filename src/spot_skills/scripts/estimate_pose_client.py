@@ -44,8 +44,6 @@ class PoseEstimateClient:
 
         self._next_obj_idx = 0
 
-        self.global_frame = "vision"  # Relative frame used as the static "world" frame
-
     def next_object(self) -> str:
         """Find the next object of interest for pose estimation.
 

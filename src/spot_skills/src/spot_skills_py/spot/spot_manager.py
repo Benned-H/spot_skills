@@ -10,17 +10,17 @@ from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
-from bosdyn.client.robot_command import RobotCommandBuilder, RobotCommandClient
+from bosdyn.client.robot_command import RobotCommandBuilder, RobotCommandClient, blocking_stand
 from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_command
-from bosdyn.client.robot_command import blocking_stand
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from rospy import loginfo as ros_loginfo
+from transform_utils.kinematics import Configuration
+
 from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
 from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
 from spot_skills_py.spot.spot_image_client import SpotImageClient
 from spot_skills_py.spot.spot_sync import SpotTimeSync
-from transform_utils.kinematics import Configuration
 
 
 class SpotManager:
@@ -219,16 +219,19 @@ class SpotManager:
             if joint.name in SPOT_SDK_ARM_JOINT_NAMES
         }
 
-    def send_robot_command(self, command: RobotCommand) -> int:
+    def send_robot_command(self, command: RobotCommand) -> int | None:
         """Command Spot to execute the given robot command.
 
         Note: The RobotCommandClient.robot_command() method will automatically update
             all timestamps in the command from local time to robot time.
 
-        :param      command     Command for Spot to execute
+        :param command: Command for Spot to execute
 
-        :returns    ID (integer) of the issued robot command
+        :returns: ID (integer) of the issued robot command (None if manager doesn't control Spot)
         """
+        if not self.check_control():
+            return None
+
         # Issue a command to the robot synchronously (blocks until done sending)
         command_id: int = self.command_client.robot_command(
             command,

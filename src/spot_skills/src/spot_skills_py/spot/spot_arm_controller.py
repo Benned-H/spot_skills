@@ -8,12 +8,14 @@ from typing import TYPE_CHECKING
 
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
+
 from spot_skills_py.spot.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
 from spot_skills_py.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
     from actionlib import SimpleActionServer
     from bosdyn.api.robot_command_pb2 import RobotCommand
+
     from spot_skills_py.joint_trajectory import JointTrajectory
     from spot_skills_py.spot.spot_manager import SpotManager
 
@@ -177,7 +179,7 @@ class SpotArmController:
 
         :returns    Enum member indicating the outcome of the command
         """
-        if self._locked:
+        if self._locked or not self._manager.check_control():
             return ArmCommandOutcome.ARM_LOCKED
 
         # SpotManager outputs joint names based on the Spot SDK's naming conventions
@@ -239,7 +241,11 @@ class SpotArmController:
         :return: Enum indicating the outcome of the gripper command sent to Spot
         """
         if self._locked:
-            self._manager.log_info("Rejected gripper command because Spot's arm remains locked.\n")
+            self._manager.log_info("Rejected gripper command; Spot's arm remains locked.\n")
+            return GripperCommandOutcome.FAILURE
+
+        if not self._manager.check_control():
+            self._manager.log_info("Rejected gripper command; SpotManager doesn't control Spot.\n")
             return GripperCommandOutcome.FAILURE
 
         if target_rad < -1.5707 or target_rad > 0:

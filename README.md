@@ -69,7 +69,7 @@ cd /docker/spot_skills
 source devel/setup.bash
 ```
 
-### Long Trajectory Using Spot SDK
+### Demo 1 - Long Trajectory Using Spot SDK
 
 In this real-world demonstration, Spot will use its arm to follow a 20-second trajectory. To run the demo, perform the following steps:
 
@@ -115,7 +115,7 @@ Once the trajectory is complete, Spot should stow its arm, sit down, power off, 
 [INFO] [...]: Finished running the long joint trajectory.
 ```
 
-### Control Spot's Arm using MoveIt
+### Demo 2 - Control Spot's Arm using MoveIt
 
 In this demonstration, we use MoveIt to move Spot's arm left-and-right in a repeating path.
 The demo can be run in simulation (default) or on the real robot (work in progress).

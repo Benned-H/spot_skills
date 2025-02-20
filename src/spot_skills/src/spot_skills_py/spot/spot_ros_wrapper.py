@@ -12,6 +12,10 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
+from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
+
+from spot_skills.msg import RGBDPair
+from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
 from spot_skills_py.joint_trajectory import JointTrajectory
 from spot_skills_py.ros_utilities import get_ros_param
 from spot_skills_py.spot.spot_arm_controller import (
@@ -21,17 +25,16 @@ from spot_skills_py.spot.spot_arm_controller import (
 )
 from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient
 from spot_skills_py.spot.spot_manager import SpotManager
-from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
-
-from spot_skills.msg import RGBDPair
-from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
 
 
 class SpotROS1Wrapper:
     """A ROS 1 interface for the Spot robot."""
 
-    def __init__(self) -> None:
-        """Initialize the ROS interface by creating an internal SpotManager."""
+    def __init__(self, *, take_control: bool) -> None:
+        """Initialize the ROS interface by creating an internal SpotManager.
+
+        :param take_control: Boolean indicating whether to immediately take control of Spot
+        """
         spot_rosparams = ["/spot/hostname", "/spot/username", "/spot/password"]
         spot_rosparam_values = [get_ros_param(par) for par in spot_rosparams]
         spot_hostname, spot_username, spot_password = spot_rosparam_values
@@ -48,6 +51,10 @@ class SpotROS1Wrapper:
         self._arm_locked = True  # Begin without ROS control of Spot's arm
 
         self._manager.log_info("Manager and ArmController created.")
+
+        # Only take immediate control of Spot if requested
+        if take_control:
+            self._manager.take_control()
 
         # Initialize all ROS services provided by the class
         self._stand_service = rospy.Service(
