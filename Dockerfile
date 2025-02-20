@@ -107,7 +107,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 # Set up the entrypoint script
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT bash /entrypoint.sh
 CMD ["bash"]
 
 # Finalize the default working directory for the image
