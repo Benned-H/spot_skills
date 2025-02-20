@@ -24,7 +24,7 @@ xhost +local:docker
 docker compose up --pull missing --remove-orphans --detach "$serviceName"
 
 if [[ $? -ne 0 ]]; then
-    echo "Could not pull the corresponding image. Building locally..."
+    echo "Could not pull and attach to the corresponding image. Building locally..."
     docker compose --progress plain build "$serviceName"
     docker compose up "$serviceName"
 fi

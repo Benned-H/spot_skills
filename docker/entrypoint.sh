@@ -50,7 +50,7 @@ install_requirements() {
         echo "$filepath found. Installing packages..."
         pip install --upgrade -r "$filepath"
     else
-        echo "Error: $filepath not found."
+        echo "Error: '${filepath}' not found."
     fi
 }
 
@@ -61,7 +61,7 @@ install_package_deps() {
     if [[ -f "$package_path/pyproject.toml" ]]; then
         pip install "$package_path"
     else
-        echo "Error: $package_path not found."
+        echo "Error: '${package_path}' not found."
     fi
 }
 
