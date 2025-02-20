@@ -42,5 +42,8 @@
         <!-- Launch a wrapper providing an interface to Spot for ROS and MoveIt -->
         <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen"/>
 
+        <!-- When using MoveIt, tell the Spot ROS wrapper to take immediate control of Spot -->
+        <param name="/spot/immediate_control" type="bool" value="true"/>
+
     </group>
 </launch>

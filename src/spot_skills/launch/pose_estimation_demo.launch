@@ -1,7 +1,7 @@
 <!-- Launch the nodes necessary to demonstrate the EstimatePose service -->
 <launch>
 
-    <!-- Which camera should be used for pose estimation? -->
+    <!-- Which cameras should be used for pose estimation? -->
     <param name="estimate_pose_client/default_cameras" type="str" value="frontright,frontleft"/>
 
     <!-- Launch and authenticate with the Spot ROS driver -->
@@ -28,7 +28,6 @@
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/pose_estimate.rviz"/>
 
     <!-- Launch rqt_gui to visualize the images used for pose estimation -->
-    <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui"
-        args="--perspective-file $(find spot_skills)/rviz/pose_estimate.perspective"/>
+    <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" args="--perspective-file $(find spot_skills)/rviz/pose_estimate.perspective"/>
 
 </launch>

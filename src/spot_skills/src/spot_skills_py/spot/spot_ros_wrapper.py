@@ -30,11 +30,8 @@ from spot_skills_py.spot.spot_manager import SpotManager
 class SpotROS1Wrapper:
     """A ROS 1 interface for the Spot robot."""
 
-    def __init__(self, *, take_control: bool) -> None:
-        """Initialize the ROS interface by creating an internal SpotManager.
-
-        :param take_control: Boolean indicating whether to immediately take control of Spot
-        """
+    def __init__(self) -> None:
+        """Initialize the ROS interface by creating an internal SpotManager."""
         spot_rosparams = ["/spot/hostname", "/spot/username", "/spot/password"]
         spot_rosparam_values = [get_ros_param(par) for par in spot_rosparams]
         spot_hostname, spot_username, spot_password = spot_rosparam_values
@@ -52,8 +49,10 @@ class SpotROS1Wrapper:
 
         self._manager.log_info("Manager and ArmController created.")
 
-        # Only take immediate control of Spot if requested
-        if take_control:
+        # Only take immediate control of Spot if requested via rosparam
+        immediate_control: bool = rospy.get_param("/spot/immediate_control", default=False)
+
+        if immediate_control:
             self._manager.take_control()
 
         # Initialize all ROS services provided by the class
