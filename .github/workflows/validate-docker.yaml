@@ -5,7 +5,6 @@ on:
     paths: # Run whenever any Docker-essential file is changed
       - "Dockerfile"
       - "compose.yaml"
-      - "docker/**"
       - ".github/workflows/validate-docker.yaml"
 
 jobs:

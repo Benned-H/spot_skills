@@ -113,8 +113,25 @@ CMD ["bash"]
 # Finalize the default working directory for the image
 WORKDIR /docker/spot_skills
 
-# Stage N: Installs for TAMP experiments with Spot
-FROM spot-sdk AS spot-tamp
+FROM spot-sdk AS spot-rtabmap
+
+# Stage A4: Clone rtabmap_ros from GitHub, then build it
+WORKDIR /docker/rtabmap_ws/src
+RUN git config --global http.sslVerify "false" && \
+    git clone --depth 1 --branch noetic-devel https://github.com/introlab/rtabmap_ros && \
+    git config --global http.sslVerify "true"
+
+WORKDIR /docker/rtabmap_ws
+RUN rosdep install -y --from-paths src --ignore-src --rosdistro "${ROS_DISTRO}" && \
+    catkin config --extend "/opt/ros/${ROS_DISTRO}" --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    catkin build
+VOLUME /docker/rtabmap_ws
+
+# Source the rtabmap workspace in all terminals
+RUN echo "source /docker/rtabmap_ws/devel/setup.bash" >> ~/.bashrc
+
+# Final Stage: Installs for TAMP experiments with Spot
+FROM spot-rtabmap AS spot-tamp-V2
 
 RUN apt-get install -y \
     ros-noetic-trac-ik-kinematics-plugin \
