@@ -21,8 +21,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     # Clean up layer after using apt-get update
     rm -rf /var/lib/apt/lists/* && apt-get clean
 
-## Stage A1: Install ROS 1 Noetic (Desktop-Full) onto the Ubuntu-Git image
-FROM ubuntu-git-py AS noetic
+## Stage A1: Install ROS 1 Noetic (Desktop-Full) and MoveIt 1 onto the Ubuntu-Git image
+FROM ubuntu-git-py AS noetic-moveit
 ENV ROS_DISTRO=noetic
 
 # Ensure that any failure in a pipe (|) causes the stage to fail
@@ -48,7 +48,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         build-essential \
         # MoveIt's source build requires the following dependency (provides catkin build)
         # Reference: https://moveit.ai/install/source/
-        python3-catkin-tools
+        python3-catkin-tools \
+        ros-noetic-moveit
 
 RUN rosdep init && \
     rosdep update
@@ -56,18 +57,13 @@ RUN rosdep init && \
 # Source ROS in all terminals
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
 
-## Stage A2: Install MoveIt 1 binaries for ROS Noetic
-FROM noetic AS noetic-moveit
-
-RUN sudo apt install ros-noetic-moveit
-
 # Finalize the default working directory for the image
 WORKDIR /docker/spot_skills
 
 # For the next stage, renew the ARG specifying the image onto which the Spot SDK is installed
 ARG INSTALL_SPOT_SDK_ONTO
 
-## Stage B1/A3: Install the Spot SDK and its dependencies onto the selected image (default is Ubuntu-Git)
+## Stage A2: Install the Spot SDK and its dependencies onto the selected image (default is Ubuntu-Git)
 FROM ${INSTALL_SPOT_SDK_ONTO} AS spot-sdk
 ARG SPOT_SDK_VERSION
 
@@ -101,7 +97,7 @@ CMD ["bash"]
 # Finalize the default working directory for the image
 WORKDIR /docker/spot_skills
 
-## Stage A4: Clone rtabmap_ros from GitHub, then build it
+## Stage A3: Clone rtabmap_ros from GitHub, then build it
 FROM spot-sdk AS spot-rtabmap
 
 WORKDIR /docker/rtabmap_ws/src

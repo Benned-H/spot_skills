@@ -85,7 +85,7 @@ services:
       file: ./docker/ros_docker/compose/core-compose.yaml
       service: base-gui-mac-host
 
-    build: # Command:   docker compose --progress plain build spot-tamp-mac-V2
+    build:
       context: .
       target: spot-tamp-V2
       args:
@@ -93,7 +93,7 @@ services:
         SPOT_SDK_VERSION: 4.1.0 # Specifies the Spot Python package versions
         INSTALL_SPOT_SDK_ONTO: noetic-moveit # Install Spot SDK onto the MoveIt stage
 
-    image: bennedh/spot-skills:spot-tamp-mac-V2
+    image: bennedh/spot-skills:spot-tamp-V2
 
     volumes: # Mount this repository (a ROS workspace) into the container
       - .:/docker/spot_skills
