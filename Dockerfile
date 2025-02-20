@@ -56,22 +56,10 @@ RUN rosdep init && \
 # Source ROS in all terminals
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
 
-## Stage A2: Install MoveIt 1 for ROS Noetic from source (includes moveit_tutorials and panda_moveit_config)
+## Stage A2: Install MoveIt 1 binaries for ROS Noetic
 FROM noetic AS noetic-moveit
 
-# Build MoveIt from source in a new workspace within the container
-# Reference: https://moveit.ai/install/source/
-WORKDIR /moveit_ws
-RUN wstool init src && \
-    wstool merge -t src https://raw.githubusercontent.com/moveit/moveit/master/moveit.rosinstall && \
-    wstool update -t src && \
-    rosdep install -y --from-paths src --ignore-src --rosdistro "${ROS_DISTRO}"
-RUN catkin config --extend "/opt/ros/${ROS_DISTRO}" --cmake-args -DCMAKE_BUILD_TYPE=Release && \
-    catkin build
-VOLUME /moveit_ws
-
-# Source the MoveIt workspace in all terminals
-RUN echo "source /moveit_ws/devel/setup.bash" >> ~/.bashrc
+RUN sudo apt install ros-noetic-moveit
 
 # Finalize the default working directory for the image
 WORKDIR /docker/spot_skills
@@ -113,9 +101,9 @@ CMD ["bash"]
 # Finalize the default working directory for the image
 WORKDIR /docker/spot_skills
 
+## Stage A4: Clone rtabmap_ros from GitHub, then build it
 FROM spot-sdk AS spot-rtabmap
 
-# Stage A4: Clone rtabmap_ros from GitHub, then build it
 WORKDIR /docker/rtabmap_ws/src
 RUN git config --global http.sslVerify "false" && \
     git clone --depth 1 --branch noetic-devel https://github.com/introlab/rtabmap_ros && \
@@ -124,13 +112,13 @@ RUN git config --global http.sslVerify "false" && \
 WORKDIR /docker/rtabmap_ws
 RUN rosdep install -y --from-paths src --ignore-src --rosdistro "${ROS_DISTRO}" && \
     catkin config --extend "/opt/ros/${ROS_DISTRO}" --cmake-args -DCMAKE_BUILD_TYPE=Release && \
-    catkin build
+    catkin build rtabmap_ros -DRTABMAP_SYNC_MULTI_RGBD=ON
 VOLUME /docker/rtabmap_ws
 
 # Source the rtabmap workspace in all terminals
 RUN echo "source /docker/rtabmap_ws/devel/setup.bash" >> ~/.bashrc
 
-# Final Stage: Installs for TAMP experiments with Spot
+## Final Stage: Installs for TAMP experiments with Spot
 FROM spot-rtabmap AS spot-tamp-V2
 
 RUN apt-get install -y \
