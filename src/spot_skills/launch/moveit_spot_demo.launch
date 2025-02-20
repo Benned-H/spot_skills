@@ -1,74 +1,13 @@
 <!-- Launch nodes to demonstrate MoveIt motion plans controlling Spot's arm -->
 <launch>
 
-    <!-- Should the demo be simulated (default) or on the real robot? -->
-    <arg name="real_robot" default="false" />
-
-    <!-- Choose MoveIt's controller manager: fake, simple, or ros_control
-
-     - fake - Provides fake trajectory execution, when we don't have a real robot
-
-     - simple - Interfaces with any low-level controller supporting either the
-        JointTrajectoryController or GripperActionController API from the ROS controllers package
-
-     - ros_control - Directly interfaces with the ROS Controller Manager
+    <!-- Launch all nodes to control Spot, simulated or real, using MoveIt
     
-     Reference: https://tinyurl.com/moveit-noetic-controllers
-
-     Simulation: Use "fake" controller manager | Real robot: Use "simple" -->
-    <arg name="moveit_controller_manager" value="fake" unless="$(arg real_robot)"/>
-    <arg name="moveit_controller_manager" value="simple" if="$(arg real_robot)"/>
-
-    <!-- Default not in debug mode -->
-    <arg name="debug" default="false" />
-
-    <!-- Launch the core nodes MoveIt uses to control a robot (simulated or real) -->
-    <include file="$(dirname)/moveit_core.launch" pass_all_args="true">
-
-        <!-- Default planning pipeline: OMPL -->
-        <arg name="pipeline" default="ompl" />
-
-        <!-- Load/override the robot description (URDF) using MoveIt -->
-        <arg name="load_robot_description" value="true" />
-
-        <!-- Set execution mode for fake execution controllers
-            Options: interpolate, via points, or last point
-            Reference: https://tinyurl.com/noetic-fake-controller-manager -->
-        <arg name="fake_execution_type" default="interpolate" />
-
-        <!-- Default: Don't provide a GUI for manual control of the robot joint states -->
-        <arg name="joints_gui" default="false" />
-    </include>
-
-    <!-- If we're running the demo in simulation, launch any simulation-specific nodes -->
-    <group unless="$(arg real_robot)">
-        <node name="fake_gripper_action_server" pkg="spot_skills" type="fake_gripper_action_server.py" output="screen"/>
-    </group>
-
-    <!-- If we're running the demo on Spot, launch the necessary nodes -->
-    <group if="$(arg real_robot)">
-
-        <!-- Default: Assume Spot's name is "snouter" - Override using all-lowercase -->
-        <arg name="spot_name" default="snouter" />
-        <arg name="spot_secrets_yaml" value="$(find spot_skills)/secrets/$(arg spot_name)_rosparams.yaml" />
-        
-        <!-- Load the username, password, and IP used to connect to Spot -->
-        <rosparam command="load" file="$(arg spot_secrets_yaml)" ns="spot" />
-        
-        <!-- Launch the Spot ROS 1 driver using its primary launch file -->
-        <include file="$(find spot_driver)/launch/driver.launch">
-            <arg name="spot_secrets_yaml" value="$(arg spot_secrets_yaml)" />
-            <!-- Load Spot's URDF/SRDF using MoveIt, not the Spot driver -->
-            <arg name="load_robot_description" value="false" />
-        </include>
-        
-        <!-- Launch a node to map Spot's joint states into link transforms -->
-        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
-        
-        <!-- Launch a wrapper providing an interface to Spot for ROS and MoveIt -->
-        <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen"/>
-
-    </group>
+        Optional arguments that can be modified and forwarded to the Spot-MoveIt bringup:
+            real_robot (Default: false)
+            spot_name (Default: snouter)
+    -->
+    <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true" />
 
     <!-- Run Rviz using a config file designed for this demo -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" />

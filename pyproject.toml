@@ -12,40 +12,43 @@ readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">= 3.8"
 
-[tool.hatch.build.targets.wheel]
-packages = ["spot_skills"]
-sources = { "src/spot_skills" = "spot_skills" }
-
 [project.optional-dependencies]
 dev = ["ruff", "mypy"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/spot_skills"] # Include packages at these paths
+
 
 [tool.ruff]
 line-length = 100
 indent-width = 4
 
 [tool.ruff.lint]
-# Default to all Ruff rules, ignores to be added as necessary
-select = ["ALL"]
-ignore = ["ANN101", "ANN204"] # Ignore type annotations on `self` and __init__
-unfixable = ["F401"]          # Disable 'fix' for unused imports
+select = ["ALL"] # Default to all Ruff rules, add ignores as needed
+ignore = [
+    "D203", # Don't place a blank line before a class docstring
+    "D213", # Don't begin a docstring on its second line
+]
+unfixable = ["F401"] # Disable 'fix' for unused imports
+
+[tool.ruff.lint.flake8-annotations]
+mypy-init-return = true # Allow omission of return type on __init__
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/*" = ["S101"]   # Ignore assertions in test files
-"**/scripts/*" = ["T201"] # Ignore print statements in scripts
+"**/tests/*" = ["S101"]   # Allow assertions in test files
+"**/scripts/*" = ["T201"] # Allow print statements in scripts
 
-[tool.ruff.format]
-# Like Black, use double quotes for strings
+[tool.ruff.format] # Use the same settings as Black
 quote-style = "double"
-
-# Like Black, indent with spaces (not tabs)
 indent-style = "space"
 
+[tool.hatch.envs.hatch-static-analysis]
+config-path = "none" # Use this Ruff config, not Hatch's
+
+
 [tool.mypy]
-disallow_untyped_defs = true
-disallow_any_unimported = false
-implicit_optional = false
-check_untyped_defs = true
-warn_return_any = true
-show_error_code_links = true
+disallow_incomplete_defs = true # Disallow functions with incomplete type annotations
+check_untyped_defs = true # Type-check the interior of unannotated functions
+warn_return_any = true # Warn when returning type Any from a function that says otherwise
+show_error_code_links = true # Show links to error code docs
 warn_unused_configs = true # Warn if any per-module sections in the config file go unused
-strict = true

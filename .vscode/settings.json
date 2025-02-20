@@ -1,12 +1,48 @@
 {
     "python.autoComplete.extraPaths": [
-        "/docker/spot_skills/devel/lib/python3/dist-packages",
+        "${workspaceFolder}/devel/lib/python3/dist-packages",
         "/moveit_ws/devel/lib/python3/dist-packages",
         "/opt/ros/noetic/lib/python3/dist-packages"
     ],
     "python.analysis.extraPaths": [
-        "/docker/spot_skills/devel/lib/python3/dist-packages",
+        "${workspaceFolder}/devel/lib/python3/dist-packages",
         "/moveit_ws/devel/lib/python3/dist-packages",
         "/opt/ros/noetic/lib/python3/dist-packages"
-    ]
+    ],
+    "editor.rulers": [
+        80,
+        100
+    ],
+    "editor.insertSpaces": true,
+    "editor.tabSize": 4,
+    "editor.stickyTabStops": true,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "[jsonc]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.organizeImports": "explicit"
+        }
+    },
+    "autoDocstring.docstringFormat": "sphinx-notypes",
+    "notebook.codeActionsOnSave": {
+        "notebook.source.fixAll": "explicit",
+        "notebook.source.organizeImports": "explicit"
+    },
+    "[toml]": {
+        "editor.defaultFormatter": "tamasfe.even-better-toml"
+    },
+    "[xml]": {
+        "editor.defaultFormatter": "DotJoshJohnson.xml"
+    },
+    "files.associations": {
+        "*.launch": "xml"
+    },
 }
