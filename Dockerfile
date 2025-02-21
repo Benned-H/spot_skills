@@ -120,3 +120,6 @@ FROM spot-rtabmap AS spot-tamp-V2
 RUN apt-get install -y \
     ros-noetic-trac-ik-kinematics-plugin \
     ros-noetic-trac-ik-python
+
+# Finalize the default working directory for the image
+WORKDIR /docker/spot_skills
