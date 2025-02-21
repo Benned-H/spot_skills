@@ -346,9 +346,9 @@ class SpotManager:
 
     def shutdown(self) -> None:
         """Shut-down by stowing the arm, sitting, powering off, and releasing Spot."""
-        self.log_info("Shutting down Spot manager...")
-
         if self.check_control():
+            self.log_info("Shutting down Spot using the controlling SpotManager...")
+
             self.stow_arm()
             self.safely_power_off()  # Send a "safe power off" command
             self.release_control()  # Return Spot's lease

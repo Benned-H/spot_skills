@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import rospy
 from spot_skills_py.ros_utilities import get_ros_param
-from transform_utils.kinematics import DEFAULT_FRAME
 from transform_utils.kinematics_ros import pose_from_msg
 from transform_utils.transform_manager import TransformManager
 
@@ -38,11 +37,13 @@ class PoseEstimateClient:
         )
 
         # Configure the pose estimation service based on ROS params
-        cameras_list_str = get_ros_param("~default_cameras")
+        cameras_list_str = get_ros_param("/pose_estimation/default_cameras")
         self.camera_names: list[str] = [c.strip() for c in cameras_list_str.split(",")]
         self._objects: list[str] = get_ros_param("known_objects")
 
         self._next_obj_idx = 0
+
+        self.global_frame = "vision"  # Relative frame used as the static "world" frame
 
     def next_object(self) -> str:
         """Find the next object of interest for pose estimation.
@@ -89,9 +90,11 @@ class PoseEstimateClient:
             # Record the relative pose of the camera frame w.r.t. the world frame
             camera_frame = rgbd_pair.camera_info.header.frame_id  # Optical frame of the camera
             capture_time = rgbd_pair.camera_info.header.stamp  # Acquisition time of the images
+
+            TransformManager.wait_for_transform(camera_frame, self.global_frame)
             pose_w_c = TransformManager.lookup_transform(
                 camera_frame,
-                DEFAULT_FRAME,
+                self.global_frame,
                 capture_time,
             )
 
@@ -124,7 +127,7 @@ class PoseEstimateClient:
 
 def main() -> None:
     """Launch a client for the EstimatePose ROS service."""
-    TransformManager.init_node("estimate_pose_client")
+    TransformManager.init_node("pose_estimation_client")
 
     client = PoseEstimateClient()
     client.main_loop(freq_hz=2.0)

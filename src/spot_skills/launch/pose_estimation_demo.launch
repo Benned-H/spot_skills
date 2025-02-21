@@ -2,7 +2,7 @@
 <launch>
 
     <!-- Which cameras should be used for pose estimation? -->
-    <param name="estimate_pose_client/default_cameras" type="str" value="frontright,frontleft"/>
+    <param name="pose_estimation/default_cameras" type="str" value="frontright,frontleft"/>
 
     <!-- Launch and authenticate with the Spot ROS driver -->
     <include file="$(find spot_skills)/launch/authenticate_spot_driver.launch">
@@ -15,8 +15,8 @@
     <!-- Launch the Spot ROS wrapper (provides RGBD image pair service) -->
     <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen"/>
 
-    <!-- Launch the object pose estimate client -->
-    <node name="estimate_pose_client" pkg="spot_skills" type="estimate_pose_client.py" output="screen"/>
+    <!-- Launch the object pose estimation client -->
+    <node name="pose_estimation_client" pkg="spot_skills" type="pose_estimation_client.py" output="screen"/>
 
     <!-- Launch the dummy EstimatePose server only if its flag is specified -->
     <arg name="dummy_pose_server" default="false"/>
