@@ -1,7 +1,11 @@
 <!-- Launch the Spot ROS driver using the provided authentication -->
 <launch>
 
+    <!-- Specify whether the Spot ROS driver should load Spot's URDF -->
     <arg name="load_robot_description" />
+
+    <!-- Specify whether the Spot ROS driver should be able to move Spot (default: false) -->
+    <arg name="allow_motion" default="false" />
 
     <!-- Default: Assume Spot's name is "snouter" - To override, use all-lowercase -->
     <arg name="spot_name" default="snouter" />
@@ -14,6 +18,7 @@
     <include file="$(find spot_driver)/launch/driver.launch">
         <arg name="spot_secrets_yaml" value="$(arg spot_secrets_yaml)" />
         <arg name="load_robot_description" value="$(arg load_robot_description)" />
+        <arg name="allow_motion" value="$(arg allow_motion)" />
     </include>
 
     <!-- Launch RViz if it was explicitly requested -->
