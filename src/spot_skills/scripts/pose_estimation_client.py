@@ -35,6 +35,7 @@ class PoseEstimateClient:
         self._rgbd_pair_service = ServiceCaller[GetRGBDPairsRequest, GetRGBDPairsResponse](
             image_service_name,
             GetRGBDPairs,
+            timeout_s=30.0,
         )
 
         self._pose_service = ServiceCaller[EstimatePoseRequest, EstimatePoseResponse](
