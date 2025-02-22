@@ -33,8 +33,8 @@ class PoseEstimateClient:
         self._pose_service_caller = rospy.ServiceProxy(self.pose_service_name, EstimatePose)
 
         # Configure the pose estimation service based on ROS params
-        self.camera_names: list[str] = get_ros_param("~default_cameras")
-        self._objects: list[str] = get_ros_param("known_objects")
+        cameras_list_str = get_ros_param("/pose_estimation/default_cameras")
+        self.camera_names: list[str] = [c.strip() for c in cameras_list_str.split(",")]
 
         self._next_obj_idx = 0
 
@@ -121,7 +121,7 @@ class PoseEstimateClient:
 
 def main() -> None:
     """Launch a client for the EstimatePose ROS service."""
-    TransformManager.init_node("estimate_pose_client")
+    TransformManager.init_node("pose_estimation_client")
 
     client = PoseEstimateClient()
     client.main_loop(freq_hz=2.0)

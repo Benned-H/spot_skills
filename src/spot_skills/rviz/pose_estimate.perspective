@@ -269,7 +269,7 @@
             "plugin": {
               "keys": {
                 "current_service_name": {
-                  "repr": "'/estimate_pose_client/get_loggers'",
+                  "repr": "'/pose_estimation_client/get_loggers'",
                   "type": "repr"
                 },
                 "splitter_orientation": {
