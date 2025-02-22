@@ -37,7 +37,7 @@
     <include file="$(find spot_move_base)/launch/spot_navigation.launch">
     </include>
 
-    <node name="trajectory_follower" pkg="spot_move_base" type="send_traj.py" output="screen"/>
+    <!-- <node name="trajectory_follower" pkg="spot_move_base" type="send_traj.py" output="screen"/> -->
 
     <!-- Run RViz using a bringup-specific config file -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo_sdk.rviz" />

@@ -76,7 +76,7 @@
             <param name="topic_queue_size" type="int" value="30" />
 
             <!-- Localization mode -->
-            <param name="Mem/IncrementalMemory" type="bool" value="true" if="$(arg localization_mode)" />
+            <param name="Mem/IncrementalMemory" type="bool" value="false" if="$(arg localization_mode)" />
             <param name="Mem/ReduceGraph" type="bool" value="false" if="$(arg localization_mode)" />
             <param name="RGBD/StartAtOrigin" type="bool" value="false" if="$(arg localization_mode)" />
 

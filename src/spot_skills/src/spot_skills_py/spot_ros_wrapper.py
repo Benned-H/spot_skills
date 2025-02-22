@@ -12,7 +12,7 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Twist
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 from bosdyn.client import math_helpers
 import tf2_geometry_msgs
@@ -78,6 +78,7 @@ class SpotROS1Wrapper:
             PoseStamped,
             self.trajectory_callback
         )
+        rospy.Subscriber("cmd_vel", Twist, self.handle_cmd_vel, queue_size=1)
 
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
@@ -198,6 +199,24 @@ class SpotROS1Wrapper:
             )
         except tf2_ros.LookupException as e:
             rospy.logerr(str(e))
+    
+
+    def handle_cmd_vel(self, msg: Twist):
+        """Handle a cmd_vel message from the ROS topic.
+
+        The robot will move according to the cmd_vel message.
+
+        Args:
+            msg: Twist message containing desired velocity
+
+        """
+        self._manager.cmd_vel(
+            msg.linear.x,
+            msg.linear.y,
+            msg.angular.z,
+        )
+
+
 
     def handle_stand(self, request_msg: TriggerRequest) -> TriggerResponse:
         """Handle a service request to have Spot stand up.

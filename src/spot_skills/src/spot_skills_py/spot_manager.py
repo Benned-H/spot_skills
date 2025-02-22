@@ -339,6 +339,38 @@ class SpotManager:
         return success, "Success" if success else str(error)
 
 
+    def cmd_vel(self, 
+        linear_x: float = 0.0,
+        linear_y: float = 0.0,
+        angular_z: float = 0.0,
+        duration_s: float = 1.0,
+    ) -> bool:
+        """Send a velocity command to Spot.
+
+        :param      linear_x     Linear velocity in the X direction (m/s)
+        :param      linear_y     Linear velocity in the Y direction (m/s)
+        :param      angular_z    Angular velocity in the Z direction (rad/s)
+        :param      duration_s   Duration (seconds) for which to send the command
+
+        :returns    Boolean indicating if the command was successfully sent
+        """
+        if not self.check_lease_alive():
+            return False
+
+        cmd = RobotCommandBuilder.synchro_velocity_command(
+            v_x=linear_x,
+            v_y=linear_y,
+            v_rot=angular_z,
+            params=self._mobility_params
+        )
+        cmd_id = self.send_robot_command(
+            cmd,
+            end_time_secs=time.time() + duration_s,
+        )
+        self.log_info(f"Velocity command ID: {cmd_id}")
+        return True
+
+
     def stand_up(self, timeout_s: float) -> bool:
         """Tell Spot to stand up within the given timeout (in seconds).
 
