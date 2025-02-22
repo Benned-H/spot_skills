@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   std_msgs
   sensor_msgs
+  geometry_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -50,6 +51,7 @@ catkin_python_setup()
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
+  ObjectPose.msg
   RGBDPair.msg
 )
 
@@ -71,6 +73,7 @@ generate_messages(
   DEPENDENCIES
   std_msgs
   sensor_msgs
+  geometry_msgs
 )
 
 ################################################
@@ -105,7 +108,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES spot_skills
-  CATKIN_DEPENDS rospy message_runtime std_msgs sensor_msgs
+  CATKIN_DEPENDS rospy message_runtime std_msgs sensor_msgs geometry_msgs
 #  DEPENDS system_lib
 )
 
@@ -167,7 +170,7 @@ catkin_install_python(PROGRAMS
   scripts/spot_wrapper_node.py
   scripts/spot_moveit_demo.py
   scripts/fake_gripper_action_server.py
-  scripts/estimate_pose_client.py
+  scripts/pose_estimation_client.py
   scripts/dummy_estimate_pose_server.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
