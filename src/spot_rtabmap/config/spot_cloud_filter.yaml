@@ -1,19 +1,23 @@
 cloud_filter_chain:
   # Filter points for height before filtering for body collisions
   # Reference: https://wiki.ros.org/point_cloud2_filters
-  - name: pass_through_filter
-    type: point_cloud2_filters/PassThroughFilterPointCloud2
-    params:
-      active: True
+  # - name: pass_through_filter
+  #   type: point_cloud2_filters/PassThroughFilterPointCloud2
+  #   params:
+  #     active: True
 
-      # Input/output frames transformed into before/after processing
-      # TODO: Shouldn't this be the ground? Check location of this frame
-      input_frame: "sensor_origin_velodyne-point-cloud"
-      output_frame: "sensor_origin_velodyne-point-cloud"
+  #     # Input/output frames transformed into before/after processing
+  #     # TODO: Shouldn't this be the ground? Check location of this frame
+  #     input_frame: "sensor_origin_velodyne-point-cloud"
+  #     output_frame: "sensor_origin_velodyne-point-cloud"
 
-      filter_field_name: "z" # Field to be used for filtering data
-      filter_limit_min: 0.2 # Minimum allowed z-value
-      filter_limit_max: 3.0 # Maximum allowed z-value (3 meters)
+  #     filter_field_name: "z" # Field to be used for filtering data
+  #     filter_limit_min: 0.2 # Minimum allowed z-value
+  #     filter_limit_max: 3.0 # Maximum allowed z-value (3 meters)
+
+  # filter points below the robot's feet (see src/spot_rtabmap/pointcloud_foot_filter.cpp)
+  - name: ground_filter
+    type: spot_rtabmap/PointCloudFootFilter
 
   # Filter points likely to have resulted from laser-body collisions
   - name: lidar_body_filter
