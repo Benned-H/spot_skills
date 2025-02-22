@@ -4,6 +4,10 @@
     <arg name="localization_mode" default="false" />
     <arg name="reload" default="false" />
     <arg name="rtabmap_viz" default="false" />
+    <arg name="use_custom_spot_driver" default="false" />
+
+    <arg name="in_pose_topic" value="/spot/go_to_pose2" if="$(arg use_custom_spot_driver)"/>
+    <arg name="in_pose_topic" value="/spot/go_to_pose" unless="$(arg use_custom_spot_driver)"/>
 
     <!--  should reload? -->
     <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg reload)" />
@@ -59,7 +63,7 @@
             <remap from="scan_cloud" to="$(arg filtered_pointcloud2_topic)" />
 
             <!-- Remap ROS topics related to navigation -->
-            <remap from="goal" to="/spot/go_to_pose" />
+            <remap from="goal" to="/rtabmap/goal" />
             <remap from="goal_out" to="/move_base_simple/goal" />
 
             <!-- Synchronization parameters for RGB-D cameras -->
@@ -72,7 +76,7 @@
             <param name="topic_queue_size" type="int" value="30" />
 
             <!-- Localization mode -->
-            <param name="Mem/IncrementalMemory" type="bool" value="true" if="$(arg localization_mode)" />
+            <param name="Mem/IncrementalMemory" type="bool" value="false" if="$(arg localization_mode)" />
             <param name="Mem/ReduceGraph" type="bool" value="false" if="$(arg localization_mode)" />
             <param name="RGBD/StartAtOrigin" type="bool" value="false" if="$(arg localization_mode)" />
 

@@ -12,3 +12,5 @@ secrets/
 
 # Ignore what would otherwise be a submodule, were it not a private repo
 src/tmp3/
+
+bagfiles/

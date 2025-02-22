@@ -12,7 +12,11 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
+from geometry_msgs.msg import PoseStamped, Twist
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
+from bosdyn.client import math_helpers
+import tf2_geometry_msgs
+import tf2_ros
 
 from spot_skills.msg import RGBDPair
 from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
@@ -69,6 +73,13 @@ class SpotROS1Wrapper:
             self.handle_stow_arm,
         )
 
+        self._go_to_topic = rospy.Subscriber(
+            "spot/go_to_pose2",
+            PoseStamped,
+            self.trajectory_callback
+        )
+        rospy.Subscriber("cmd_vel", Twist, self.handle_cmd_vel, queue_size=1)
+
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
             GetRGBDPairs,
@@ -96,9 +107,116 @@ class SpotROS1Wrapper:
         self._gripper_action_server.start()
         rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
 
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
+
+
     def shutdown(self) -> None:
         """Shut-down Spot's ROS wrapper by safely powering off Spot."""
         self._manager.shutdown()
+
+    
+    ####### BEGIN Navigation ##########
+    def _transform_pose_to_body_frame(self, pose: PoseStamped) -> PoseStamped:
+        """Transform a pose to the body frame.
+
+        Args:
+            pose: PoseStamped to transform
+
+        Raises: tf2_ros.LookupException if the transform lookup fails
+
+        Returns: Transformed pose in body frame if given pose is not in the body frame,
+            or the original pose if it is in the body frame.
+
+        """
+        if pose.header.frame_id == "body":
+            return pose
+
+        body_to_fixed = self.tf_buffer.lookup_transform(
+            "body",
+            pose.header.frame_id,
+            rospy.Time(),
+        )
+        pose_in_body = tf2_geometry_msgs.do_transform_pose(pose, body_to_fixed)
+        pose_in_body.header.frame_id = "body"
+
+        return pose_in_body
+    
+    def _send_trajectory_command(self, pose, duration, precise=True):
+        """Send a trajectory command to the robot.
+
+        Args:
+            pose: Pose the robot should go to. Must be in the body frame
+            duration: After this duration, the command will time out and the robot will stop
+            precise: If true, the robot will position itself precisely at the target pose, otherwise it will end up
+                     near (within ~0.5m, rotation optional) the requested location
+
+        Returns: (bool, str) tuple indicating whether the command was successfully sent, and a message
+
+        """
+        if False and not self.robot_allowed_to_move():
+            # TODO WYC: not implemented
+            rospy.logerr("send trajectory was called but motion is not allowed.")
+            return None
+
+        if pose.header.frame_id != "body":
+            rospy.logerr("Trajectory command poses must be in the body frame")
+            return None
+
+        return self._manager.trajectory_cmd(
+            goal_x=pose.pose.position.x,
+            goal_y=pose.pose.position.y,
+            goal_heading=math_helpers.Quat(
+                w=pose.pose.orientation.w,
+                x=pose.pose.orientation.x,
+                y=pose.pose.orientation.y,
+                z=pose.pose.orientation.z,
+            ).to_yaw(),
+            cmd_duration=duration.to_sec(),
+            precise_position=precise,
+        )
+    
+    def trajectory_callback(self, msg: PoseStamped) -> None:
+        """Handle a callback from the trajectory topic requesting to go to a location.
+
+        The trajectory will time out after 5 seconds
+
+        Args:
+            msg: PoseStamped containing desired pose
+
+        """
+        if False and not self.robot_allowed_to_move():
+            # TODO WYC: copied from the original code base and robot_allowed_to_move is not implemented
+            rospy.logerr(
+                "Trajectory topic received a message but the robot is not allowed to move.",
+            )
+            return
+
+        try:
+            self._send_trajectory_command(
+                self._transform_pose_to_body_frame(msg),
+                rospy.Duration(10),
+            )
+        except tf2_ros.LookupException as e:
+            rospy.logerr(str(e))
+    
+
+    def handle_cmd_vel(self, msg: Twist):
+        """Handle a cmd_vel message from the ROS topic.
+
+        The robot will move according to the cmd_vel message.
+
+        Args:
+            msg: Twist message containing desired velocity
+
+        """
+        self._manager.cmd_vel(
+            msg.linear.x,
+            msg.linear.y,
+            msg.angular.z,
+        )
+
+
 
     def handle_stand(self, request_msg: TriggerRequest) -> TriggerResponse:
         """Handle a service request to have Spot stand up.

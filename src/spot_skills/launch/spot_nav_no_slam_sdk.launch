@@ -1,0 +1,43 @@
+<!-- Launch only the nodes needed to demonstrate the SLAM system on Spot -->
+<launch>
+
+    <!-- Default: Assume Spot's name is "snouter" - To override, use all-lowercase -->
+    <arg name="spot_name" default="snouter" />
+    <arg name="spot_secrets_yaml" value="$(find spot_skills)/secrets/$(arg spot_name)_rosparams.yaml" />
+    <arg name="real_robot" default="true" />
+    <param name="robot_description" command="$(find xacro)/xacro '$(find spot_description)/urdf/spot.urdf.xacro'" />
+
+    <!-- Launch BDAI's Spot ROS driver (used to publish sensor data into ROS) -->
+    <!-- <include file="$(find spot_skills)/launch/authenticate_spot_driver.launch">
+        <arg name="spot_name" value="$(arg spot_name)" />
+        <arg name="load_robot_description" value="true" />
+    </include> -->
+
+    <!-- If we're running the demo on Spot, launch the necessary nodes -->
+    <group if="$(arg real_robot)">
+        <!-- Load the username, password, and IP used to connect to Spot -->
+        <rosparam command="load" file="$(arg spot_secrets_yaml)" ns="spot" />
+        
+        <!-- Launch the Spot ROS 1 driver using its primary launch file -->
+        <include file="$(find spot_driver)/launch/driver.launch">
+            <arg name="spot_secrets_yaml" value="$(arg spot_secrets_yaml)" />
+            <!-- Load Spot's URDF/SRDF using MoveIt, not the Spot driver -->
+            <arg name="load_robot_description" value="false" />
+        </include>
+        
+        <!-- Launch a node to map Spot's joint states into link transforms -->
+        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+        
+        <!-- Launch a wrapper providing an interface to Spot for ROS and MoveIt -->
+        <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen"/>
+
+    </group>
+
+    <!-- Launch the main launch file from spot_rtabmap in localization mode -->
+    <include file="$(find spot_move_base)/launch/spot_navigation.launch">
+    </include>
+
+    <!-- Run RViz using a bringup-specific config file -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_nav_only_demo_sdk.rviz" />
+
+</launch>
