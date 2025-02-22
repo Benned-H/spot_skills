@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import rospy
 from spot_skills_py.ros_utilities import get_ros_param
-from transform_utils.kinematics_ros import pose_from_msg
+from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
 from transform_utils.transform_manager import TransformManager
 
 from object_detection_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
+from spot_skills.msg import ObjectPose
 from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
+
+if TYPE_CHECKING:
+    from geometry_msgs.msg import PoseStamped
 
 
 class PoseEstimateClient:
@@ -36,9 +42,13 @@ class PoseEstimateClient:
         cameras_list_str = get_ros_param("/pose_estimation/default_cameras")
         self.camera_names: list[str] = [c.strip() for c in cameras_list_str.split(",")]
 
+        self._objects: list[str] = get_ros_param("known_objects")
         self._next_obj_idx = 0
 
         self.global_frame = "vision"  # Relative frame used as the static "world" frame
+
+        # Publish received object poses to the /object_poses topic
+        self.pose_pub = rospy.Publisher("object_poses", ObjectPose, queue_size=10)
 
     def next_object(self) -> str:
         """Find the next object of interest for pose estimation.
@@ -60,7 +70,7 @@ class PoseEstimateClient:
             self.call_pose_estimation(object_to_find)
             rate_hz.sleep()
 
-    def get_rgbd_pairs(self) -> GetRGBDPairsResponse:
+    def get_rgbd_pairs(self) -> GetRGBDPairsResponse | None:
         """Capture paired RGB and depth images for the relevant cameras using a ROS service."""
         request = GetRGBDPairsRequest(camera_names=self.camera_names)
 
@@ -81,6 +91,7 @@ class PoseEstimateClient:
         :param object_name: Name of the object whose pose is estimated
         """
         rgbd_pairs_msg = self.get_rgbd_pairs()  # One pair of RGB-D images per camera of interest
+        assert rgbd_pairs_msg is not None, "Received None instead of a GetRGBDPairsResponse."
 
         for rgbd_pair in rgbd_pairs_msg.rgbd_pairs:
             # Record the relative pose of the camera frame w.r.t. the world frame
@@ -114,9 +125,13 @@ class PoseEstimateClient:
             pose_c_o = pose_from_msg(response.pose)  # Pose of object (o) w.r.t. camera (c)
             pose_w_o = pose_w_c @ pose_c_o
 
-            # Broadcast the estimated object pose w.r.t. to the camera (for debugging) and world
+            # Broadcast the estimated object pose w.r.t. to the camera and world as a transform
             TransformManager.broadcast_transform(f"{object_name}_wrt_camera", pose_c_o)
             TransformManager.broadcast_transform(object_name, pose_w_o)
+
+            # Publish the object's estimated pose as an ObjectPose message
+            pose_stamped_msg: PoseStamped = pose_to_stamped_msg(pose_w_o)
+            self.pose_pub.publish(ObjectPose(object_name, pose_stamped_msg))
 
 
 def main() -> None:
