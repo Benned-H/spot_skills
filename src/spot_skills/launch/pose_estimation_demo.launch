@@ -2,7 +2,7 @@
 <launch>
 
     <!-- Which camera should be used for pose estimation? -->
-    <param name="estimate_pose_client/default_camera" type="str" value="frontright"/>
+    <param name="/pose_estimation/default_cameras" type="str" value="frontleft,frontright"/>
 
     <!-- Launch and authenticate with the Spot ROS driver -->
     <include file="$(find spot_skills)/launch/authenticate_spot_driver.launch">
@@ -16,7 +16,7 @@
     <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen"/>
 
     <!-- Launch the object pose estimate client -->
-    <node name="estimate_pose_client" pkg="spot_skills" type="estimate_pose_client.py" output="screen"/>
+    <node name="pose_estimation_client" pkg="spot_skills" type="pose_estimation_client.py" output="screen"/>
 
     <!-- Launch the dummy EstimatePose server only if its flag is specified -->
     <arg name="dummy_pose_server" default="false"/>
@@ -28,7 +28,6 @@
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/pose_estimate.rviz"/>
 
     <!-- Launch rqt_gui to visualize the images used for pose estimation -->
-    <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui"
-        args="--perspective-file $(find spot_skills)/rviz/pose_estimate.perspective"/>
+    <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" args="--perspective-file $(find spot_skills)/rviz/pose_estimate.perspective"/>
 
 </launch>

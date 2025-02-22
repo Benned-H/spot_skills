@@ -13,7 +13,7 @@ git clone --recurse-submodules https://github.com/Benned-H/spot_skills.git
 If you have already cloned the repository, run the following command to ensure that all submodules are up-to-date:
 
 ```bash
-sh scripts/git_pull_all.sh
+bash docker/git_pull_all.sh
 ```
 
 ## Docker Commands
@@ -43,7 +43,7 @@ pip3 install -e src/spot_ros/spot_wrapper/
 Then, rebuild and source the Catkin workspace by running:
 
 ```bash
-bash scripts/catkin_rebuild.sh
+bash docker/catkin_rebuild.sh
 ```
 
 ## Example Demonstrations
