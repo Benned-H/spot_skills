@@ -66,7 +66,7 @@ namespace spot_rtabmap
         pcl::PassThrough<pcl::PointXYZ> pass;
         pass.setInputCloud(cloud);
         pass.setFilterFieldName("z");
-        pass.setFilterLimits(min_z, std::numeric_limits<float>::max());
+        pass.setFilterLimits(min_z, min_z + 2);
         pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_cloud(new pcl::PointCloud<pcl::PointXYZ>());
         pass.filter(*filtered_cloud);
 
