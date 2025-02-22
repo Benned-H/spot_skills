@@ -136,7 +136,7 @@ This project uses GitHub, Docker, and tmux to support development. The software 
 To install `tmux` and use it to launch into the Spot skills and pose estimation Dockers, run the command:
 
 ```bash
-bash scripts/tmux_launch.sh
+bash docker/tmux_launch.sh
 ```
 
 Then, follow any instructions output to the console to finish your `tmux` setup.
