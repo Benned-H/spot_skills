@@ -54,8 +54,8 @@ tmux send-keys -t "${session}:${w1}" "xhost +local:docker" C-m
 tmux split-window -h
 
 # Window 1.1 (left): Spot Skills
-tmux send-keys -t {left} "cd $spot_skills_path" C-m "bash docker/launch.sh" C-m "bash /entrypoint.sh" \
-	C-m "source docker/source.sh" C-m "echo -e '\nLaunch the Spot bringup nodes using the command:\n    roslaunch spot_skills pose_estimation_demo.launch'" C-m
+tmux send-keys -t {left} "cd $spot_skills_path" C-m "bash docker/launch.sh" C-m "source devel/setup.bash" C-m \
+	"echo -e '\nLaunch the Spot bringup nodes using the command:\n    roslaunch spot_skills pose_estimation_demo.launch'" C-m
 
 # Window 1.2 (right): Pose
 tmux send-keys -t {right} "cd $pose_path" C-m "sh docker/run_container_ros1.sh" C-m \
