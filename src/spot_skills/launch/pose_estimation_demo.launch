@@ -1,16 +1,13 @@
 <!-- Launch the nodes necessary to demonstrate the EstimatePose service -->
 <launch>
 
-    <!-- Include the pose estimation bringup launch file -->
-    <include file="$(find spot_skills)/launch/spot_pose_estimation_bringup.launch" pass_all_args="true"/>
+    <!-- Include the launch file to bringup nodes for pose estimation -->
+    <include file="$(find spot_skills)/launch/pose_estimation_bringup.launch"/>
 
     <!-- Launch and authenticate with the Spot ROS driver -->
     <include file="$(find spot_skills)/launch/spot_driver_bringup.launch">
         <arg name="load_robot_description" value="true"/>
     </include>
-
-    <!-- Load the list of known objects into the ROS parameters -->
-    <rosparam command="load" file="$(find spot_skills)/config/known_objects.yaml"/>
 
     <!-- Launch the Spot ROS wrapper (provides RGBD image pair service) -->
     <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen"/>
