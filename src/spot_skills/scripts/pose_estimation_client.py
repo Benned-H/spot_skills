@@ -11,7 +11,7 @@ from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
 from transform_utils.ros.service_caller import ServiceCaller
 from transform_utils.transform_manager import TransformManager
 
-from object_detection_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
+from pose_estimation_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
 from spot_skills.msg import ObjectPose
 from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
 
