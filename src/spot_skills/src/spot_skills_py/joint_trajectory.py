@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 
-from spot_skills_py.spot_configuration import (
+from spot_skills_py.spot.spot_configuration import (
     MAP_JOINT_NAMES_URDF_TO_SPOT_SDK,
     SPOT_SDK_ARM_JOINT_NAMES,
     SPOT_URDF_ARM_JOINT_NAMES,

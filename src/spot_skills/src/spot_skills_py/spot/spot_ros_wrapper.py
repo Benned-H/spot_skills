@@ -18,13 +18,13 @@ from spot_skills.msg import RGBDPair
 from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
 from spot_skills_py.joint_trajectory import JointTrajectory
 from spot_skills_py.ros_utilities import get_ros_param
-from spot_skills_py.spot_arm_controller import (
+from spot_skills_py.spot.spot_arm_controller import (
     ArmCommandOutcome,
     GripperCommandOutcome,
     SpotArmController,
 )
-from spot_skills_py.spot_image_client import ImageFormat, SpotImageClient
-from spot_skills_py.spot_manager import SpotManager
+from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient
+from spot_skills_py.spot.spot_manager import SpotManager
 
 
 class SpotROS1Wrapper:
