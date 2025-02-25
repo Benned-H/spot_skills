@@ -14,3 +14,6 @@
 [submodule "src/spot_skills/domains/object_models"]
 	path = src/spot_skills/domains/object_models
 	url = git@github.com:h2r/object_models.git
+[submodule "src/pose_estimation_msgs"]
+	path = src/pose_estimation_msgs
+	url = git@github.com:h2r/pose_estimation_msgs.git
