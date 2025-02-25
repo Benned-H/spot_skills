@@ -3,8 +3,8 @@
 #   To find which CUDA toolkit versions your driver supports, see Table 2:
 #       https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
 #
-# For reference, Benned's driver version (535.183.01) supports CUDA toolkit 12.2.2
-ARG CUDA_VERSION=12.2.2
+# For reference, Benned's driver version (570.86.15) supports CUDA toolkit 12.8 GA
+ARG CUDA_VERSION=12.8.0
 
 # Enable overriding the base image for non-GPU machines (default uses GPU)
 ARG BASE_IMAGE=nvidia/cuda:${CUDA_VERSION}-base-ubuntu20.04
@@ -21,8 +21,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     # Clean up layer after using apt-get update
     rm -rf /var/lib/apt/lists/* && apt-get clean
 
-## Stage A1: Install ROS 1 Noetic (Desktop-Full) onto the Ubuntu-Git image
-FROM ubuntu-git-py AS noetic
+## Stage A1: Install ROS 1 Noetic (Desktop-Full) and MoveIt 1 onto the Ubuntu-Git image
+FROM ubuntu-git-py AS noetic-moveit
 ENV ROS_DISTRO=noetic
 
 # Ensure that any failure in a pipe (|) causes the stage to fail
@@ -48,7 +48,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         build-essential \
         # MoveIt's source build requires the following dependency (provides catkin build)
         # Reference: https://moveit.ai/install/source/
-        python3-catkin-tools
+        python3-catkin-tools \
+        ros-noetic-moveit
 
 RUN rosdep init && \
     rosdep update
@@ -56,30 +57,13 @@ RUN rosdep init && \
 # Source ROS in all terminals
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
 
-## Stage A2: Install MoveIt 1 for ROS Noetic from source (includes moveit_tutorials and panda_moveit_config)
-FROM noetic AS noetic-moveit
-
-# Build MoveIt from source in a new workspace within the container
-# Reference: https://moveit.ai/install/source/
-WORKDIR /moveit_ws
-RUN wstool init src && \
-    wstool merge -t src https://raw.githubusercontent.com/moveit/moveit/master/moveit.rosinstall && \
-    wstool update -t src && \
-    rosdep install -y --from-paths src --ignore-src --rosdistro "${ROS_DISTRO}"
-RUN catkin config --extend "/opt/ros/${ROS_DISTRO}" --cmake-args -DCMAKE_BUILD_TYPE=Release && \
-    catkin build
-VOLUME /moveit_ws
-
-# Source the MoveIt workspace in all terminals
-RUN echo "source /moveit_ws/devel/setup.bash" >> ~/.bashrc
-
 # Finalize the default working directory for the image
 WORKDIR /docker/spot_skills
 
 # For the next stage, renew the ARG specifying the image onto which the Spot SDK is installed
 ARG INSTALL_SPOT_SDK_ONTO
 
-## Stage B1/A3: Install the Spot SDK and its dependencies onto the selected image (default is Ubuntu-Git)
+## Stage B1/A2: Install the Spot SDK and its dependencies onto the selected image (default is Ubuntu-Git)
 FROM ${INSTALL_SPOT_SDK_ONTO} AS spot-sdk
 ARG SPOT_SDK_VERSION
 
@@ -114,8 +98,11 @@ CMD ["bash"]
 WORKDIR /docker/spot_skills
 
 # Stage N: Installs for TAMP experiments with Spot
-FROM spot-sdk AS spot-tamp
+FROM spot-sdk AS spot-tamp-v2
 
 RUN apt-get install -y \
     ros-noetic-trac-ik-kinematics-plugin \
     ros-noetic-trac-ik-python
+
+# Finalize the default working directory for the image
+WORKDIR /docker/spot_skills
