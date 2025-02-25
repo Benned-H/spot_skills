@@ -31,6 +31,14 @@ bash docker/launch.sh
 
 To enter the running container in another terminal, just run the same script again.
 
+To build and push the current essential services, run the commands:
+
+```bash
+docker compose --progress plain build --no-cache spot-tamp-v2 spot-tamp-mac-v2
+docker compose --progress plain build --no-cache spot-tamp-gpu-v2
+docker compose push spot-tamp-v2 spot-tamp-mac-v2 spot-tamp-gpu-v2
+```
+
 ## Working with the Spot ROS 1 Driver
 
 Before launching the Spot driver, navigate to `/docker/spot_skills` in the container, then run:
