@@ -59,6 +59,7 @@ add_message_files(
 add_service_files(
   FILES
   GetRGBDPairs.srv
+  SetJointStateMode.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -172,6 +173,7 @@ catkin_install_python(PROGRAMS
   scripts/fake_gripper_action_server.py
   scripts/pose_estimation_client.py
   scripts/dummy_estimate_pose_server.py
+  scripts/joint_state_mux.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

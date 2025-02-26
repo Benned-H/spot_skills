@@ -11,6 +11,9 @@
     <!-- Are we using a simulated (default) or real Spot? -->
     <arg name="real_robot" default="false" />
 
+    <!-- Are we also running the TAMP system? -->
+    <arg name="using_tamp" default="false" />
+
     <!-- Default: Assume Spot's name is "snouter" - Override using all-lowercase -->
     <arg name="spot_name" default="snouter" />
 
@@ -18,6 +21,7 @@
     <include file="$(dirname)/moveit_core.launch" pass_all_args="true">
         <!-- Load/override the robot description (URDF) using MoveIt -->
         <arg name="load_robot_description" value="true" />
+        <arg name="using_tamp" value="$(arg using_tamp)" />
     </include>
 
     <!-- If we're running in simulation, launch a fake controller for Spot's gripper -->

@@ -1,0 +1,13 @@
+<!-- Load ROS topic names for various purposes across the codebase -->
+<launch>
+
+    <!-- Topic to which Spot driver publishes real-robot joint states -->
+    <param name="real_joint_states_topic" value="/spot/joint_states"/>
+
+    <!-- Topic to which TAMP system publishes simulated joint states during planning -->
+    <param name="planned_joint_states_topic" value="/tamp/joint_states"/>
+
+    <!-- Topic to which MoveIt publishes joint states when controlling a simulated robot -->
+    <param name="sim_joint_states_topic" value="/move_group/fake_controller_joint_states"/>
+
+</launch>
