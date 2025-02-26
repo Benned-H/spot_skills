@@ -34,8 +34,7 @@ class JointStateMux:
         # Publisher for the joint states that MoveIt actually listens to
         self.pub = rospy.Publisher("/joint_states", JointState, queue_size=10, latch=True)
 
-        # Note: This rate was moved incredibly low to see if [re]publishing is actually needed
-        self._pub_rate_hz = 0.1  # Frequency (Hz) at which joint state is republished
+        self._pub_rate_hz = 10.0  # Frequency (Hz) at which joint state is republished
 
         # Define a map from joint state sources to their latest data
         self.latest_joint_states: dict[str, JointState] = {}
