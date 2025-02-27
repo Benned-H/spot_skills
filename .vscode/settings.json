@@ -1,4 +1,14 @@
 {
+    "python.autoComplete.extraPaths": [
+        "${workspaceFolder}/devel/lib/python3/dist-packages",
+        "/moveit_ws/devel/lib/python3/dist-packages",
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/devel/lib/python3/dist-packages",
+        "/moveit_ws/devel/lib/python3/dist-packages",
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ],
     "editor.rulers": [
         80,
         100
@@ -21,9 +31,6 @@
             "source.organizeImports": "explicit"
         }
     },
-    "python.analysis.extraPaths": [
-        "${workspaceFolder}/devel/lib/python3/dist-packages"
-    ],
     "autoDocstring.docstringFormat": "sphinx-notypes",
     "notebook.codeActionsOnSave": {
         "notebook.source.fixAll": "explicit",

@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import time
+import typing
 
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.robot_command_pb2 import RobotCommand
+from bosdyn.api.spot.robot_command_pb2 import MobilityParams
+from bosdyn.client import frame_helpers
+from bosdyn.client import math_helpers
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
@@ -18,6 +22,7 @@ from bosdyn.client.robot_command import (
 from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_command
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
+from bosdyn.client import frame_helpers
 from rospy import loginfo as ros_loginfo
 from transform_utils.kinematics import Configuration
 
@@ -86,6 +91,8 @@ class SpotManager:
         self._lease_keeper = None  # Stores a lease and keeps it alive once obtained
 
         assert self.wait_while_estopped()  # Wait until Spot isn't e-stopped
+
+        self._mobility_params = RobotCommandBuilder.mobility_params()
 
     def wait_while_estopped(self, timeout_s: int = 30) -> bool:
         """Notify the user if Spot is e-stopped by spamming the ROS and Spot logs.
@@ -218,7 +225,7 @@ class SpotManager:
             if joint.name in SPOT_SDK_ARM_JOINT_NAMES
         }
 
-    def send_robot_command(self, command: RobotCommand) -> int:
+    def send_robot_command(self, command: RobotCommand, end_time_secs=None) -> int:
         """Command Spot to execute the given robot command.
 
         Note: The RobotCommandClient.robot_command() method will automatically update
@@ -231,11 +238,138 @@ class SpotManager:
         # Issue a command to the robot synchronously (blocks until done sending)
         command_id: int = self.command_client.robot_command(
             command,
+            end_time_secs=end_time_secs,
             timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
         )
         self.log_info(f"Issued robot command with ID: {command_id}")
 
         return command_id
+
+    def trajectory_cmd(
+        self,
+        goal_x: float,
+        goal_y: float,
+        goal_heading: float,
+        cmd_duration: float,
+        frame_name: str = "odom",
+        precise_position: bool = False,
+        mobility_params: MobilityParams = None,
+    ) -> typing.Tuple[bool, str]:
+        """Send a trajectory motion command to the robot.
+
+        Args:
+            goal_x: Position X coordinate in meters
+            goal_y: Position Y coordinate in meters
+            goal_heading: Pose heading in radians
+            cmd_duration: Time-to-live for the command in seconds.
+            frame_name: frame_name to be used to calc the target position. 'odom' or 'vision'
+            precise_position: if set to false, the status STATUS_NEAR_GOAL and STATUS_AT_GOAL will be equivalent. If
+            true, the robot must complete its final positioning before it will be considered to have successfully
+            reached the goal.
+            mobility_params: Mobility parameters to send along with this command
+
+        Returns:
+            (bool, str) tuple indicating whether the command was successfully sent, and a message
+        """
+        if mobility_params is None:
+            mobility_params = self._mobility_params
+        self._trajectory_status_unknown = False
+        self.at_goal = False
+        self.near_goal = False
+        self.last_trajectory_command_precise = precise_position
+        self.log_info("got command duration of {}".format(cmd_duration))
+        end_time = time.time() + cmd_duration
+        error = None
+        try:
+            if frame_name == "vision":
+                vision_tform_body = frame_helpers.get_vision_tform_body(
+                    self._state_client.get_robot_state().kinematic_state.transforms_snapshot
+                )
+                body_tform_goal = math_helpers.SE3Pose(
+                    x=goal_x, y=goal_y, z=0, rot=math_helpers.Quat.from_yaw(goal_heading)
+                )
+                vision_tform_goal = vision_tform_body * body_tform_goal
+                cmd_id = self.send_robot_command(
+                    RobotCommandBuilder.synchro_se2_trajectory_point_command(
+                        goal_x=vision_tform_goal.x,
+                        goal_y=vision_tform_goal.y,
+                        goal_heading=vision_tform_goal.rot.to_yaw(),
+                        frame_name=frame_helpers.VISION_FRAME_NAME,
+                        params=mobility_params,
+                    ),
+                    end_time_secs=end_time
+                )
+                success = True
+            elif frame_name == "odom":
+                odom_tform_body = frame_helpers.get_odom_tform_body(
+                    self._state_client.get_robot_state().kinematic_state.transforms_snapshot
+                )
+                body_tform_goal = math_helpers.SE3Pose(
+                    x=goal_x, y=goal_y, z=0, rot=math_helpers.Quat.from_yaw(goal_heading)
+                )
+                odom_tform_goal = odom_tform_body * body_tform_goal
+                cmd_id = self.send_robot_command(
+                    RobotCommandBuilder.synchro_se2_trajectory_point_command(
+                        goal_x=odom_tform_goal.x,
+                        goal_y=odom_tform_goal.y,
+                        goal_heading=odom_tform_goal.rot.to_yaw(),
+                        frame_name=frame_helpers.ODOM_FRAME_NAME,
+                        params=mobility_params,
+                    ),
+                    end_time_secs=end_time
+                )
+                success = True
+            else:
+                raise ValueError("frame_name must be 'vision' or 'odom'")
+        except Exception as e:
+            success = False
+            error = e
+            print("Error:", e)
+        
+        if success:
+            print("success")
+            self.last_trajectory_command = cmd_id
+        
+            # for i in range(10):
+            #     print(self.command_client.robot_command_feedback(cmd_id, timeout=1))
+            #     time.sleep(0.1)
+            #     for j in range(5):
+            #         print()
+
+        return success, "Success" if success else str(error)
+
+
+    def cmd_vel(self, 
+        linear_x: float = 0.0,
+        linear_y: float = 0.0,
+        angular_z: float = 0.0,
+        duration_s: float = 1.0,
+    ) -> bool:
+        """Send a velocity command to Spot.
+
+        :param      linear_x     Linear velocity in the X direction (m/s)
+        :param      linear_y     Linear velocity in the Y direction (m/s)
+        :param      angular_z    Angular velocity in the Z direction (rad/s)
+        :param      duration_s   Duration (seconds) for which to send the command
+
+        :returns    Boolean indicating if the command was successfully sent
+        """
+        if not self.check_lease_alive():
+            return False
+
+        cmd = RobotCommandBuilder.synchro_velocity_command(
+            v_x=linear_x,
+            v_y=linear_y,
+            v_rot=angular_z,
+            params=self._mobility_params
+        )
+        cmd_id = self.send_robot_command(
+            cmd,
+            end_time_secs=time.time() + duration_s,
+        )
+        self.log_info(f"Velocity command ID: {cmd_id}")
+        return True
+
 
     def stand_up(self, timeout_s: float) -> bool:
         """Tell Spot to stand up within the given timeout (in seconds).

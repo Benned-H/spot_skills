@@ -18,7 +18,7 @@ class TrajectoryFollower:
         
         # Publisher for go_to_pose
         self.pose_pub = rospy.Publisher(
-            '/spot/go_to_pose',
+            '/spot/go_to_pose2',
             PoseStamped,
             queue_size=1
         )

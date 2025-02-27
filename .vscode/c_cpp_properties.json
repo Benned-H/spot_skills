@@ -1,0 +1,39 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/docker/spot_skills/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/moveit_ws/devel/include/**",
+        "/moveit_ws/src/moveit/moveit_planners/chomp/chomp_motion_planner/include/**",
+        "/moveit_ws/src/geometric_shapes/include/**",
+        "/moveit_ws/src/moveit/moveit_planners/chomp/chomp_interface/include/**",
+        "/moveit_ws/src/moveit_resources/prbt_ikfast_manipulator_plugin/include/**",
+        "/moveit_ws/src/moveit/moveit_ros/benchmarks/include/**",
+        "/moveit_ws/src/moveit/moveit_plugins/moveit_ros_control_interface/include/**",
+        "/moveit_ws/src/moveit/moveit_ros/move_group/include/**",
+        "/moveit_ws/src/moveit/moveit_ros/occupancy_map_monitor/include/**",
+        "/moveit_ws/src/moveit/moveit_ros/robot_interaction/include/**",
+        "/moveit_ws/src/moveit/moveit_ros/moveit_servo/include/**",
+        "/moveit_ws/src/moveit/moveit_setup_assistant/include/**",
+        "/moveit_ws/src/moveit/moveit_plugins/moveit_simple_controller_manager/include/**",
+        "/moveit_ws/src/moveit_visual_tools/include/**",
+        "/moveit_ws/src/moveit/moveit_planners/pilz_industrial_motion_planner/include/**",
+        "/moveit_ws/src/moveit/moveit_planners/pilz_industrial_motion_planner_testutils/include/**",
+        "/moveit_ws/src/rviz_visual_tools/include/**",
+        "/moveit_ws/src/srdfdom/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}
