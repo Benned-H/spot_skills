@@ -19,9 +19,10 @@
     <!-- We can only run the SLAM system on the real robot -->
     <arg name="real_robot" value="true" />
 
-    <!-- TODO: What are these two arguments doing? Can one inform the other? -->
+    <!-- localization mode: whether to enable localization or not -->
     <arg name="localization_mode" default="true" />
-    <arg name="reload" default="true" />
+    <!-- reload: whether to start a new map -->
+    <arg name="reload" default="false" />
 
     <!-- Launch all nodes to control Spot, simulated or real, using MoveIt
     

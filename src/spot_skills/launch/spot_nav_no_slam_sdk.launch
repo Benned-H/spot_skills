@@ -1,4 +1,4 @@
-<!-- Launch only the nodes needed to demonstrate the SLAM system on Spot -->
+<!-- Spot Navigation demo to "go-to-pose" using spot's internal API, no move base or obstacle avoidance -->
 <launch>
 
     <!-- Default: Assume Spot's name is "snouter" - To override, use all-lowercase -->
