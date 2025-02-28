@@ -23,8 +23,8 @@ cloud_filter_chain:
   - name: lidar_body_filter
     type: robot_body_filter/RobotBodyFilterPointCloud2
     params:
-      frames/fixed: "vision" # Fixed frame (used for filtering if `frames/filtering` isn't set)
-      frames/output: "vision" # Frame into which filtered point clouds are transformed
+      frames/fixed: "sensor_origin_velodyne-point-cloud" # Fixed frame (used for filtering if `frames/filtering` isn't set)
+      frames/output: "sensor_origin_velodyne-point-cloud" # Frame into which filtered point clouds are transformed
 
       # References:
       #   https://bostondynamics.com/wp-content/uploads/2023/05/spot-eap-2.pdf
@@ -37,7 +37,7 @@ cloud_filter_chain:
       filter/do_shadow_test: False # Enables ray-tracing to identify points shadowed by robot body
 
       body_model/robot_description_param: "/robot_description" # ROS parameter defining the body model
-      body_model/inflation/scale: 1.1 # Scale applied to the body model
+      body_model/inflation/scale: 1.7 # Scale applied to the body model
       body_model/inflation/padding: 0.02 # Padding (m) added to the body model
 
       # Note that links can be indiviually ignored for any of these tests
