@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import rospy
 from spot_skills_py.ros_utilities import get_ros_param
+from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
 from transform_utils.kinematics import Pose3D
 from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
 from transform_utils.ros.service_caller import ServiceCaller
@@ -43,6 +44,11 @@ class PoseEstimateClient:
             EstimatePose,
             timeout_s=120.0,
         )
+
+        # Allow other nodes to enable or disable pose estimate publishing
+        self.enable_srv = rospy.Service("enable_publishing", SetBool, self.enable_publishing)
+        self.disable_srv = rospy.Service("disable_publishing", SetBool, self.disable_publishing)
+        self.publishing_enabled = True  # Default: Publish any estimated object poses
 
         # Configure the pose estimation service based on ROS params
         cameras_list_str = get_ros_param("/pose_estimation/default_cameras")
@@ -120,8 +126,29 @@ class PoseEstimateClient:
             TransformManager.broadcast_transform(object_name, pose_w_o)
 
             # Publish the object's estimated pose as an ObjectPose message
-            pose_stamped_msg: PoseStamped = pose_to_stamped_msg(pose_w_o)
-            self.pose_pub.publish(ObjectPose(object_name, pose_stamped_msg))
+            if self.publishing_enabled:
+                pose_stamped_msg: PoseStamped = pose_to_stamped_msg(pose_w_o)
+                self.pose_pub.publish(ObjectPose(object_name, pose_stamped_msg))
+
+    def enable_publishing(self, req: SetBoolRequest) -> SetBoolResponse:
+        """Enable the publishing of pose estimates.
+
+        :param req: SetBool service request
+        :returns: SetBoolResponse with success status and message
+        """
+        del req
+        self.publishing_enabled = True
+        return SetBoolResponse(success=True, message="Publishing enabled")
+
+    def disable_publishing(self, req: SetBoolRequest) -> SetBoolResponse:
+        """Disable the publishing of pose estimates.
+
+        :param req: SetBool service request
+        :returns: SetBoolResponse with success status and message
+        """
+        del req
+        self.publishing_enabled = False
+        return SetBoolResponse(success=True, message="Publishing disabled")
 
 
 def main() -> None:

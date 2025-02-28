@@ -3,8 +3,9 @@
 
     <arg name="load_robot_description" />
 
-    <!-- Default: Assume Spot's name is "snouter" - To override, use all-lowercase -->
-    <arg name="spot_name" default="snouter" />
+    <!-- For safety reasons, do not assume which Spot is being used -->
+    <arg name="spot_name" />
+
     <arg name="spot_secrets_yaml" value="$(find spot_skills)/secrets/$(arg spot_name)_rosparams.yaml" />
 
     <!-- Load the username, password, and IP used to connect to Spot -->

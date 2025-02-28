@@ -247,6 +247,7 @@ class SpotROS1Wrapper:
         if outcome == ArmCommandOutcome.SUCCESS:
             result.error_code = int(outcome)
             result.error_string = "Success!"
+            self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
             self._arm_action_server.set_succeeded(result)
 
         elif outcome == ArmCommandOutcome.INVALID_START:
@@ -259,6 +260,7 @@ class SpotROS1Wrapper:
 
         elif outcome == ArmCommandOutcome.ARM_LOCKED:
             result.error_string = "Could not follow trajectory because Spot's arm remains locked."
+            self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
 
             self._arm_action_server.set_aborted(result)
 
