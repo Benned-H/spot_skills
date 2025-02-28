@@ -225,7 +225,7 @@ class SpotManager:
             if joint.name in SPOT_SDK_ARM_JOINT_NAMES
         }
 
-    def send_robot_command(self, command: RobotCommand, end_time_secs=None) -> int:
+    def send_robot_command(self, command: RobotCommand, end_time_secs: int=None) -> int:
         """Command Spot to execute the given robot command.
 
         Note: The RobotCommandClient.robot_command() method will automatically update
@@ -241,7 +241,6 @@ class SpotManager:
             end_time_secs=end_time_secs,
             timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
         )
-        self.log_info(f"Issued robot command with ID: {command_id}")
 
         return command_id
 

@@ -3,13 +3,13 @@ DWAPlannerROS:
   # Robot Configuration Parameters
   acc_lim_x: 1.5
   acc_lim_y: 1
-  max_vel_theta: 0.6  # Lower from the typical 1.0
-  min_vel_theta: 0.2  # Lower from the typical 0.4
+  max_vel_theta: 0.5  # Lower from the typical 1.0
+  min_vel_theta: 0.1  # Lower from the typical 0.4
   acc_lim_theta: 4.0  # Lower from the 8.0 for Spot
   
   # Goal Tolerance Parameters
-  yaw_goal_tolerance: 0.17
-  xy_goal_tolerance: 0.1
+  yaw_goal_tolerance: 1
+  xy_goal_tolerance: 1
 
   # Velocity Parameters
   max_vel_x: 0.5
@@ -18,3 +18,8 @@ DWAPlannerROS:
   # Oscalation
   oscillation_reset_dist: 0.2
   oscillation_reset_angle: 0.2 
+
+  # Trajectory Scoring Parameters
+  path_distance_bias: 40.0
+  goal_distance_bias: 20.0
+  latch_xy_goal_tolerance: true

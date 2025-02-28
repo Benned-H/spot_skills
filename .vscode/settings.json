@@ -45,4 +45,5 @@
     "files.associations": {
         "*.launch": "xml"
     },
+    "ros.distro": "noetic",
 }

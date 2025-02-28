@@ -15,5 +15,6 @@
 
         <param name="base_local_planner" value="base_local_planner/TrajectoryPlannerROS" />
         <param name="base_global_planner" value="global_planner/GlobalPlanner" />
+        <param name="controller_frequency" value="10.0" />
     </node>
 </launch>

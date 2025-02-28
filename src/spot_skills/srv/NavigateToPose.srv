@@ -1,0 +1,5 @@
+# Command the robot to go to a pose
+geometry_msgs/PoseStamped target_base_pose
+---
+bool success
+string message
