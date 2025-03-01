@@ -9,11 +9,26 @@ import actionlib
 from typing import Tuple, Union
 import rospy
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-import tf
+from tf.transformations import quaternion_from_euler, euler_from_quaternion
 import numpy as np
 
 import tf2_ros
 
+
+def get_dist(pose: Union[Pose, Transform], goal_pose: Union[Pose, Transform]):
+    pose_xy = [pose.position.x, pose.position.y] if isinstance(pose, Pose) else [pose.translation.x, pose.translation.y]
+    goal_xy = [goal_pose.position.x, goal_pose.position.y] if isinstance(goal_pose, Pose) else [goal_pose.translation.x, goal_pose.translation.y]
+
+    if isinstance(pose, Pose):
+        yaw_pose = euler_from_quaternion([pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w])[2]
+    else:
+        yaw_pose = euler_from_quaternion([pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w])[2]
+    if isinstance(goal_pose, Pose):
+        yaw_goal = euler_from_quaternion([goal_pose.orientation.x, goal_pose.orientation.y, goal_pose.orientation.z, goal_pose.orientation.w])[2]
+    else:
+        yaw_goal = euler_from_quaternion([goal_pose.rotation.x, goal_pose.rotation.y, goal_pose.rotation.z, goal_pose.rotation.w])[2]
+    yaw_diff = np.abs(yaw_pose - yaw_goal) / np.pi * 180
+    return np.linalg.norm(np.array(pose_xy) - np.array(goal_xy)), yaw_diff
 
 
 def goal_reached(
@@ -21,23 +36,11 @@ def goal_reached(
         position_threshold: float = 0.1, 
         orientation_threshold: float = 0.1
     ):
-    point1 = curr_pose.position if isinstance(curr_pose, Pose) else curr_pose.translation
-    point2 = goal_pose.position if isinstance(goal_pose, Pose) else goal_pose.translation
-    pose_xy = [point1.x, point1.y]
-    goal_xy = [point2.x, point2.y]
-    is_position_close = np.isclose(pose_xy, goal_xy, atol=position_threshold).all()
-    
-    q = curr_pose.orientation if isinstance(curr_pose, Pose) else curr_pose.rotation
-    goal_q = goal_pose.orientation if isinstance(goal_pose, Pose) else goal_pose.rotation
-    q1 = [q.x, q.y, q.z, q.w]
-    q2 = [goal_q.x, goal_q.y, goal_q.z, goal_q.w]
-    dot_product = np.dot(q1, q2)
-    is_orientation_close = (dot_product > (1.0 - orientation_threshold))
+    dist, yaw_diff = get_dist(curr_pose, goal_pose)
 
-    print(pose_xy, goal_xy)
-    print("distance:", np.abs(np.subtract(pose_xy, goal_xy)), "<=" if is_position_close else ">", position_threshold, "; angle dot prod:", dot_product)
+    print("dist:", dist, "yaw_diff:", yaw_diff)
 
-    return is_position_close and is_orientation_close
+    return dist < 0.15 and yaw_diff < 5
 
 
 class NavigationServer:
@@ -150,17 +153,23 @@ class NavigationServer:
         rospy.loginfo("The robot has successfully moved to the goal using move_base.")
 
         # fine-grained control using /spot/go_to_pose
-        for i in range(3):
-            print("Sending goal to spot...", pose)
-            pose.header.stamp = rospy.Time.now() + rospy.Duration(5.0)
-            self._sdk_go_to_topic.publish(pose)
+        print("Sending final goal to spot...", pose.pose.position.x, pose.pose.position.y, 
+              euler_from_quaternion([pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w])[2] * 180 / np.pi
+        )
+        pose.header.stamp = rospy.Time.now() + rospy.Duration(5.0)
+        self._sdk_go_to_topic.publish(pose)
         begin_time = time.time()
-        while rospy.Time() < pose.header.stamp and time.time() - begin_time > 10:
+        while rospy.Time() < pose.header.stamp and time.time() - begin_time < 10:
             time.sleep(0.1)
             curr_transform: TransformStamped = self.tf_buffer.lookup_transform(
                 "map", "base_link", rospy.Time(0))
             if goal_reached(curr_transform.transform, pose.pose):
+                rospy.loginfo("Goal reached!")
                 return True, "goal reached"
+            
+            # resend goal if not reached
+            pose.header.stamp = rospy.Time.now() + rospy.Duration(5.0)
+            self._sdk_go_to_topic.publish(pose)
             # elif False:
             #     pass
             # print("goal not reached yet. Dist:", 
@@ -168,5 +177,11 @@ class NavigationServer:
             #         np.array([pose.pose.position.x, pose.pose.position.y])))
         
         # TODO cancel go to pose
-        print(rospy.Time(), pose.header.stamp, time.time() - begin_time)
-        return False, "timeout"
+        rospy.Time.now().secs, pose.header.stamp.nsecs, 
+        if rospy.Time.now() < pose.header.stamp:
+            rospy.loginfo(f"Goal not reached. Timeout. request time: {pose.header.stamp.secs}, current time: {rospy.Time.now().secs}")
+        elif time.time() - begin_time >= 10:
+            rospy.loginfo("Timeout. Goal not reached.")
+        curr_transform: TransformStamped = self.tf_buffer.lookup_transform(
+                "map", "base_link", rospy.Time(0))
+        return False, "timeout. goal not reached"
