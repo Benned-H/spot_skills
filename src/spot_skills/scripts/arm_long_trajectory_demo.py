@@ -118,13 +118,11 @@ def main() -> None:
     arm_controller.unlock_arm()
     arm_controller.command_trajectory(full_trajectory)
 
-    # We're done executing our trajectory, so we can shut down Spot
-    spot_manager.shutdown()
+    spot_manager.shutdown()  # We're done executing our trajectory, so we can shut down Spot
 
     rospy.loginfo("Finished running the long joint trajectory.")
     rospy.spin()  # Keep the node alive for debugging purposes
 
 
 if __name__ == "__main__":
-    if not main():
-        sys.exit(1)
+    main()

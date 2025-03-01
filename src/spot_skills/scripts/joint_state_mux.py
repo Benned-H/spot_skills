@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import rospy
 from sensor_msgs.msg import JointState
+from std_msgs.msg import String
 
 from spot_skills.srv import SetJointStateMode, SetJointStateModeRequest, SetJointStateModeResponse
 
@@ -25,6 +26,7 @@ class JointStateMux:
         self.real_execution_topic = rospy.get_param("real_joint_states_topic")
         self.sim_execution_topic = rospy.get_param("sim_joint_states_topic")
         self.planning_topic = rospy.get_param("planned_joint_states_topic")
+        self.output_topic = rospy.get_param("joint_mux_output_topic")
 
         # Subscribe to the multiplexed joint state topics
         rospy.Subscriber(self.real_execution_topic, JointState, self.real_execution_callback)
@@ -32,7 +34,8 @@ class JointStateMux:
         rospy.Subscriber(self.planning_topic, JointState, self.planning_callback)
 
         # Publisher for the joint states that MoveIt actually listens to
-        self.pub = rospy.Publisher("/joint_states", JointState, queue_size=10, latch=True)
+        self.pub = rospy.Publisher(self.output_topic, JointState, queue_size=10, latch=True)
+        self.mode_pub = rospy.Publisher("~current_mode", String, queue_size=5)
 
         self._pub_rate_hz = 10.0  # Frequency (Hz) at which joint state is republished
 
@@ -40,7 +43,7 @@ class JointStateMux:
         self.latest_joint_states: dict[str, JointState] = {}
 
         # Provide a ROS service to switch modes
-        self.service = rospy.Service("set_mode", SetJointStateMode, self.set_mode_callback)
+        self.service = rospy.Service("set_joint_mode", SetJointStateMode, self.set_mode_callback)
         rospy.loginfo(f"JointStateMux initialized in '{self.mode}' mode.")
 
     @property
@@ -62,8 +65,16 @@ class JointStateMux:
         mode_joint_state = self.latest_joint_states.get(self.mode)
 
         if mode_joint_state is not None:
-            mode_joint_state.header.stamp = rospy.get_rostime()
+            now_stamp = rospy.Time.now()
+            mode_joint_state.header.stamp = now_stamp
+            rospy.loginfo(f"[JointStateMux] Publishing JointState with timestamp: {now_stamp}")
+
             self.pub.publish(mode_joint_state)
+
+    def publish_mode(self) -> None:
+        """Publish the current mode of the joint state multiplexer."""
+        msg = String(data=self.mode)
+        self.mode_pub.publish(msg)
 
     def planning_callback(self, msg: JointState) -> None:
         """Process a joint state message from the planning-mode topic.
@@ -71,8 +82,6 @@ class JointStateMux:
         :param msg: sensor_msgs/JointState message representing a robot configuration
         """
         self.latest_joint_states["planning"] = msg
-        if self.mode == "planning":
-            self.pub.publish(msg)
 
     def real_execution_callback(self, msg: JointState) -> None:
         """Process a joint state message from the real-robot execution-mode topic.
@@ -80,8 +89,6 @@ class JointStateMux:
         :param msg: sensor_msgs/JointState message representing a robot configuration
         """
         self.latest_joint_states["real_execution"] = msg
-        if self.mode == "real_execution":
-            self.pub.publish(msg)
 
     def sim_execution_callback(self, msg: JointState) -> None:
         """Process a joint state message from the simulated execution-mode topic.
@@ -89,8 +96,6 @@ class JointStateMux:
         :param msg: sensor_msgs/JointState message representing a robot configuration
         """
         self.latest_joint_states["sim_execution"] = msg
-        if self.mode == "sim_execution":
-            self.pub.publish(msg)
 
     def set_mode_callback(self, request: SetJointStateModeRequest) -> SetJointStateModeResponse:
         """Handle a request to set the mode of the joint state multiplexer.
@@ -102,9 +107,6 @@ class JointStateMux:
         message = f"Switched mode to '{self.mode}'."
         rospy.loginfo(message)
 
-        # Immediately publish the most recent state from the new mode, if available
-        self.publish_state()
-
         return SetJointStateModeResponse(success=True, message=message)
 
     def spin(self) -> None:
@@ -112,6 +114,7 @@ class JointStateMux:
         rate_hz = rospy.Rate(self._pub_rate_hz)
         while not rospy.is_shutdown():
             self.publish_state()
+            self.publish_mode()
             rate_hz.sleep()
 
 

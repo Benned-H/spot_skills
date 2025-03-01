@@ -8,8 +8,16 @@
             "program": "src/tmp3/TMP.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
-            "preLaunchTask": "Prepare for TMP3",
-            "envFile": "${workspaceFolder}/devel/setup.bash"
+            "preLaunchTask": "pip install tmp3"
+        },
+        {
+            "name": "Execute in Simulation",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "src/tmp3/scripts/tamp_executor.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "pip install tmp3"
         }
     ]
 }

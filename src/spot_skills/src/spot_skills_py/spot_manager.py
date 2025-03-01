@@ -13,6 +13,7 @@ from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
     RobotCommandClient,
+    blocking_sit,
     blocking_stand,
 )
 from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_command
@@ -240,7 +241,7 @@ class SpotManager:
     def stand_up(self, timeout_s: float) -> bool:
         """Tell Spot to stand up within the given timeout (in seconds).
 
-        :param timeout_s: Timeout (seconds) for the blocking stand command
+        :param timeout_s: Timeout (seconds) for the stand command
         :returns: True if Spot stood up, otherwise False
         """
         if not self.check_lease_alive():
@@ -248,6 +249,19 @@ class SpotManager:
 
         blocking_stand(self.command_client, timeout_sec=timeout_s)
         self.log_info("Robot standing.")
+        return True
+
+    def sit_down(self, timeout_s: float) -> bool:
+        """Tell Spot to sit down within the given timeout (in seconds).
+
+        :param timeout_s: Timeout (seconds) for the sit command
+        :returns: True if Spot sat down, otherwise False
+        """
+        if not self.check_lease_alive():
+            return False
+
+        blocking_sit(self.command_client, timeout_sec=timeout_s)
+        self.log_info("Robot sitting.")
         return True
 
     def block_until_arm_arrives(self, command_id: int) -> None:

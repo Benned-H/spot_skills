@@ -10,4 +10,7 @@
     <!-- Topic to which MoveIt publishes joint states when controlling a simulated robot -->
     <param name="sim_joint_states_topic" value="/move_group/fake_controller_joint_states"/>
 
+    <!-- Topic to which the joint_state_mux publishes output joint states -->
+    <param name="joint_mux_output_topic" value="/joint_states"/>
+
 </launch>

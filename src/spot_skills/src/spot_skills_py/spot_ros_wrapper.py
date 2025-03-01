@@ -51,23 +51,11 @@ class SpotROS1Wrapper:
         self._manager.take_control()
 
         # Initialize all ROS services provided by the class
-        self._stand_service = rospy.Service(
-            "spot/stand",
-            Trigger,
-            self.handle_stand,
-        )
-
-        self._unlock_arm_service = rospy.Service(
-            "spot/unlock_arm",
-            Trigger,
-            self.handle_unlock_arm,
-        )
-
-        self._stow_arm_service = rospy.Service(
-            "spot/stow_arm",
-            Trigger,
-            self.handle_stow_arm,
-        )
+        self._stand_service = rospy.Service("spot/stand", Trigger, self.handle_stand)
+        self._shutdown_service = rospy.Service("spot/shutdown", Trigger, self.handle_shutdown)
+        self._sit_service = rospy.Service("spot/sit", Trigger, self.handle_sit)
+        self._unlock_arm_service = rospy.Service("spot/unlock_arm", Trigger, self.handle_unlock_arm)
+        self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
 
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
@@ -96,16 +84,11 @@ class SpotROS1Wrapper:
         self._gripper_action_server.start()
         rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
 
-    def shutdown(self) -> None:
-        """Shut-down Spot's ROS wrapper by safely powering off Spot."""
-        self._manager.shutdown()
-
     def handle_stand(self, request_msg: TriggerRequest) -> TriggerResponse:
         """Handle a service request to have Spot stand up.
 
-        :param request_msg: Message representing a request for Spot to stand
-
-        :returns    Response conveying whether Spot has successfully stood up
+        :param request_msg: ROS message requesting that Spot stands
+        :return: Response conveying whether Spot has successfully stood up
         """
         del request_msg
         stood_up = self._manager.stand_up(20)
@@ -113,18 +96,41 @@ class SpotROS1Wrapper:
 
         return TriggerResponse(stood_up, message)
 
+    def handle_sit(self, request_msg: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to make Spot sit.
+
+        :param request_msg: ROS message requesting that Spot sits
+        :return: Response conveying whether Spot has successfully stood up
+        """
+        del request_msg
+        sit_success = self._manager.sit_down(20)
+        message = "Spot is now sitting." if sit_success else "Spot could not sit."
+
+        return TriggerResponse(sit_success, message)
+
+    def handle_shutdown(self, request_msg: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to shut down the Spot wrapper and manager.
+
+        :param request_msg: ROS message requesting that Spot be shut down
+        :return: Response conveying that shutdown was initiated
+        """
+        del request_msg
+        self._manager.shutdown()
+        rospy.signal_shutdown("Shutting down Spot ROS wrapper as requested via service call.")
+
+        return TriggerResponse(success=True, message="Spot has been shut down.")
+
     def handle_unlock_arm(self, request_msg: TriggerRequest) -> TriggerResponse:
         """Handle a service request to enable ROS control of Spot's arm.
 
-        :param request_msg: Message representing a request to unlock Spot's arm
-
-        :returns    Response conveying that Spot's arm has been unlocked
+        :param request_msg: ROS message requesting that Spot's arm be unlocked
+        :return: Response conveying that Spot's arm has been unlocked
         """
         del request_msg
         self._arm_locked = False
         self._arm_controller.unlock_arm()
 
-        return TriggerResponse(True, "Spot's arm is now unlocked.")
+        return TriggerResponse(success=True, message="Spot's arm is now unlocked.")
 
     def handle_stow_arm(self, request_msg: TriggerRequest) -> TriggerResponse:
         """Handle a service request to stow Spot's arm.
@@ -139,7 +145,7 @@ class SpotROS1Wrapper:
 
         if self._arm_locked:
             message = "Spot's arm was not stowed because Spot's arm remains locked."
-            return TriggerResponse(False, message)
+            return TriggerResponse(success=False, message=message)
 
         success = self._manager.stow_arm()
         message = "Spot's arm has been stowed." if success else "Could not stow Spot's arm."
