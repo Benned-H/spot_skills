@@ -12,4 +12,7 @@
 
     <!-- Launch the main launch file from spot_rtabmap in localization mode -->
     <include file="$(find spot_move_base)/launch/move_base.launch"/>
+
+    <node name="advanced_nav" pkg="spot_skills" type="spot_navigation_demo.py">
+    </node>
 </launch>
