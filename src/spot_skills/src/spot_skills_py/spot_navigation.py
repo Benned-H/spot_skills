@@ -59,9 +59,14 @@ class NavigationServer:
         self._move_base_client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
         
         self._navigate_to_pose_srv = rospy.Service(
-            'navigate_to_pose',
+            '/spot/navigate_to_pose_adv',
             NavigateToPose,
             self.handle_navigate_to_pose
+        )
+        self._navigate_to_pose_topic = rospy.Subscriber(
+            '/spot/navigate_to_pose_adv',
+            PoseStamped,
+            self.handle_navigate_to_pose_topic
         )
 
         if location_db is None:
@@ -101,9 +106,20 @@ class NavigationServer:
             message=msg
         )
 
+    def handle_navigate_to_pose_topic(self, msg: PoseStamped):
+        print("received message to navigate to pose topic")
+        pose = msg
+
+        succ, msg = self.navigate_to_pose(pose)
+
+        if not succ:
+            rospy.logerr("Failed to navigate to pose. Error: %s", msg)
+        else:
+            rospy.loginfo("Successfully navigated to pose. Message: %s", msg)
+
 
     def handle_navigate_to_pose(self, request_msg: NavigateToPoseRequest) -> NavigateToPoseResponse:
-        print("received message to navigate to")
+        print("received message to navigate")
         pose = request_msg.target_base_pose
 
         succ, msg = self.navigate_to_pose(pose)
