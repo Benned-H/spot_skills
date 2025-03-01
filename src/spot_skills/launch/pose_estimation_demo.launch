@@ -1,13 +1,22 @@
 <!-- Launch the nodes necessary to demonstrate the EstimatePose service -->
 <launch>
 
+    <!-- For safety reasons, do not assume which Spot is being used -->
+    <arg name="spot_name"/>
+
     <!-- Include the launch file to bringup nodes for pose estimation -->
     <include file="$(find spot_skills)/launch/pose_estimation_bringup.launch"/>
 
     <!-- Launch and authenticate with the Spot ROS driver -->
     <include file="$(find spot_skills)/launch/spot_driver_bringup.launch">
         <arg name="load_robot_description" value="true"/>
+        <arg name="spot_name" value="$(arg spot_name)"/>
     </include>
+
+    <!-- Launch a node to multiplex various sources of joint states -->
+    <node name="joint_state_mux" pkg="spot_skills" type="joint_state_mux.py"/>
+    <include file="$(find spot_skills)/launch/joint_state_topics.launch"/>
+    <param name="/joint_state_mux/default_mode" value="real_execution"/>
 
     <!-- Launch the Spot ROS wrapper (provides RGBD image pair service) -->
     <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen"/>

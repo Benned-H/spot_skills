@@ -58,8 +58,10 @@ class SpotImageClient:
         self.camera_names = ["frontleft", "frontright", "left", "right", "back", "hand"]
 
         self._cv_bridge = CvBridge()
-        self._debug_rgb_pub = rospy.Publisher("~debug_rgb_image", ImageMsg, queue_size=5)
-        self._debug_depth_pub = rospy.Publisher("~debug_depth_image", ImageMsg, queue_size=5)
+
+        # Map from camera names to camera-specific debug image topics
+        self._debug_rgb_pubs: dict[str, rospy.Publisher] = {}
+        self._debug_depth_pubs: dict[str, rospy.Publisher] = {}
 
     def make_image_request(self, camera: str, image_format: ImageFormat) -> ImageRequest | None:
         """Build an image request Protobuf message to be sent to Spot.
@@ -161,16 +163,30 @@ class SpotImageClient:
 
         image_msg = self._cv_bridge.cv2_to_imgmsg(image_np, encoding)
         image_msg.header.stamp = capture_time
-        image_msg.header.frame_id = image_capture.frame_name_image_sensor
+        camera_name = image_capture.frame_name_image_sensor
+        image_msg.header.frame_id = camera_name
 
         # Verify expected properties of the constructed Image message
         assert image_msg.height == rows
         assert image_msg.width == cols
 
         if pixel_format == Image.PIXEL_FORMAT_RGB_U8:
-            self._debug_rgb_pub.publish(image_msg)
+            if camera_name not in self._debug_rgb_pubs:
+                self._debug_rgb_pubs[camera_name] = rospy.Publisher(
+                    f"~{camera_name}/debug_rgb_image",
+                    ImageMsg,
+                    queue_size=5,
+                )
+            self._debug_rgb_pubs[camera_name].publish(image_msg)
+
         elif pixel_format == Image.PIXEL_FORMAT_DEPTH_U16:
-            self._debug_depth_pub.publish(image_msg)
+            if camera_name not in self._debug_depth_pubs:
+                self._debug_depth_pubs[camera_name] = rospy.Publisher(
+                    f"~{camera_name}/debug_depth_image",
+                    ImageMsg,
+                    queue_size=5,
+                )
+            self._debug_depth_pubs[camera_name].publish(image_msg)
 
         return image_msg
 

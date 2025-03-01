@@ -60,7 +60,7 @@ class PoseEstimateClient:
         self.global_frame = "vision"  # Relative frame used as the static "world" frame
 
         # Publish received object poses to the /object_poses topic
-        self.pose_pub = rospy.Publisher("object_poses", ObjectPose, queue_size=10)
+        self.pose_pub = rospy.Publisher("/object_poses", ObjectPose, queue_size=10)
 
     def next_object(self) -> str:
         """Find the next object of interest for pose estimation.

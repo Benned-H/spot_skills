@@ -1,10 +1,10 @@
 <!-- Launch the Spot ROS driver using the provided authentication -->
 <launch>
 
-    <arg name="load_robot_description" />
-
     <!-- For safety reasons, do not assume which Spot is being used -->
-    <arg name="spot_name" />
+    <arg name="spot_name"/>
+
+    <arg name="load_robot_description"/>
 
     <arg name="spot_secrets_yaml" value="$(find spot_skills)/secrets/$(arg spot_name)_rosparams.yaml" />
 

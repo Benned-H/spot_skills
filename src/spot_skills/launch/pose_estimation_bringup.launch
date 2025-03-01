@@ -15,7 +15,7 @@
     <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" args="--perspective-file $(find spot_skills)/rviz/pose_estimate.perspective" if="$(arg debug_images_gui)"/>
 
     <!-- Launch the object pose estimate client -->
-    <node name="pose_estimation_client" pkg="spot_skills" type="pose_estimation_client.py" output="screen"/>
+    <node name="pose_estimation_client" pkg="spot_skills" type="pose_estimation_client.py" output="screen" required="true"/>
 
     <!-- Launch the dummy EstimatePose server only if explicitly requested -->
     <arg name="dummy_pose_server" default="false"/>
