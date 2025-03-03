@@ -3,7 +3,7 @@
 """Create a node to own Spot's lease, providing a ROS interface to control Spot."""
 
 import rospy
-from spot_skills_py.spot_ros_wrapper import SpotROS1Wrapper
+from spot_skills_py.spot.spot_ros_wrapper import SpotROS1Wrapper
 
 
 def main() -> None:

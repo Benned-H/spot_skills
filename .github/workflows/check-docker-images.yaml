@@ -1,4 +1,4 @@
-name: Verify Docker Images Can Be Pulled
+name: Verify Docker Images Pullable
 
 on:
   push:
@@ -21,5 +21,4 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Verify Docker Images Pullable
-        run: bash docker/check_services_pullable.sh
+      - run: bash docker/check_services_pullable.sh
