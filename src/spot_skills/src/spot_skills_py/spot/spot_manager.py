@@ -21,10 +21,10 @@ from bosdyn.client.util import setup_logging
 from rospy import loginfo as ros_loginfo
 from transform_utils.kinematics import Configuration
 
-from spot_skills_py.spot_arm_controller import GripperCommandOutcome
-from spot_skills_py.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
-from spot_skills_py.spot_image_client import SpotImageClient
-from spot_skills_py.spot_sync import SpotTimeSync
+from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
+from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
+from spot_skills_py.spot.spot_image_client import SpotImageClient
+from spot_skills_py.spot.spot_sync import SpotTimeSync
 
 
 class SpotManager:
