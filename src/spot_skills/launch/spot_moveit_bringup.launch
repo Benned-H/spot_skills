@@ -10,6 +10,7 @@
 
     <!-- For safety reasons, do not assume which Spot is being used -->
     <arg name="spot_name" />
+    <arg name="/spot/immediate_control" />
 
     <!-- Are we using a simulated (default) or real Spot? -->
     <arg name="real_robot" default="false" />
@@ -19,9 +20,10 @@
     <arg name="using_tamp" default="false" />
 
     <!-- Launch the core nodes MoveIt uses to control a robot (simulated or real) -->
-    <include file="$(dirname)/moveit_core.launch" pass_all_args="true">
+    <include file="$(dirname)/moveit_core.launch">
         <!-- Load/override the robot description (URDF) using MoveIt -->
         <arg name="load_robot_description" value="true" />
+        <arg name="real_robot" value="$(arg real_robot)" />
         <arg name="using_tamp" value="$(arg using_tamp)" />
     </include>
 

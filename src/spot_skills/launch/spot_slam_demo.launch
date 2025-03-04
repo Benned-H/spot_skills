@@ -22,9 +22,9 @@
     <!-- We can only run the SLAM system on the real robot -->
     <arg name="real_robot" value="true" />
 
-    <!-- TODO: What are these two arguments doing? Can one inform the other? -->
-    <arg name="localization_mode" default="true" />
-    <arg name="reload" default="true" />
+    <!-- Start the robot in mapping mode (the alternative is localization) -->
+    <arg name="localization_mode" default="false"/>
+    <arg name="start_from_empty_map" default="true"/>
 
     <!-- Launch all nodes to control Spot, simulated or real, using MoveIt -->
     <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true" />
@@ -32,7 +32,7 @@
     <!-- Launch the main launch file from spot_rtabmap in localization mode -->
     <include file="$(find spot_rtabmap)/launch/spot_rtabmap.launch">
         <arg name="localization_mode" value="$(arg localization_mode)" />
-        <arg name="reload" value="$(arg reload)" />
+        <arg name="start_from_empty_map" value="$(arg start_from_empty_map)" />
     </include>
 
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" />

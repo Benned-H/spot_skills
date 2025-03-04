@@ -179,7 +179,7 @@ class SpotArmController:
 
         :returns    Enum member indicating the outcome of the command
         """
-        if self._locked:
+        if self._locked or not self._manager.check_control():
             return ArmCommandOutcome.ARM_LOCKED
 
         # SpotManager outputs joint names based on the Spot SDK's naming conventions
@@ -224,7 +224,8 @@ class SpotArmController:
                 self.send_segment_command(segment_command)
 
         # Wait until Spot finishes executing the last segment sent
-        self._manager.block_until_arm_arrives(self._command_id)
+        if self._command_id is not None:
+            self._manager.block_until_arm_arrives(self._command_id)
 
         return ArmCommandOutcome.PREEMPTED if preempted else ArmCommandOutcome.SUCCESS
 
@@ -241,7 +242,11 @@ class SpotArmController:
         :return: Enum indicating the outcome of the gripper command sent to Spot
         """
         if self._locked:
-            self._manager.log_info("Rejected gripper command because Spot's arm remains locked.\n")
+            self._manager.log_info("Rejected gripper command; Spot's arm remains locked.\n")
+            return GripperCommandOutcome.FAILURE
+
+        if not self._manager.check_control():
+            self._manager.log_info("Rejected gripper command; SpotManager doesn't control Spot.\n")
             return GripperCommandOutcome.FAILURE
 
         if target_rad < -1.5707 or target_rad > 0:
@@ -252,5 +257,9 @@ class SpotArmController:
 
         self._command_id = self._manager.send_robot_command(robot_command)
         self._manager.log_info("Gripper command sent.\n")
+
+        if self._command_id is None:
+            self._manager.log_info("Gripper command failed to produce a command ID.")
+            return GripperCommandOutcome.FAILURE
 
         return self._manager.block_during_gripper_command(self._command_id)

@@ -148,18 +148,22 @@ class SpotManager:
             self._robot.power_on(timeout_sec=20)
 
         # Verify that the attempted operations succeeded
-        lease_alive = self.check_lease_alive()
         power_success = self._robot.is_powered_on()
-
         self.log_info("Spot powered on." if power_success else "Spot power on failed.")
 
         self.log_info("Exiting SpotManager.take_control()...\n")
 
-        return lease_alive and power_success
+        return self.check_control()
 
-    def check_lease_alive(self) -> bool:
-        """Check whether the SpotManager has a live lease for Spot."""
-        return self._lease_keeper is not None and self._lease_keeper.is_alive()
+    def check_control(self) -> bool:
+        """Check whether the SpotManager has control of a powered-on robot.
+
+        :returns: Boolean indicating if the manager has the lease and Spot is powered on
+        """
+        lease_alive = self._lease_keeper is not None and self._lease_keeper.is_alive()
+        powered_on = self._robot.is_powered_on()
+
+        return lease_alive and powered_on
 
     def log_info(self, message: str) -> None:
         """Log the given message to the Spot and ROS information logs.
@@ -219,16 +223,19 @@ class SpotManager:
             if joint.name in SPOT_SDK_ARM_JOINT_NAMES
         }
 
-    def send_robot_command(self, command: RobotCommand) -> int:
+    def send_robot_command(self, command: RobotCommand) -> int | None:
         """Command Spot to execute the given robot command.
 
         Note: The RobotCommandClient.robot_command() method will automatically update
             all timestamps in the command from local time to robot time.
 
-        :param      command     Command for Spot to execute
+        :param command: Robot command for Spot to execute
 
-        :returns    ID (integer) of the issued robot command
+        :return: ID (integer) of the issued robot command (None if manager doesn't control Spot)
         """
+        if not self.check_control():
+            return None
+
         # Issue a command to the robot synchronously (blocks until done sending)
         command_id: int = self.command_client.robot_command(
             command,
@@ -244,7 +251,7 @@ class SpotManager:
         :param timeout_s: Timeout (seconds) for the stand command
         :returns: True if Spot stood up, otherwise False
         """
-        if not self.check_lease_alive():
+        if not self.check_control():
             return False
 
         blocking_stand(self.command_client, timeout_sec=timeout_s)
@@ -257,7 +264,7 @@ class SpotManager:
         :param timeout_s: Timeout (seconds) for the sit command
         :returns: True if Spot sat down, otherwise False
         """
-        if not self.check_lease_alive():
+        if not self.check_control():
             return False
 
         blocking_sit(self.command_client, timeout_sec=timeout_s)
@@ -316,12 +323,16 @@ class SpotManager:
 
         :returns: True if Spot's arm was deployed, otherwise False
         """
-        if not self.check_lease_alive():
+        if not self.check_control():
             return False
 
         self.log_info("Deploying Spot's arm to the 'ready' position...")
         arm_ready = RobotCommandBuilder.arm_ready_command()
         command_id = self.send_robot_command(arm_ready)
+        if command_id is None:
+            self.log_info("Could not deploy Spot's arm.")
+            return False
+
         self.block_until_arm_arrives(command_id)
         self.log_info("Arm is now ready.")
         return True
@@ -331,12 +342,16 @@ class SpotManager:
 
         :returns: True if Spot's arm was stowed, otherwise False
         """
-        if not self.check_lease_alive():
+        if not self.check_control():
             return False
 
         self.log_info("Stowing Spot's arm...")
         arm_stow = RobotCommandBuilder.arm_stow_command()
         command_id = self.send_robot_command(arm_stow)
+        if command_id is None:
+            self.log_info("Could not stow Spot's arm.")
+            return False
+
         self.block_until_arm_arrives(command_id)
         self.log_info("Arm is now stowed.")
         return True
@@ -356,9 +371,9 @@ class SpotManager:
 
     def shutdown(self) -> None:
         """Shut-down by stowing the arm, sitting, powering off, and releasing Spot."""
-        self.log_info("Shutting down Spot manager...")
+        if self.check_control():
+            self.log_info("Shutting down Spot using the controlling SpotManager...")
 
-        if self.check_lease_alive():
             self.stow_arm()
             self.safely_power_off()  # Send a "safe power off" command
             self.release_control()  # Return Spot's lease

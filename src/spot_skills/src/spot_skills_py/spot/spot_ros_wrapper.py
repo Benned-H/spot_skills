@@ -47,8 +47,13 @@ class SpotROS1Wrapper:
         self._arm_controller = SpotArmController(self._manager, max_segment_len)
         self._arm_locked = True  # Begin without ROS control of Spot's arm
 
-        self._manager.log_info("Manager and ArmController created. Taking lease...")
-        self._manager.take_control()
+        self._manager.log_info("Manager and ArmController created.")
+
+        # Only take immediate control of Spot if requested via rosparam
+        immediate_control: bool = rospy.get_param("/spot/immediate_control", default=False)
+
+        if immediate_control:
+            self._manager.take_control()
 
         # Initialize all ROS services provided by the class
         self._stand_service = rospy.Service("spot/stand", Trigger, self.handle_stand)
@@ -91,8 +96,13 @@ class SpotROS1Wrapper:
         :return: Response conveying whether Spot has successfully stood up
         """
         del request_msg
-        stood_up = self._manager.stand_up(20)
-        message = "Spot is now standing." if stood_up else "Spot could not stand up."
+
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
+
+        stood_up = self._manager.stand_up(20) if has_control else False
+        message = "Spot is now standing." if stood_up else "Could not make Spot stand."
 
         return TriggerResponse(stood_up, message)
 
@@ -127,10 +137,19 @@ class SpotROS1Wrapper:
         :return: Response conveying that Spot's arm has been unlocked
         """
         del request_msg
-        self._arm_locked = False
-        self._arm_controller.unlock_arm()
 
-        return TriggerResponse(success=True, message="Spot's arm is now unlocked.")
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
+
+        if has_control:
+            self._arm_locked = False
+            self._arm_controller.unlock_arm()
+            message = "Spot's arm is now unlocked."
+        else:
+            message = "Could not gain control of Spot; leaving Spot's arm locked."
+
+        return TriggerResponse(has_control, message)
 
     def handle_stow_arm(self, request_msg: TriggerRequest) -> TriggerResponse:
         """Handle a service request to stow Spot's arm.
@@ -147,10 +166,14 @@ class SpotROS1Wrapper:
             message = "Spot's arm was not stowed because Spot's arm remains locked."
             return TriggerResponse(success=False, message=message)
 
-        success = self._manager.stow_arm()
-        message = "Spot's arm has been stowed." if success else "Could not stow Spot's arm."
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
 
-        return TriggerResponse(success, message)
+        arm_stowed = self._manager.stow_arm() if has_control else False
+        message = "Spot's arm has been stowed." if arm_stowed else "Could not stow Spot's arm."
+
+        return TriggerResponse(arm_stowed, message)
 
     def handle_get_rgbd_pairs(self, request_msg: GetRGBDPairsRequest) -> GetRGBDPairsResponse:
         """Handle a request to capture RGBD image pairs from the specified camera(s) on Spot.
@@ -243,6 +266,15 @@ class SpotROS1Wrapper:
         result = FollowJointTrajectoryResult()
         result.error_code = -1  # Default error code: INVALID_GOAL
 
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
+
+        if not has_control:
+            result.error_string = "Could not obtain control of Spot."
+            self._arm_action_server.set_aborted(result)
+            return
+
         # Attempt to send the trajectory using the SpotArmController
         outcome = self._arm_controller.command_trajectory(
             trajectory,
@@ -286,7 +318,13 @@ class SpotROS1Wrapper:
 
         gripper_command_result = GripperCommandResult()
 
-        outcome = self._arm_controller.command_gripper(goal_position_rad)
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
+
+        outcome = GripperCommandOutcome.FAILURE
+        if has_control:
+            outcome = self._arm_controller.command_gripper(goal_position_rad)
 
         if outcome == GripperCommandOutcome.FAILURE:
             gripper_command_result.reached_goal = False
