@@ -2,8 +2,9 @@
 <launch>
 
     <!-- Should MoveIt plan to control a simulated or real robot? -->
-    <arg name="real_robot" />
-    <arg name="load_robot_description" />
+    <arg name="real_robot"/>
+    <arg name="load_robot_description"/>
+    <arg name="using_tamp" default="false"/>
 
     <!-- Choose MoveIt's controller manager: fake, simple, or ros_control
 
@@ -22,9 +23,6 @@
 
     <!-- Default planning pipeline: OMPL -->
     <arg name="pipeline" default="ompl" />
-
-    <!-- Default: Don't provide a GUI for manual control of the robot joint states -->
-    <arg name="joints_gui" default="false" />
 
     <!-- Default not in debug mode -->
     <arg name="debug" default="false" />
@@ -46,22 +44,26 @@
     </include>
 
     <!-- Enable other launch files to override where MoveIt listens for joint states -->
-    <arg name="joint_state_source_list" default="[move_group/fake_controller_joint_states]" />
+    <!-- <arg name="joint_state_source_list" default="[move_group/fake_controller_joint_states]" /> -->
 
-    <!-- When there's no real robot connected, we need to publish fake joint states
-        using the joint_state_publisher node. We tell this node to listen to the
-        fake MoveIt controller using its `source_list` parameter -->
+    <!-- Unless we're using TAMP, which needs to control the simulated robot, we direct the
+        joint state multiplexer to listen to the appropriate robot controller -->
+    <group unless="$(arg using_tamp)">
+        <param name="joint_state_mux/default_mode" value="real_execution" if="$(arg real_robot)"/>
+        <param name="joint_state_mux/default_mode" value="sim_execution" unless="$(arg real_robot)"/>
+    </group>
+
+    <!-- Launch a node to multiplex various sources of joint states -->
+    <node name="joint_state_mux" pkg="spot_skills" type="joint_state_mux.py"/>
+    <include file="$(find spot_skills)/launch/joint_state_topics.launch"/>
+
+    <!-- When there's no real robot connected, we need a node to publish fake joint/robot states -->
     <group unless="$(arg real_robot)">
 
-        <!-- If no `joints_gui`, use a joint state publisher without a GUI -->
+        <!-- Use a joint publisher to provide MoveIt a stable stream of joint states
         <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" unless="$(arg joints_gui)">
             <rosparam param="source_list" subst_value="true">$(arg joint_state_source_list)</rosparam>
-        </node>
-
-        <!-- Otherwise, use a joint state publisher with a joint-controlling GUI -->
-        <node name="joint_state_publisher" pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" if="$(arg joints_gui)">
-            <rosparam param="source_list" subst_value="true">$(arg joint_state_source_list)</rosparam>
-        </node>
+        </node> -->
 
         <!-- Given the published joint states, publish tf for the robot links -->
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen" />

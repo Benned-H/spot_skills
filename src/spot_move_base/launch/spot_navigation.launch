@@ -8,7 +8,6 @@
         <arg name="camera0" value="$(arg camera0)" />
         <arg name="camera1" value="$(arg camera1)" />
         <arg name="localization_mode" value="true" />
-        <arg name="reload" default="false" />
     </include>
 
     <!-- move base -->

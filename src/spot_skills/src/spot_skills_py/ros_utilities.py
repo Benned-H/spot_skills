@@ -21,26 +21,6 @@ def get_ros_param(param_name: str) -> Any:
     return rospy.get_param(param_name)
 
 
-def trigger_service(service_name: str) -> bool:
-    """Call the named ROS service of the std_srvs/Trigger type.
-
-    :param service_name: Name of the std_srvs/Trigger service to be called
-    :returns: Boolean success returned by the service (True or False)
-    """
-    rospy.wait_for_service(service_name)
-    service_caller = rospy.ServiceProxy(service_name, Trigger)
-
-    success = False
-    try:
-        response: TriggerResponse = service_caller()
-        rospy.loginfo(f"[{service_name}] Service response message: {response.message}")
-        success = response.success
-    except rospy.ServiceException as exc:
-        rospy.logerr(f"[{service_name}] Could not communicate with service: {exc}")
-
-    return success
-
-
 def resolve_package_path(filepath: str) -> Path | None:
     """Resolve a filepath relative to a ROS package.
 

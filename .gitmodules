@@ -4,9 +4,12 @@
 [submodule "ros_docker"]
 	path = docker/ros_docker
 	url = https://github.com/Benned-H/ros_docker
-[submodule "src/object_detection_msgs"]
-	path = src/object_detection_msgs
-	url = git@github.com:Benned-H/object_detection_msgs.git
 [submodule "src/spot_skills/src/spot_skills/transform_utils"]
 	path = src/spot_skills/src/transform_utils
 	url = git@github.com:Benned-H/transform_utils.git
+[submodule "src/spot_skills/domains/object_models"]
+	path = src/spot_skills/domains/object_models
+	url = git@github.com:h2r/object_models.git
+[submodule "src/pose_estimation_msgs"]
+	path = src/pose_estimation_msgs
+	url = git@github.com:h2r/pose_estimation_msgs.git

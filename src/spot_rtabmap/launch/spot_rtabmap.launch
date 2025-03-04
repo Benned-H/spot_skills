@@ -1,13 +1,16 @@
 <launch>
+
+    <!-- Localization mode can be used once a map of >30 locations has been created -->
+    <arg name="localization_mode" default="false" />
+
     <arg name="camera0" default="frontleft" />
     <arg name="camera1" default="frontright" />
-    <arg name="localization_mode" default="false" />
-    <arg name="reload" default="false" />
     <arg name="rtabmap_viz" default="false" />
 
-    <!--  should reload? -->
-    <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg reload)" />
-    <arg name="rtabmap_args" value="" unless="$(arg reload)" />
+    <!-- In mapping mode, we have the option to start from a clean database -->
+    <arg name="start_from_empty_map" default="true" unless="$(arg localization_mode)"/>
+    <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg start_from_empty_map)" />
+    <arg name="rtabmap_args" value="" if="$(arg localization_mode)" />
 
     <!-- Parametrize any external interface topic names -->
     <arg name="pointcloud2_input_topic" default="/spot/lidar/points" />
