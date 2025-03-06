@@ -13,7 +13,7 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
-from ros_numpy import msgify, numpify
+from ros_numpy import msgify
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from pose_estimation_msgs.srv import DetectObjectsRequest
