@@ -51,7 +51,6 @@ catkin_python_setup()
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
-  ObjectPose.msg
   RGBDPair.msg
 )
 
@@ -61,6 +60,7 @@ add_service_files(
   GetRGBDPairs.srv
   NavigateToLandmark.srv
   NavigateToPose.srv
+  SetJointStateMode.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -174,6 +174,7 @@ catkin_install_python(PROGRAMS
   scripts/fake_gripper_action_server.py
   scripts/pose_estimation_client.py
   scripts/dummy_estimate_pose_server.py
+  scripts/joint_state_mux.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

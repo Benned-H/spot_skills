@@ -59,7 +59,7 @@ tmux send-keys -t {left} "cd $spot_skills_path" C-m "bash docker/launch.sh" C-m 
 
 # Window 1.2 (right): Pose
 tmux send-keys -t {right} "cd $pose_path" C-m "sh docker/run_container_ros1.sh" C-m \
-	"cd /docker/pose/pose_ws" C-m "catkin_make" C-m "source devel/setup.bash" C-m \
+	"cd /docker/pose/pose_ws" C-m "pip install empy==3.3.4" C-m "catkin_make" C-m "source devel/setup.bash" C-m \
 	"cd /docker/pose" C-m \
 	"echo -e '\nLaunch the pose estimation server using the command:\n    sh /docker/pose/run_service.sh'" C-m
 

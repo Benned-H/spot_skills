@@ -3,7 +3,7 @@
     This file launches/includes the following nodes/launch files:
         - spot_moveit_bringup.launch - Launches all nodes to control Spot using MoveIt, including:
             - moveit_core.launch - All MoveIt-specific nodes for controlling any robot
-            - authenticate_spot_driver.launch - Connects to Spot using its ROS driver
+            - spot_driver_bringup.launch - Connects to Spot using its ROS driver
             - spot_wrapper_node - Connects to Spot using the ROS wrapper, to control the robot
         
         - spot_rtabmap.launch - Launches all nodes to run SLAM for Spot using rtabmap, including:
@@ -16,6 +16,9 @@
 -->
 <launch>
 
+    <!-- For safety reasons, do not assume which Spot is being used -->
+    <arg name="spot_name" />
+
     <!-- We can only run the SLAM system on the real robot -->
     <arg name="real_robot" value="true" />
 
@@ -24,11 +27,7 @@
     <!-- reload: whether to start a new map -->
     <arg name="reload" default="false" />
 
-    <!-- Launch all nodes to control Spot, simulated or real, using MoveIt
-    
-        Optional arguments that can be modified and forwarded to the Spot-MoveIt bringup:
-            spot_name (Default: snouter)
-    -->
+    <!-- Launch all nodes to control Spot, simulated or real, using MoveIt -->
     <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true" />
 
     <!-- Launch the main launch file from spot_rtabmap in localization mode -->

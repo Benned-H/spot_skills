@@ -6,13 +6,14 @@ from typing import TYPE_CHECKING
 
 import rospy
 from spot_skills_py.ros_utilities import get_ros_param
+from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
 from transform_utils.kinematics import Pose3D
 from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
-from transform_utils.ros.service_caller import ServiceCaller
+from transform_utils.ros.services import ServiceCaller
 from transform_utils.transform_manager import TransformManager
 
-from object_detection_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
-from spot_skills.msg import ObjectPose
+from pose_estimation_msgs.msg import PoseEstimate
+from pose_estimation_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
 from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
 
 if TYPE_CHECKING:
@@ -44,17 +45,21 @@ class PoseEstimateClient:
             timeout_s=120.0,
         )
 
-        # Configure the pose estimation service based on ROS params
+        # Configure the pose estimation client based on ROS params
         cameras_list_str = get_ros_param("/pose_estimation/default_cameras")
-        self.camera_names: list[str] = [c.strip() for c in cameras_list_str.split(",")]
+        self.camera_names = [c.strip() for c in cameras_list_str.split(",")]
 
         self._objects: list[str] = get_ros_param("known_objects")
         self._next_obj_idx = 0
 
         self.global_frame = "vision"  # Relative frame used as the static "world" frame
 
-        # Publish received object poses to the /object_poses topic
-        self.pose_pub = rospy.Publisher("object_poses", ObjectPose, queue_size=10)
+        self.pose_pub = rospy.Publisher("/estimated_object_poses", PoseEstimate, queue_size=10)
+
+        # Allow other nodes to enable or disable pose estimate publishing
+        self.enable_srv = rospy.Service("enable_publishing", SetBool, self.enable_publishing)
+        self.disable_srv = rospy.Service("disable_publishing", SetBool, self.disable_publishing)
+        self.publishing_enabled = True  # Default: Publish any estimated object poses
 
     def next_object(self) -> str:
         """Find the next object of interest for pose estimation.
@@ -96,14 +101,15 @@ class PoseEstimateClient:
                 self.global_frame,
                 capture_time,
             )
-            camera_poses[camera_name] = pose_w_c
+            if pose_w_c is not None:
+                camera_poses[camera_name] = pose_w_c
 
         for camera_name, rgbd_pair in zip(self.camera_names, rgbd_pairs_msg.rgbd_pairs):
             request = EstimatePoseRequest()
             request.rgb = rgbd_pair.rgb
             request.depth = rgbd_pair.depth
             request.info = rgbd_pair.camera_info
-            request.query = object_name
+            request.object_name = object_name
 
             response = self._pose_service(request)
             if response is None or not response.object_found:
@@ -119,9 +125,31 @@ class PoseEstimateClient:
             TransformManager.broadcast_transform(f"{object_name}_wrt_camera", pose_c_o)
             TransformManager.broadcast_transform(object_name, pose_w_o)
 
-            # Publish the object's estimated pose as an ObjectPose message
-            pose_stamped_msg: PoseStamped = pose_to_stamped_msg(pose_w_o)
-            self.pose_pub.publish(ObjectPose(object_name, pose_stamped_msg))
+            # Publish the object's estimated pose if the client's mode permits it
+            if self.publishing_enabled:
+                pose_stamped_msg: PoseStamped = pose_to_stamped_msg(pose_w_o)
+                msg = PoseEstimate(object_name, pose_stamped_msg, response.confidence)
+                self.pose_pub.publish(msg)
+
+    def enable_publishing(self, req: SetBoolRequest) -> SetBoolResponse:
+        """Enable the publishing of pose estimates.
+
+        :param req: SetBool service request
+        :returns: SetBoolResponse with success status and message
+        """
+        del req
+        self.publishing_enabled = True
+        return SetBoolResponse(success=True, message="Publishing enabled")
+
+    def disable_publishing(self, req: SetBoolRequest) -> SetBoolResponse:
+        """Disable the publishing of pose estimates.
+
+        :param req: SetBool service request
+        :returns: SetBoolResponse with success status and message
+        """
+        del req
+        self.publishing_enabled = False
+        return SetBoolResponse(success=True, message="Publishing disabled")
 
 
 def main() -> None:

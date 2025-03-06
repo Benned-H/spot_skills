@@ -2,16 +2,17 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Prepare for TMP3",
+            "label": "pip install tmp3",
             "type": "shell",
-            "command": "source devel/setup.bash && pip install -e src/tmp3",
-            "group": "build",
+            "command": "pip install -e src/tmp3",
             "presentation": {
+                "echo": true,
                 "reveal": "always",
+                "focus": false,
                 "panel": "shared",
                 "showReuseMessage": true,
                 "clear": false
             }
-        },
+        }
     ]
 }

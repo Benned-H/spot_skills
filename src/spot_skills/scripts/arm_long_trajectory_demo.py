@@ -18,8 +18,8 @@ import time
 import rospy
 from spot_skills_py.joint_trajectory import JointsPoint, JointTrajectory
 from spot_skills_py.ros_utilities import get_ros_param
-from spot_skills_py.spot_arm_controller import SpotArmController
-from spot_skills_py.spot_manager import SpotManager
+from spot_skills_py.spot.spot_arm_controller import SpotArmController
+from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.time_stamp import TimeStamp
 
 RUN_TIME_S = 20  # Duration (seconds) to run our trajectory for
@@ -118,13 +118,11 @@ def main() -> None:
     arm_controller.unlock_arm()
     arm_controller.command_trajectory(full_trajectory)
 
-    # We're done executing our trajectory, so we can shut down Spot
-    spot_manager.shutdown()
+    spot_manager.shutdown()  # We're done executing our trajectory, so we can shut down Spot
 
     rospy.loginfo("Finished running the long joint trajectory.")
     rospy.spin()  # Keep the node alive for debugging purposes
 
 
 if __name__ == "__main__":
-    if not main():
-        sys.exit(1)
+    main()

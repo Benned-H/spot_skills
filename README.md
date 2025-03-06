@@ -31,6 +31,14 @@ bash docker/launch.sh
 
 To enter the running container in another terminal, just run the same script again.
 
+To build and push the current essential services, run the commands:
+
+```bash
+docker compose --progress plain build --no-cache spot-tamp-v2 spot-tamp-mac-v2
+docker compose --progress plain build --no-cache spot-tamp-gpu-v2
+docker compose push spot-tamp-v2 spot-tamp-mac-v2 spot-tamp-gpu-v2
+```
+
 ## Working with the Spot ROS 1 Driver
 
 Before launching the Spot driver, navigate to `/docker/spot_skills` in the container, then run:
@@ -94,13 +102,13 @@ export SPOT_NAME=spot_name
 5. We're now ready to run the demo. In the first tab, run the command:
 
 ```bash
-roslaunch spot_skills authenticate_spot_driver.launch spot_name:=$SPOT_NAME
+roslaunch spot_skills spot_driver_bringup.launch spot_name:=$SPOT_NAME
 ```
 
 That command will bring up RViz, which may initially show a bugged-out simulated Spot.
 Wait a bit until you see the Spot sitting as it is in the real world, something like:
 
-![Simulated Spot sitting, as shown in RViz.](docs/sitting-spot-rviz.png "Spot Sitting")
+![Simulated Spot sitting, as shown in RViz.](images/sitting-spot-rviz.png "Spot Sitting")
 
 6. In the second terminal tab, run the following command (make sure to source `devel/setup.bash` first):
 
@@ -132,7 +140,7 @@ end-effector should soon be displayed as RGB axes. As this target pose moves
 back-and-forth, MoveIt creates motion plans to the target, which are then used to
 control the simulated Spot's arm. An example screenshot from the demo is shown below.
 
-![Simulated Spot moving its arm to an end-effector target (shown as RGB axes).](docs/sim-moveit-spot.png "Spot's Arm Moving to an End-Effector Target")
+![Simulated Spot moving its arm to an end-effector target (shown as RGB axes).](images/sim-moveit-spot.png "Spot's Arm Moving to an End-Effector Target")
 
 **Real Robot Version** - To run this demo using a real robot, perform the following steps:
 

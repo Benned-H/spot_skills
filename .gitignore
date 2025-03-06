@@ -14,3 +14,4 @@ secrets/
 src/tmp3/
 
 bagfiles/
+*.egg-info
