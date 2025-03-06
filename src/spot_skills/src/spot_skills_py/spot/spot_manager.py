@@ -10,7 +10,8 @@ from bosdyn.api.basic_command_pb2 import StandCommand
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.robot_command_pb2 import RobotCommand
-from bosdyn.client import create_standard_sdk, frame_helpers
+from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
+from bosdyn.client import create_standard_sdk
 from bosdyn.client.door import DoorClient
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
@@ -18,7 +19,6 @@ from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
     RobotCommandClient,
-    blocking_command,
     blocking_sit,
     blocking_stand,
 )
@@ -232,6 +232,10 @@ class SpotManager:
             if joint.name in SPOT_SDK_ARM_JOINT_NAMES
         }
 
+    def get_robot_state(self):
+        """Return the current robot Spot, per the RobotStateClient."""
+        return self._state_client.get_robot_state()
+
     def send_robot_command(self, command: RobotCommand) -> int | None:
         """Command Spot to execute the given robot command.
 
@@ -254,7 +258,7 @@ class SpotManager:
 
         return command_id
 
-    def stand_up(self, timeout_s: float) -> bool:
+    def stand_up(self, timeout_s: float, control_params: BodyControlParams | None = None) -> bool:
         """Tell Spot to stand up within the given timeout (in seconds).
 
         :param timeout_s: Timeout (seconds) for the stand command
@@ -263,7 +267,15 @@ class SpotManager:
         if not self.check_control():
             return False
 
-        blocking_stand(self.command_client, timeout_sec=timeout_s)
+        if control_params is None:
+            blocking_stand(self.command_client, timeout_sec=timeout_s)
+        else:
+            blocking_stand(
+                self.command_client,
+                timeout_sec=10,
+                params=MobilityParams(body_control=control_params),
+            )
+
         self.log_info("Robot standing.")
         return True
 

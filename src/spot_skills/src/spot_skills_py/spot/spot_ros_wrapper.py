@@ -16,7 +16,6 @@ from control_msgs.msg import (
 from ros_numpy import msgify
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
-from pose_estimation_msgs.srv import DetectObjectsRequest
 from spot_skills.msg import RGBDPair
 from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
 from spot_skills_py.joint_trajectory import JointTrajectory
@@ -30,7 +29,7 @@ from spot_skills_py.spot.spot_arm_controller import (
 from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient
 from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.spot.spot_open_door import SpotDoorOpener
-
+from spot_skills_py.spot.spot_erase_board import erase_board
 
 class SpotROS1Wrapper:
     """A ROS 1 interface for the Spot robot."""
@@ -68,6 +67,7 @@ class SpotROS1Wrapper:
         self._unlock_arm_service = rospy.Service("spot/unlock_arm", Trigger, self.handle_unlock_arm)
         self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
         self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
+        self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
 
         # Create a client to request object detections from the torch-enabled Docker
         self.detect_object_client = DetectObjectClient(["door handle"])
@@ -284,6 +284,30 @@ class SpotROS1Wrapper:
         message = "Spot opened the door." if door_opened else "Could not open the door."
 
         return TriggerResponse(door_opened, message)
+
+    def handle_erase_board(self, request_msg: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to erase a whiteboard.
+
+        :param request_msg: Message representing a request to erase a board
+
+        :return: Response conveying whether the whiteboard was erased
+        """
+        del request_msg
+
+        if self._arm_locked:
+            message = "Could not erase whiteboard because Spot's arm remains locked."
+            return TriggerResponse(success=False, message=message)
+
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
+        
+        board_erased = 
+
+        arm_stowed = self._manager.stow_arm() if has_control else False
+        message = "Spot's arm has been stowed." if arm_stowed else "Could not stow Spot's arm."
+
+        return TriggerResponse(arm_stowed, message)
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
