@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import time
+from typing import Tuple
 
 import cv2
 import numpy as np
 from bosdyn.api import geometry_pb2
+from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
 from bosdyn.api.manipulation_api_pb2 import (
     MANIP_STATE_DONE,
     ManipulationApiFeedbackRequest,
@@ -15,12 +17,11 @@ from bosdyn.api.manipulation_api_pb2 import (
     WalkToObjectInImage,
 )
 from bosdyn.api.spot import door_pb2
-from bosdyn.api.spot.basic_command_pb2 import RobotCommandFeedbackStatus
 from bosdyn.client import frame_helpers
 
 from spot_skills_py.spot.spot_manager import SpotManager
 
-PixelXY = tuple[float, float]
+PixelXY = Tuple[float, float]
 
 
 def calculate_hinge_side(handle_xy: PixelXY, hinge_xy: PixelXY) -> int:

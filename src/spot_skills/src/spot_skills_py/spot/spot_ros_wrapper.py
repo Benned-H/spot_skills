@@ -329,6 +329,7 @@ class SpotROS1Wrapper:
             trajectory,
             self._arm_action_server,
         )
+        rospy.sleep(3.0)
 
         # Update the ROS action server based on the outcome of the trajectory
         if outcome == ArmCommandOutcome.SUCCESS:
@@ -374,6 +375,7 @@ class SpotROS1Wrapper:
         outcome = GripperCommandOutcome.FAILURE
         if has_control:
             outcome = self._arm_controller.command_gripper(goal_position_rad)
+            rospy.sleep(3.0)
 
         if outcome == GripperCommandOutcome.FAILURE:
             gripper_command_result.reached_goal = False
