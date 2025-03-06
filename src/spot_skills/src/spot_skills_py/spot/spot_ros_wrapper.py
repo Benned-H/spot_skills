@@ -26,10 +26,11 @@ from spot_skills_py.spot.spot_arm_controller import (
     GripperCommandOutcome,
     SpotArmController,
 )
+from spot_skills_py.spot.spot_erase_board import erase_board
 from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient
 from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.spot.spot_open_door import SpotDoorOpener
-from spot_skills_py.spot.spot_erase_board import erase_board
+
 
 class SpotROS1Wrapper:
     """A ROS 1 interface for the Spot robot."""
@@ -301,13 +302,11 @@ class SpotROS1Wrapper:
         has_control = self._manager.check_control()  # Only take control of Spot once necessary
         if not has_control:
             has_control = self._manager.take_control()
-        
-        board_erased = 
 
-        arm_stowed = self._manager.stow_arm() if has_control else False
-        message = "Spot's arm has been stowed." if arm_stowed else "Could not stow Spot's arm."
+        board_erased = erase_board(self._manager) if has_control else False
+        message = "Erased the whiteboard." if board_erased else "Could not erase the whiteboard."
 
-        return TriggerResponse(arm_stowed, message)
+        return TriggerResponse(board_erased, message)
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
