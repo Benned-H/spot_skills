@@ -10,9 +10,11 @@ from bosdyn.api.basic_command_pb2 import StandCommand
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.robot_command_pb2 import RobotCommand
-from bosdyn.client import create_standard_sdk
+from bosdyn.client import create_standard_sdk, frame_helpers
+from bosdyn.client.door import DoorClient
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
+from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
     RobotCommandClient,
@@ -83,6 +85,9 @@ class SpotManager:
 
         # Define an image client to interface with Spot's cameras
         self.image_client = SpotImageClient(self._robot)
+
+        self.manip_client = self._robot.ensure_client(ManipulationApiClient.default_service_name)
+        self.door_client = self._robot.ensure_client(DoorClient.default_service_name)
 
         # Define a client to later obtain control of Spot (i.e., Spot's "lease")
         self._lease_client: LeaseClient = self._robot.ensure_client(
@@ -412,9 +417,3 @@ class SpotManager:
             self.stow_arm()
             self.safely_power_off()  # Send a "safe power off" command
             self.release_control()  # Return Spot's lease
-
-    def open_door(self) -> None:
-        """Open a door.
-
-        Note: Assumes that Spot is standing and powered on.
-        """
