@@ -7,6 +7,7 @@ from typing import Tuple
 
 import cv2
 import numpy as np
+import rospy
 from bosdyn.api import geometry_pb2
 from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
 from bosdyn.api.manipulation_api_pb2 import (
@@ -66,8 +67,8 @@ class SpotDoorOpener:
         self.image_dict, self.rgb_image_dict = self.manager.image_client.get_images_as_cv2(sources)
 
         # Convert CV2 images to numpy for processing.
-        fr_fisheye_image = self.image_dict["frontright_fisheye_image"][1]
-        fl_fisheye_image = self.image_dict["frontleft_fisheye_image"][1]
+        fr_fisheye_image = self.rgb_image_dict["frontright_fisheye_image"][1]
+        fl_fisheye_image = self.rgb_image_dict["frontleft_fisheye_image"][1]
 
         # Rotate the images to align with robot Z axis.
         fr_fisheye_image = cv2.rotate(fr_fisheye_image, cv2.ROTATE_90_CLOCKWISE)
@@ -83,9 +84,10 @@ class SpotDoorOpener:
         :param handle_xy: Estimated pixel coordinate of the door handle
         """
         self.handle_xy = handle_xy
-        self.compute_pixel_source()
 
-        _, width = self.side_by_side.shape
+        rospy.loginfo(self.side_by_side.shape)
+
+        _, width, _rgb = self.side_by_side.shape
         is_left: bool = self.handle_xy[0] > width / 2  # Was the image source the left camera?
 
         self.pixel_source_image = (
@@ -102,7 +104,7 @@ class SpotDoorOpener:
         """
         assert self.side_by_side is not None, "Cannot walk to the door; missing side-by-side image!"
 
-        height, width = self.side_by_side.shape
+        height, width, _rgb = self.side_by_side.shape
 
         # Undo pixel rotation by rotation 90 deg CCW.
         manipulation_cmd = WalkToObjectInImage()
@@ -170,7 +172,7 @@ class SpotDoorOpener:
         self.manager.log_info("Opening door...")
 
         # Tell the robot to walk through the door
-        request = self.create_walk_to_object_in_image_request(self.handle_xy)
+        request = self.create_walk_to_object_in_image_request()
         manipulation_feedback = self.walk_to_object_in_image(request)
         time.sleep(3.0)
 

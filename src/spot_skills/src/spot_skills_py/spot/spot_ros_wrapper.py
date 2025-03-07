@@ -70,9 +70,6 @@ class SpotROS1Wrapper:
         self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
         self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
 
-        # Create a client to request object detections from the torch-enabled Docker
-        self.detect_object_client = DetectObjectClient(["door handle"])
-
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
             GetRGBDPairs,
@@ -99,6 +96,9 @@ class SpotROS1Wrapper:
         )
         self._gripper_action_server.start()
         rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
+
+        # Create a client to request object detections from the torch-enabled Docker
+        self.detect_object_client = DetectObjectClient(["door handle"])
 
     def handle_stand(self, request_msg: TriggerRequest) -> TriggerResponse:
         """Handle a service request to have Spot stand up.
@@ -269,16 +269,18 @@ class SpotROS1Wrapper:
 
         # Call the operations needed for door-opening, step-by-step
         side_by_side_image = self._door_opener.capture_side_by_side_image()
-        side_by_side_msg = msgify(sensor_msgs.msg.Image, side_by_side_image)
+        side_by_side_msg = msgify(sensor_msgs.msg.Image, side_by_side_image, encoding="rgb8")
 
         response_msg = self.detect_object_client.call_on_image(side_by_side_msg)
         if response_msg is None:
             message = "Cannot open door because object detection returned None."
             return TriggerResponse(success=False, message=message)
+        rospy.loginfo("Received response for the door handle photo.")
 
         pixel_point_msg = response_msg.pixels[0]
         handle_xy = (pixel_point_msg.x, pixel_point_msg.y)
         self._door_opener.set_handle_xy(handle_xy)
+        rospy.loginfo("Successfully saved door handle pixel in SpotDoorOpener.")
 
         door_opened = self._door_opener.open_door(open_door_timeout_s=120)
 
@@ -303,7 +305,12 @@ class SpotROS1Wrapper:
         if not has_control:
             has_control = self._manager.take_control()
 
-        board_erased = erase_board(self._manager) if has_control else False
+        if has_control:
+            erase_board(self._manager)
+            board_erased = True
+        else:
+            board_erased = False
+
         message = "Erased the whiteboard." if board_erased else "Could not erase the whiteboard."
 
         return TriggerResponse(board_erased, message)
