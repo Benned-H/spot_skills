@@ -1,5 +1,5 @@
 static_locations:
-  - cabinet: [5.0, 4.1, 1.71] # (x,y,yaw)
+  - cabinet_open: [5.0, 4.1, 1.71] # (x,y,yaw)
   - door_to_lab: [6, 7, 0]
 
 frame: vision

@@ -8,8 +8,7 @@
     <arg name="rtabmap_viz" default="false" />
 
     <!-- In mapping mode, we have the option to start from a clean database -->
-    <arg name="start_from_empty_map" default="true" unless="$(arg localization_mode)"/>
-    <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg start_from_empty_map)" />
+    <arg name="rtabmap_args" value="--delete_db_on_start" unless="$(arg localization_mode)" />
     <arg name="rtabmap_args" value="" if="$(arg localization_mode)" />
 
     <!-- Parametrize any external interface topic names -->
