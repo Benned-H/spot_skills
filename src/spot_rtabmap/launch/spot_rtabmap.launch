@@ -2,11 +2,12 @@
 
     <!-- Localization mode can be used once a map of >30 locations has been created -->
     <arg name="localization_mode" default="false" />
+    <!-- Reload the map? -->
+    <arg name="reload" default="false" />
 
     <arg name="camera0" default="frontleft" />
     <arg name="camera1" default="frontright" />
-    <arg name="localization_mode" default="false" />
-    <arg name="reload" default="false" />
+    
     <arg name="rtabmap_viz" default="false" />
     <arg name="use_custom_spot_driver" default="false" />
 

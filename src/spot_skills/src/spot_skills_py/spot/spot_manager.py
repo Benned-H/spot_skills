@@ -373,7 +373,7 @@ class SpotManager:
 
         :returns    Boolean indicating if the command was successfully sent
         """
-        if not self.check_lease_alive():
+        if not self.check_control():
             return False
 
         cmd = RobotCommandBuilder.synchro_velocity_command(
