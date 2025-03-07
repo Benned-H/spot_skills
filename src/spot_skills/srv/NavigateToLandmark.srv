@@ -1,0 +1,5 @@
+# Command the robot to go to a pose
+string landmark_name
+---
+bool success
+string message

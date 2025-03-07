@@ -58,6 +58,8 @@ add_message_files(
 add_service_files(
   FILES
   GetRGBDPairs.srv
+  NavigateToLandmark.srv
+  NavigateToPose.srv
   SetJointStateMode.srv
 )
 

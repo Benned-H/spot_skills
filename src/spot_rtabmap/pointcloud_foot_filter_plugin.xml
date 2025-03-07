@@ -1,0 +1,9 @@
+<library path="lib/libspot_rtabmap_filter">
+  <class name="spot_rtabmap/PointCloudFootFilter"
+         type="spot_rtabmap::PointCloudFootFilter"
+         base_class_type="filters::FilterBase<sensor_msgs::PointCloud2>">
+    <description>
+      A filter that removes points below the minimum Z of the foot frames relative to the vision frame.
+    </description>
+  </class>
+</library>

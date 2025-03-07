@@ -1,26 +1,30 @@
 cloud_filter_chain:
   # Filter points for height before filtering for body collisions
   # Reference: https://wiki.ros.org/point_cloud2_filters
-  - name: pass_through_filter
-    type: point_cloud2_filters/PassThroughFilterPointCloud2
-    params:
-      active: True
+  # - name: pass_through_filter
+  #   type: point_cloud2_filters/PassThroughFilterPointCloud2
+  #   params:
+  #     active: True
 
-      # Input/output frames transformed into before/after processing
-      # TODO: Shouldn't this be the ground? Check location of this frame
-      input_frame: "sensor_origin_velodyne-point-cloud"
-      output_frame: "sensor_origin_velodyne-point-cloud"
+  #     # Input/output frames transformed into before/after processing
+  #     # TODO: Shouldn't this be the ground? Check location of this frame
+  #     input_frame: "sensor_origin_velodyne-point-cloud"
+  #     output_frame: "sensor_origin_velodyne-point-cloud"
 
-      filter_field_name: "z" # Field to be used for filtering data
-      filter_limit_min: 0.2 # Minimum allowed z-value
-      filter_limit_max: 3.0 # Maximum allowed z-value (3 meters)
+  #     filter_field_name: "z" # Field to be used for filtering data
+  #     filter_limit_min: 0.2 # Minimum allowed z-value
+  #     filter_limit_max: 3.0 # Maximum allowed z-value (3 meters)
+
+  # filter points below the robot's feet (see src/spot_rtabmap/pointcloud_foot_filter.cpp)
+  - name: ground_filter
+    type: spot_rtabmap/PointCloudFootFilter
 
   # Filter points likely to have resulted from laser-body collisions
   - name: lidar_body_filter
     type: robot_body_filter/RobotBodyFilterPointCloud2
     params:
-      frames/fixed: "vision" # Fixed frame (used for filtering if `frames/filtering` isn't set)
-      frames/output: "vision" # Frame into which filtered point clouds are transformed
+      frames/fixed: "sensor_origin_velodyne-point-cloud" # Fixed frame (used for filtering if `frames/filtering` isn't set)
+      frames/output: "sensor_origin_velodyne-point-cloud" # Frame into which filtered point clouds are transformed
 
       # References:
       #   https://bostondynamics.com/wp-content/uploads/2023/05/spot-eap-2.pdf
@@ -33,7 +37,7 @@ cloud_filter_chain:
       filter/do_shadow_test: True # Enables ray-tracing to identify points shadowed by robot body
 
       body_model/robot_description_param: "/robot_description" # ROS parameter defining the body model
-      body_model/inflation/scale: 1.1 # Scale applied to the body model
+      body_model/inflation/scale: 1.7 # Scale applied to the body model
       body_model/inflation/padding: 0.02 # Padding (m) added to the body model
 
       # Note that links can be indiviually ignored for any of these tests

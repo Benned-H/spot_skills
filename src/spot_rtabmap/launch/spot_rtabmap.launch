@@ -2,15 +2,21 @@
 
     <!-- Localization mode can be used once a map of >30 locations has been created -->
     <arg name="localization_mode" default="false" />
+    <!-- Reload the map? -->
+    <arg name="reload" default="false" />
 
     <arg name="camera0" default="frontleft" />
     <arg name="camera1" default="frontright" />
+    
     <arg name="rtabmap_viz" default="false" />
+    <arg name="use_custom_spot_driver" default="false" />
 
-    <!-- In mapping mode, we have the option to start from a clean database -->
-    <arg name="start_from_empty_map" default="true" unless="$(arg localization_mode)"/>
-    <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg start_from_empty_map)" />
-    <arg name="rtabmap_args" value="" if="$(arg localization_mode)" />
+    <arg name="in_pose_topic" value="/spot/go_to_pose2" if="$(arg use_custom_spot_driver)"/>
+    <arg name="in_pose_topic" value="/spot/go_to_pose" unless="$(arg use_custom_spot_driver)"/>
+
+    <!--  should reload? -->
+    <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg reload)" />
+    <arg name="rtabmap_args" value="" unless="$(arg reload)" />
 
     <!-- Parametrize any external interface topic names -->
     <arg name="pointcloud2_input_topic" default="/spot/lidar/points" />
@@ -37,7 +43,7 @@
         <!-- Launch an RGB-D image publisher for four (rtabmap's limit) of Spot's cameras -->
         <node name="rgbd_image_publisher" pkg="spot_rtabmap" type="rgbd_image_publisher.py" output="screen">
             <param name="rgbd_camera_names" type="string" value="frontleft,frontright,left,right" />
-            <param name="pub_frequency" type="double" value="1.0" />
+            <param name="pub_frequency" type="double" value="5.0" />
         </node>
 
         <!-- args="delete_db_on_start" if you want to start a new map -->
@@ -62,7 +68,7 @@
             <remap from="scan_cloud" to="$(arg filtered_pointcloud2_topic)" />
 
             <!-- Remap ROS topics related to navigation -->
-            <remap from="goal" to="/spot/go_to_pose" />
+            <remap from="goal" to="/rtabmap/goal" />
             <remap from="goal_out" to="/move_base_simple/goal" />
 
             <!-- Synchronization parameters for RGB-D cameras -->
@@ -75,7 +81,7 @@
             <param name="topic_queue_size" type="int" value="30" />
 
             <!-- Localization mode -->
-            <param name="Mem/IncrementalMemory" type="bool" value="true" if="$(arg localization_mode)" />
+            <param name="Mem/IncrementalMemory" type="bool" value="false" if="$(arg localization_mode)" />
             <param name="Mem/ReduceGraph" type="bool" value="false" if="$(arg localization_mode)" />
             <param name="RGBD/StartAtOrigin" type="bool" value="false" if="$(arg localization_mode)" />
 

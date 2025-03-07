@@ -12,6 +12,9 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   rtabmap_ros
   std_msgs
+  pcl_conversions
+  pcl_ros
+  point_cloud2_filters
 )
 
 ## System dependencies are found with CMake's conventions
@@ -104,9 +107,9 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES spot_rtabmap
-#  CATKIN_DEPENDS roscpp rospy rtabmap_ros std_msgs
+ INCLUDE_DIRS include
+ LIBRARIES spot_rtabmap
+ CATKIN_DEPENDS roscpp rospy rtabmap_ros std_msgs sensor_msgs filters pcl_ros pcl_conversions tf2_ros
 #  DEPENDS system_lib
 )
 
@@ -117,14 +120,15 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  include
   ${catkin_INCLUDE_DIRS}
+  ${point_cloud2_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/spot_rtabmap.cpp
-# )
+add_library(${PROJECT_NAME}_filter
+  src/${PROJECT_NAME}/pointcloud_foot_filter.cpp
+)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -147,9 +151,9 @@ include_directories(
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(${PROJECT_NAME}_node
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(${PROJECT_NAME}_filter
+  ${catkin_LIBRARIES}
+)
 
 #############
 ## Install ##
@@ -193,6 +197,9 @@ catkin_install_python(PROGRAMS
 #   # myfile2
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
+install(FILES pointcloud_foot_filter_plugin.xml
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
 
 #############
 ## Testing ##
