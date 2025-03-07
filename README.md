@@ -31,14 +31,6 @@ bash docker/launch.sh
 
 To enter the running container in another terminal, just run the same script again.
 
-To build and push the current essential services, run the commands:
-
-```bash
-docker compose --progress plain build --no-cache spot-tamp-v2 spot-tamp-mac-v2
-docker compose --progress plain build --no-cache spot-tamp-gpu-v2
-docker compose push spot-tamp-v2 spot-tamp-mac-v2 spot-tamp-gpu-v2
-```
-
 ## Working with the Spot ROS 1 Driver
 
 Before launching the Spot driver, navigate to `/docker/spot_skills` in the container, then run:
@@ -59,8 +51,7 @@ bash docker/catkin_rebuild.sh
 ### Docker Demo Setup
 
 All demonstrations should be run from inside the Docker container. Unless otherwise
-stated, you need to move to the top-level `spot_skills` folder, build the workspace, and
-source `devel/setup.bash`. The commands to do this are:
+stated, you need to move to the top-level `spot_skills` folder, build the workspace, and source `devel/setup.bash`. The commands to do this are:
 
 ```bash
 # Assumes you're inside the Docker container
@@ -163,18 +154,6 @@ roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=<SPOT-
 
 ```bash
 rosrun spot_skills spot_moveit_demo.py
-```
-
-### Sample Put-Down and Grasp Poses
-
-In this demo, we visualize numerous randomly sampled put-down and grasping poses in RViz.
-
-**Note**: This demo has been superseded by sampling code from a separate, TAMP-dedicated codebase. When the demo _was_ working, it could be run using the commands:
-
-```bash
-pip install -r src/spot_skills/requirements.txt
-source devel/setup.bash
-roslaunch spot_skills sample_poses.launch
 ```
 
 ### Using `spot_move_base`
