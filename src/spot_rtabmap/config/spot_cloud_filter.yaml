@@ -30,7 +30,7 @@ cloud_filter_chain:
 
       filter/do_clipping: True # Enables clipping points outside of min/max distance
       filter/do_contains_test: True # Enables marking points as inside/outside robot body
-      filter/do_shadow_test: False # Enables ray-tracing to identify points shadowed by robot body
+      filter/do_shadow_test: True # Enables ray-tracing to identify points shadowed by robot body
 
       body_model/robot_description_param: "/robot_description" # ROS parameter defining the body model
       body_model/inflation/scale: 1.1 # Scale applied to the body model
