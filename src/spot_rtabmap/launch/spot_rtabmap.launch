@@ -2,14 +2,16 @@
 
     <!-- Localization mode can be used once a map of >30 locations has been created -->
     <arg name="localization_mode" default="false" />
+    <arg name="start_new_map" default="true" />
+    <arg name="rtabmap_database_path" default="~/.ros/rtabmap.db" />
 
     <arg name="camera0" default="frontleft" />
     <arg name="camera1" default="frontright" />
     <arg name="rtabmap_viz" default="false" />
 
-    <!-- In mapping mode, we have the option to start from a clean database -->
-    <arg name="rtabmap_args" value="--delete_db_on_start" unless="$(arg localization_mode)" />
-    <arg name="rtabmap_args" value="" if="$(arg localization_mode)" />
+    <!-- In mapping mode, we have the option to start from a clean map -->
+    <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg start_new_map)" />
+    <arg name="rtabmap_args" value="" unless="$(arg start_new_map)" />
 
     <!-- Parametrize any external interface topic names -->
     <arg name="pointcloud2_input_topic" default="/spot/lidar/points" />
@@ -42,6 +44,8 @@
         <!-- args="delete_db_on_start" if you want to start a new map -->
         <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen" args="$(arg rtabmap_args)">
             <param name="frame_id" type="string" value="body" />
+
+            <param name="database_path" type="string" value="$(arg rtabmap_database_path)" />
 
             <!-- Use RGB-D instead of just depth images -->
             <param name="subscribe_depth" type="bool" value="false" />
