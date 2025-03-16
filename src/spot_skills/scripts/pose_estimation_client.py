@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import rospy
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
-from transform_utils.kinematics import Pose3D
+from transform_utils.kinematics import DEFAULT_FRAME, Pose3D
 from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
 from transform_utils.ros.services import ServiceCaller
 from transform_utils.transform_manager import TransformManager
@@ -50,12 +50,12 @@ class PoseEstimateClient:
         cameras_list_str = rospy.get_param("/pose_estimation/default_cameras")
         self.camera_names = [c.strip() for c in cameras_list_str.split(",")]
 
-        env_yaml_path = Path(rospy.get_param("~environment_yaml"))
+        env_yaml_path = Path(rospy.get_param("ENV_YAML"))
         assert env_yaml_path.exists(), f"Invalid YAML path was provided: {env_yaml_path}"
         self._objects: list[str] = load_known_object_names_from_yaml(env_yaml_path)
         self._next_obj_idx = 0
 
-        self.global_frame = "vision"  # Relative frame used as the static "world" frame
+        self.global_frame = DEFAULT_FRAME  # Relative frame used as the static "world" frame
 
         self.pose_pub = rospy.Publisher("/estimated_object_poses", PoseEstimate, queue_size=10)
 
@@ -124,9 +124,8 @@ class PoseEstimateClient:
             pose_c_o = pose_from_msg(response.pose)  # Pose of object (o) w.r.t. camera (c)
             pose_w_o = pose_w_c @ pose_c_o
 
-            # Broadcast the estimated object pose w.r.t. to the camera and world as a transform
+            # Broadcast the estimated object pose w.r.t. to the camera for debugging purposes
             TransformManager.broadcast_transform(f"{object_name}_wrt_camera", pose_c_o)
-            TransformManager.broadcast_transform(object_name, pose_w_o)
 
             # Publish the object's estimated pose if the client's mode permits it
             if self.publishing_enabled:
