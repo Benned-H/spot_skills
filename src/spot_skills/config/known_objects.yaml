@@ -1,4 +1,0 @@
-# Names of the objects to look for during pose estimation
-known_objects:
-  - cabinet_open
-  - eraser

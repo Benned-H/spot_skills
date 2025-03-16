@@ -4,11 +4,11 @@
 -->
 <launch>
 
+    <!-- Load TAMP-relevant parameters, including the environment YAML file -->
+    <include file="$(find tmp3)/launch/load_tamp_params.launch"/>
+
     <!-- Which camera(s) should be used for pose estimation? -->
     <param name="/pose_estimation/default_cameras" type="str" value="hand"/>
-
-    <!-- Load the list of known objects into the ROS parameters -->
-    <rosparam command="load" file="$(find spot_skills)/config/known_objects.yaml"/>
 
     <!-- Enable/disable using GUI showing the images used for pose estimation (default: true) -->
     <arg name="debug_images_gui" default="true"/>

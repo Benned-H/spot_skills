@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import rospy
-from spot_skills_py.ros_utilities import get_ros_param
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
 from transform_utils.kinematics import Pose3D
 from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
 from transform_utils.ros.services import ServiceCaller
 from transform_utils.transform_manager import TransformManager
+from transform_utils.world_model.load_from_yaml import load_known_object_names_from_yaml
 
 from pose_estimation_msgs.msg import PoseEstimate
 from pose_estimation_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
@@ -46,10 +47,12 @@ class PoseEstimateClient:
         )
 
         # Configure the pose estimation client based on ROS params
-        cameras_list_str = get_ros_param("/pose_estimation/default_cameras")
+        cameras_list_str = rospy.get_param("/pose_estimation/default_cameras")
         self.camera_names = [c.strip() for c in cameras_list_str.split(",")]
 
-        self._objects: list[str] = get_ros_param("known_objects")
+        env_yaml_path = Path(rospy.get_param("~environment_yaml"))
+        assert env_yaml_path.exists(), f"Invalid YAML path was provided: {env_yaml_path}"
+        self._objects: list[str] = load_known_object_names_from_yaml(env_yaml_path)
         self._next_obj_idx = 0
 
         self.global_frame = "vision"  # Relative frame used as the static "world" frame
