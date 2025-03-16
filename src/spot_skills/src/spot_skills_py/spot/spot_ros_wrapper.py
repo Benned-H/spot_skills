@@ -20,7 +20,6 @@ from spot_skills.msg import RGBDPair
 from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
 from spot_skills_py.joint_trajectory import JointTrajectory
 from spot_skills_py.object_detection_client import DetectObjectClient
-from spot_skills_py.ros_utilities import get_ros_param
 from spot_skills_py.spot.spot_arm_controller import (
     ArmCommandOutcome,
     GripperCommandOutcome,
@@ -38,7 +37,7 @@ class SpotROS1Wrapper:
     def __init__(self) -> None:
         """Initialize the ROS interface by creating an internal SpotManager."""
         spot_rosparams = ["/spot/hostname", "/spot/username", "/spot/password"]
-        spot_rosparam_values = [get_ros_param(par) for par in spot_rosparams]
+        spot_rosparam_values = [rospy.get_param(par) for par in spot_rosparams]
         spot_hostname, spot_username, spot_password = spot_rosparam_values
 
         self._manager = SpotManager(
@@ -121,7 +120,7 @@ class SpotROS1Wrapper:
         """Handle a service request to make Spot sit.
 
         :param request_msg: ROS message requesting that Spot sits
-        :return: Response conveying whether Spot has successfully stood up
+        :return: Response conveying whether Spot has successfully sat down
         """
         del request_msg
         sit_success = self._manager.sit_down(20)
