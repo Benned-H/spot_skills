@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import rospy
-from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
 from transform_utils.kinematics import DEFAULT_FRAME, Pose3D
 from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
 from transform_utils.ros.services import ServiceCaller
@@ -64,25 +63,16 @@ class PoseEstimateClient:
         env_yaml_path = Path(rospy.get_param("ENV_YAML"))
         assert env_yaml_path.exists(), f"Invalid YAML path was provided: {env_yaml_path}"
 
-        # Load the list of known objects from YAML. By default, estimate the pose of all objects
+        # Load the list of known objects from YAML. By default, don't pose-estimate any objects
         self.known_objects = load_known_object_names_from_yaml(env_yaml_path)
-        self.active_objects: list[str] = self.known_objects
+        self.active_objects: list[str] = []
         self._next_obj_idx = 0
 
         self.global_frame = DEFAULT_FRAME  # Relative frame used as the static "world" frame
 
         self.pose_pub = rospy.Publisher("/estimated_object_poses", PoseEstimate, queue_size=10)
-        self.publishing_enabled = True  # Default: Publish any estimated object poses
+
         ### ROS Services provided by the pose estimation client ###
-
-        # Allow other nodes to enable or disable pose estimate publishing
-        self.enable_pub_srv = rospy.Service("~enable_publishing", SetBool, self.enable_publishing)
-        self.disable_pub_srv = rospy.Service(
-            "~disable_publishing",
-            SetBool,
-            self.disable_publishing,
-        )
-
         self.enable_srv = rospy.Service("~enable_object", ObjectNameService, self.enable_object)
         self.disable_srv = rospy.Service("~disable_object", ObjectNameService, self.disable_object)
 
@@ -156,31 +146,10 @@ class PoseEstimateClient:
             # Broadcast the estimated object pose w.r.t. to the camera for debugging purposes
             TransformManager.broadcast_transform(f"{object_name}_wrt_camera", pose_c_o)
 
-            # Publish the object's estimated pose if the client's mode permits it
-            if self.publishing_enabled:
-                pose_stamped_msg: PoseStamped = pose_to_stamped_msg(pose_w_o)
-                msg = PoseEstimate(object_name, pose_stamped_msg, response.confidence)
-                self.pose_pub.publish(msg)
-
-    def enable_publishing(self, req: SetBoolRequest) -> SetBoolResponse:
-        """Enable the publishing of pose estimates.
-
-        :param req: SetBool service request
-        :returns: SetBoolResponse with success status and message
-        """
-        del req
-        self.publishing_enabled = True
-        return SetBoolResponse(success=True, message="Publishing enabled")
-
-    def disable_publishing(self, req: SetBoolRequest) -> SetBoolResponse:
-        """Disable the publishing of pose estimates.
-
-        :param req: SetBool service request
-        :returns: SetBoolResponse with success status and message
-        """
-        del req
-        self.publishing_enabled = False
-        return SetBoolResponse(success=True, message="Publishing disabled")
+            # Publish the object's estimated pose
+            pose_stamped_msg: PoseStamped = pose_to_stamped_msg(pose_w_o)
+            msg = PoseEstimate(object_name, pose_stamped_msg, response.confidence)
+            self.pose_pub.publish(msg)
 
     def enable_object(self, req: ObjectNameServiceRequest) -> ObjectNameServiceResponse:
         """Enable pose estimation for the object requested via ROS service.
@@ -188,6 +157,12 @@ class PoseEstimateClient:
         :param req: Request message specifying which object should have pose estimation enabled
         :return: Response message conveying whether the request was successfully completed
         """
+        if req.object_name not in self.known_objects:
+            return ObjectNameServiceResponse(
+                success=False,
+                message=f"Cannot enable pose estimation for unknown object '{req.object_name}'.",
+            )
+
         if req.object_name not in self.active_objects:
             self.active_objects.append(req.object_name)
 
@@ -203,6 +178,12 @@ class PoseEstimateClient:
         :param req: Request message specifying which object should have pose estimation disabled
         :return: Response message conveying whether the request was successfully completed
         """
+        if req.object_name not in self.known_objects:
+            return ObjectNameServiceResponse(
+                success=False,
+                message=f"Cannot disable pose estimation for unknown object '{req.object_name}'.",
+            )
+
         if req.object_name in self.active_objects:
             self.active_objects.remove(req.object_name)
 
