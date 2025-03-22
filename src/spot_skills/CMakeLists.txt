@@ -59,6 +59,7 @@ add_service_files(
   FILES
   GetRGBDPairs.srv
   SetJointStateMode.srv
+  ObjectNameService.srv
 )
 
 ## Generate actions in the 'action' folder

@@ -12,10 +12,19 @@ from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
 from transform_utils.ros.services import ServiceCaller
 from transform_utils.transform_manager import TransformManager
 from transform_utils.world_model.load_from_yaml import load_known_object_names_from_yaml
+from transform_utils.world_model.pose_estimate import AveragedPoseEstimate3D
+from transform_utils.world_model.world_objects import WorldObjects
 
 from pose_estimation_msgs.msg import PoseEstimate
 from pose_estimation_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
-from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
+from spot_skills.srv import (
+    GetRGBDPairs,
+    GetRGBDPairsRequest,
+    GetRGBDPairsResponse,
+    ObjectNameService,
+    ObjectNameServiceRequest,
+    ObjectNameServiceResponse,
+)
 
 if TYPE_CHECKING:
     from geometry_msgs.msg import PoseStamped
@@ -34,6 +43,8 @@ class PoseEstimateClient:
         :param pose_service_name: Name of the pose estimation ROS service
         :param image_service_name: Name of the ROS service used to capture RGBD image pairs
         """
+        self.state = WorldObjects(pose_estimate_type=AveragedPoseEstimate3D)
+
         self._rgbd_pair_service = ServiceCaller[GetRGBDPairsRequest, GetRGBDPairsResponse](
             image_service_name,
             GetRGBDPairs,
@@ -52,25 +63,40 @@ class PoseEstimateClient:
 
         env_yaml_path = Path(rospy.get_param("ENV_YAML"))
         assert env_yaml_path.exists(), f"Invalid YAML path was provided: {env_yaml_path}"
-        self._objects: list[str] = load_known_object_names_from_yaml(env_yaml_path)
+
+        # Load the list of known objects from YAML. By default, estimate the pose of all objects
+        self.known_objects = load_known_object_names_from_yaml(env_yaml_path)
+        self.active_objects: list[str] = self.known_objects
         self._next_obj_idx = 0
 
         self.global_frame = DEFAULT_FRAME  # Relative frame used as the static "world" frame
 
         self.pose_pub = rospy.Publisher("/estimated_object_poses", PoseEstimate, queue_size=10)
+        self.publishing_enabled = True  # Default: Publish any estimated object poses
+        ### ROS Services provided by the pose estimation client ###
 
         # Allow other nodes to enable or disable pose estimate publishing
-        self.enable_srv = rospy.Service("enable_publishing", SetBool, self.enable_publishing)
-        self.disable_srv = rospy.Service("disable_publishing", SetBool, self.disable_publishing)
-        self.publishing_enabled = True  # Default: Publish any estimated object poses
+        self.enable_pub_srv = rospy.Service("~enable_publishing", SetBool, self.enable_publishing)
+        self.disable_pub_srv = rospy.Service(
+            "~disable_publishing",
+            SetBool,
+            self.disable_publishing,
+        )
 
-    def next_object(self) -> str:
+        self.enable_srv = rospy.Service("~enable_object", ObjectNameService, self.enable_object)
+        self.disable_srv = rospy.Service("~disable_object", ObjectNameService, self.disable_object)
+
+    def next_object(self) -> str | None:
         """Find the next object of interest for pose estimation.
 
-        :return: Name of the next object to be pose-estimated
+        :return: Name of the next object to be pose-estimated (or None if no active objects)
         """
-        object_name = self._objects[self._next_obj_idx]
-        self._next_obj_idx = (self._next_obj_idx + 1) % len(self._objects)
+        if not self.active_objects:
+            return None
+
+        self._next_obj_idx = max(self._next_obj_idx, 0) % len(self.active_objects)
+        object_name = self.active_objects[self._next_obj_idx]
+        self._next_obj_idx += 1
         return object_name
 
     def main_loop(self, freq_hz: float) -> None:
@@ -80,8 +106,11 @@ class PoseEstimateClient:
         """
         rate_hz = rospy.Rate(freq_hz)
         while not rospy.is_shutdown():
-            object_to_find = self.next_object()
-            self.call_pose_estimation(object_to_find)
+            if self.active_objects:
+                object_to_find = self.next_object()
+
+                if object_to_find is not None:
+                    self.call_pose_estimation(object_to_find)
             rate_hz.sleep()
 
     def call_pose_estimation(self, object_name: str) -> None:
@@ -153,13 +182,43 @@ class PoseEstimateClient:
         self.publishing_enabled = False
         return SetBoolResponse(success=True, message="Publishing disabled")
 
+    def enable_object(self, req: ObjectNameServiceRequest) -> ObjectNameServiceResponse:
+        """Enable pose estimation for the object requested via ROS service.
+
+        :param req: Request message specifying which object should have pose estimation enabled
+        :return: Response message conveying whether the request was successfully completed
+        """
+        if req.object_name not in self.active_objects:
+            self.active_objects.append(req.object_name)
+
+        success = req.object_name in self.active_objects
+        resulting_status = "enabled" if success else "disabled"
+        message = f"Pose estimation is now {resulting_status} for object '{req.object_name}'."
+
+        return ObjectNameServiceResponse(success, message)
+
+    def disable_object(self, req: ObjectNameServiceRequest) -> ObjectNameServiceResponse:
+        """Disable pose estimation for the object requested via ROS service.
+
+        :param req: Request message specifying which object should have pose estimation disabled
+        :return: Response message conveying whether the request was successfully completed
+        """
+        if req.object_name in self.active_objects:
+            self.active_objects.remove(req.object_name)
+
+        success = req.object_name not in self.active_objects
+        resulting_status = "disabled" if success else "enabled"
+        message = f"Pose estimation is now {resulting_status} for object '{req.object_name}'."
+
+        return ObjectNameServiceResponse(success, message)
+
 
 def main() -> None:
     """Launch a client for the EstimatePose ROS service."""
     TransformManager.init_node("pose_estimation_client")
 
     client = PoseEstimateClient()
-    client.main_loop(freq_hz=2.0)
+    client.main_loop(freq_hz=5.0)
 
 
 if __name__ == "__main__":
