@@ -5,7 +5,7 @@
     <param name="/pose_estimation/default_cameras" type="str" value="frontleft,frontright"/>
 
     <!-- Launch and authenticate with the Spot ROS driver -->
-    <include file="$(find spot_skills)/launch/authenticate_spot_driver.launch">
+    <include file="$(find spot_skills)/launch/spot_driver_bringup.launch">
         <arg name="load_robot_description" value="true"/>
     </include>
 

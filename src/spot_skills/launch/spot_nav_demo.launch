@@ -1,8 +1,8 @@
 <!-- Launch the nodes needed to demonstrate SLAM + navigation on Spot -->
 <launch>
 
-    <!-- Default: Assume Spot's name is "snouter" - To override, use all-lowercase -->
-    <arg name="spot_name" default="snouter" />
+    <!-- For safety reasons, do not assume which Spot is being used -->
+    <arg name="spot_name" />
 
     <include file="$(find spot_skills)/launch/spot_slam_demo.launch">
         <arg name="spot_name" value="$(arg spot_name)" />

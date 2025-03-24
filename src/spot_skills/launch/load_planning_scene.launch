@@ -4,8 +4,7 @@
     <param name="meshes_yaml" value="$(find spot_skills)/domains/scenes/simple_scene.yaml" />
 
     <!-- Publish a static transform defining the map frame as the origin -->
-    <node pkg="tf2_ros" type="static_transform_publisher" name="map_broadcaster"
-        args="0 0 0 0 0 0 1 map body" />
+    <node pkg="tf2_ros" type="static_transform_publisher" name="map_broadcaster" args="0 0 0 0 0 0 1 map body" />
 
     <!-- Simulation: Use "fake" controller manager -->
     <arg name="moveit_controller_manager" value="fake" />
@@ -35,7 +34,6 @@
     <node name="planning_scene_loader" pkg="spot_skills" type="planning_scene_loader.py" output="screen" />
 
     <!-- Run Rviz using a default config file provided by MoveIt -->
-    <node name="rviz" pkg="rviz" type="rviz"
-        args="-d $(find spot_skills)/rviz/load_planning_scene.rviz" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/load_planning_scene.rviz" />
 
 </launch>
