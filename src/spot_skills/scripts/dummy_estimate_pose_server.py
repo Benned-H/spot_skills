@@ -4,7 +4,7 @@ import rospy
 from transform_utils.kinematics import Pose3D
 from transform_utils.kinematics_ros import pose_to_stamped_msg
 
-from object_detection_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
+from pose_estimation_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
 
 
 class DummyPoseEstimateServer:

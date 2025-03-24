@@ -5,13 +5,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import rospy
-from spot_skills_py.ros_utilities import get_ros_param
 from transform_utils.kinematics import Pose3D
 from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
 from transform_utils.ros.service_caller import ServiceCaller
 from transform_utils.transform_manager import TransformManager
 
-from object_detection_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
+from pose_estimation_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
 from spot_skills.msg import ObjectPose
 from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
 
@@ -45,10 +44,10 @@ class PoseEstimateClient:
         )
 
         # Configure the pose estimation service based on ROS params
-        cameras_list_str = get_ros_param("/pose_estimation/default_cameras")
+        cameras_list_str = rospy.get_param("/pose_estimation/default_cameras")
         self.camera_names: list[str] = [c.strip() for c in cameras_list_str.split(",")]
 
-        self._objects: list[str] = get_ros_param("known_objects")
+        self._objects: list[str] = rospy.get_param("known_objects")
         self._next_obj_idx = 0
 
         self.global_frame = "vision"  # Relative frame used as the static "world" frame
