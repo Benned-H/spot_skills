@@ -9,9 +9,8 @@ from spot_skills_py.spot.spot_ros_wrapper import SpotROS1Wrapper
 def main() -> None:
     """Start ROS service and action servers requiring the lease to control Spot."""
     rospy.init_node("spot_wrapper_node")
-    ros_wrapper = SpotROS1Wrapper()
+    _ = SpotROS1Wrapper()
 
-    rospy.on_shutdown(ros_wrapper.shutdown)
     rospy.spin()
 
 
