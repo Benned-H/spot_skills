@@ -10,17 +10,6 @@ from rospkg import RosPack
 from std_srvs.srv import Trigger, TriggerResponse
 
 
-def get_ros_param(param_name: str) -> Any:
-    """Read and return the requested ROS parameter from the parameter server.
-
-    :param param_name: Name of the ROS parameter
-
-    :returns: Value of the parameter, else asserts if unfound
-    """
-    assert rospy.has_param(param_name), f"Cannot find '{param_name}' rosparam."
-    return rospy.get_param(param_name)
-
-
 def trigger_service(service_name: str) -> bool:
     """Call the named ROS service of the std_srvs/Trigger type.
 
