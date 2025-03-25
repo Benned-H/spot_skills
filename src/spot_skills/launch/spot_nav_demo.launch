@@ -1,4 +1,4 @@
-<!-- Launch the nodes needed to demonstrate SLAM + navigation on Spot -->
+<!-- Launch the nodes needed to demonstrate navigation on Spot -->
 <launch>
 
     <!-- For safety reasons, do not assume which Spot is being used -->
