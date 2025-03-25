@@ -3,15 +3,16 @@
     <arg name="camera0" default="frontleft" />
     <arg name="camera1" default="frontright" />
 
-    <!-- localization -->
+    <!-- Launch RTAB-Map in localization mode -->
     <include file="$(find spot_rtabmap)/launch/spot_rtabmap.launch">
         <arg name="camera0" value="$(arg camera0)" />
         <arg name="camera1" value="$(arg camera1)" />
         <arg name="localization_mode" value="true" />
+        <arg name="start_new_map" value="false" />
+
         <arg name="reload" default="false" />
     </include>
 
-    <!-- move base -->
     <include file="$(find spot_move_base)/launch/move_base.launch"/>
-    
+
 </launch>

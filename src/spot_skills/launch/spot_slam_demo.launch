@@ -10,7 +10,6 @@
             - pointcloud2_filter_chain - Filters Spot's point cloud data to remove noise
             - rgbd_image_publisher - Publishes synchronized RGB-D images from Spot to rtabmap
             - rtabmap - Core node that runs SLAM using rtabmap
-            - rtabmap_viz - TODO: What does this look like, compared to RViz?
         
         - RViz - Launched with a SLAM-specific configuration file
 -->

@@ -8,12 +8,13 @@ from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
-from bosdyn.client import create_standard_sdk
+from bosdyn.client import create_standard_sdk, frame_helpers
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
     RobotCommandClient,
+    block_for_trajectory_cmd,
     blocking_sit,
     blocking_stand,
 )
@@ -21,7 +22,8 @@ from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from rospy import loginfo as ros_loginfo
-from transform_utils.kinematics import Configuration
+from transform_utils.kinematics import Configuration, Pose2D
+from transform_utils.transform_manager import TransformManager
 
 from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
 from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
@@ -86,6 +88,8 @@ class SpotManager:
             LeaseClient.default_service_name,
         )
         self._lease_keeper = None  # Stores a lease and keeps it alive once obtained
+
+        self._mobility_params = RobotCommandBuilder.mobility_params()
 
         assert self.wait_while_estopped()  # Wait until Spot isn't e-stopped
 
@@ -224,23 +228,41 @@ class SpotManager:
             if joint.name in SPOT_SDK_ARM_JOINT_NAMES
         }
 
-    def send_robot_command(self, command: RobotCommand) -> int | None:
+    def send_robot_command(
+        self,
+        command: RobotCommand,
+        duration_s: float | None = None,
+    ) -> int | None:
         """Command Spot to execute the given robot command.
 
         Note: The RobotCommandClient.robot_command() method will automatically update
             all timestamps in the command from local time to robot time.
 
         :param command: Robot command for Spot to execute
+        :param duration_s: Duration (seconds) after which to end the command
         :return: ID (integer) of the issued robot command, or None if manager doesn't control Spot
         """
         if not self.check_control():
             return None
 
         # Issue a command to the robot synchronously (blocks until done sending)
-        command_id: int = self.command_client.robot_command(
-            command,
-            timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
-        )
+        if duration_s is None:
+            command_id: int = self.command_client.robot_command(
+                command,
+                timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+            )
+        else:  # Cut off the command after the given duration
+            if self.time_sync.robot_clock_skew_s is None:
+                self.log_info("Cannot send robot command because the robot is not time-synced.")
+                return None
+
+            robot_end_time_s = time.time() + duration_s + self.time_sync.robot_clock_skew_s
+            command_id: int = self.command_client.robot_command(
+                command,
+                end_time_secs=robot_end_time_s,
+                timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+            )
+
         self.log_info(f"Issued robot command with ID: {command_id}")
 
         return command_id
@@ -364,6 +386,70 @@ class SpotManager:
         self.block_until_arm_arrives(command_id)
         self.log_info("Arm is now stowed.")
         return True
+
+    def navigate_to_base_pose(self, goal_base_pose: Pose2D, timeout_s: float) -> bool:
+        """Send a command to Spot to navigate to the given base pose.
+
+        Note: By default, the command is converted into the "vision" frame.
+
+        :param goal_base_pose: Target base pose for the navigation
+        :param timeout_s: Duration (seconds) after which the command times out
+        :return: True if the navigation command succeeded, else False
+        """
+        if not self.check_control():
+            return False
+
+        vision_frame = frame_helpers.VISION_FRAME_NAME
+
+        target_pose_v_b = TransformManager.convert_to_frame(goal_base_pose, vision_frame)
+        _, _, target_yaw_rad = target_pose_v_b.orientation.to_euler_rpy()
+
+        trajectory_command = RobotCommandBuilder.synchro_se2_trajectory_point_command(
+            goal_x=target_pose_v_b.position.x,
+            goal_y=target_pose_v_b.position.y,
+            goal_heading=target_yaw_rad,
+            frame_name=vision_frame,
+            params=self._mobility_params,
+        )
+
+        command_id = self.send_robot_command(trajectory_command)
+        if command_id is None:
+            self.log_info("Navigation attempt returned None instead of a command ID.")
+            return False
+
+        return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=timeout_s)
+
+    def send_velocity_command(
+        self,
+        linear_x_mps: float,
+        linear_y_mps: float,
+        angular_z_radps: float,
+        duration_s: float,
+    ) -> bool:
+        """Send a velocity command to Spot.
+
+        :param linear_x_mps: Linear velocity in the X direction (m/s)
+        :param linear_y_mps: Linear velocity in the Y direction (m/s)
+        :param angular_z_radps: Angular velocity about the Z axis (rad/s)
+        :param duration_s: Duration (seconds) of the sent command
+        :return: Boolean indicating if the command was successfully sent
+        """
+        if not self.check_control():
+            return False
+
+        velocity_cmd = RobotCommandBuilder.synchro_velocity_command(
+            v_x=linear_x_mps,
+            v_y=linear_y_mps,
+            v_rot=angular_z_radps,
+            params=self._mobility_params,
+        )
+
+        command_id = self.send_robot_command(velocity_cmd, duration_s)
+        if command_id is None:
+            self.log_info("Velocity command returned None instead of a command ID.")
+            return False
+
+        return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=duration_s)
 
     def release_control(self) -> None:
         """Release control of Spot so that other clients can control Spot."""

@@ -59,6 +59,8 @@ add_message_files(
 add_service_files(
   FILES
   GetRGBDPairs.srv
+  NavigateToLandmark.srv
+  NavigateToPose.srv
 )
 
 ## Generate actions in the 'action' folder
