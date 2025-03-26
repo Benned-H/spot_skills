@@ -33,6 +33,13 @@ class JointsPoint:
     velocities_radps: list[float]  # Velocity (rad/s) of each joint at this timestep
     time_from_start_s: float  # Duration (seconds) since the start of the trajectory
 
+    def __post_init__(self) -> None:
+        """Verify that any initialized JointsPoint has equally many positions and velocities."""
+        num_pos = len(self.positions_rad)
+        num_vel = len(self.velocities_radps)
+
+        assert num_pos == num_vel, f"JointsPoint had {num_pos} positions but {num_vel} velocities."
+
     @classmethod
     def from_proto(cls, point_proto: ArmJointTrajectoryPoint) -> JointsPoint:
         """Construct a JointsPoint from an equivalent Protobuf message.
@@ -79,7 +86,7 @@ class JointsPoint:
         """
         positions = [joint_values[dof] for dof in SPOT_SDK_ARM_JOINT_NAMES]
 
-        return cls(positions, [], 0)
+        return cls(positions, [0] * len(positions), 0)
 
 
 @dataclass

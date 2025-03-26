@@ -82,29 +82,11 @@ In this real-world demonstration, Spot will use its arm to follow a 20-second tr
    - _Check_: Are Spot's front lights now flashing rainbow?
 
 3. On your computer, make sure you've followed the **Docker Demo Setup** instructions above.
-   We will need _two_ terminal tabs to be opened into Docker.
 
-4. We need to tell ROS which Spot we're using. Run the following command in the first tab, with `spot_name` substituted for the Spot you're using (e.g., `snouter`):
-
-```bash
-export SPOT_NAME=spot_name
-```
-
-5. We're now ready to run the demo. In the first tab, run the command:
+4. To begin the demo, run the following command, with `NAME_HERE` replaced by the name of the Spot you're using (e.g., `spot_name:=barker`):
 
 ```bash
-roslaunch spot_skills spot_driver_bringup.launch spot_name:=$SPOT_NAME
-```
-
-That command will bring up RViz, which may initially show a bugged-out simulated Spot.
-Wait a bit until you see the Spot sitting as it is in the real world, something like:
-
-![Simulated Spot sitting, as shown in RViz.](images/sitting-spot-rviz.png "Spot Sitting")
-
-6. In the second terminal tab, run the following command (make sure to source `devel/setup.bash` first):
-
-```bash
-rosrun spot_skills arm_long_trajectory_demo.py
+roslaunch spot_skills spot_sdk_demo.launch spot_name:=NAME_HERE
 ```
 
 Spot should power on, stand up, deploy its arm, and begin executing the trajectory.
@@ -117,7 +99,7 @@ Once the trajectory is complete, Spot should stow its arm, sit down, power off, 
 ### Control Spot's Arm using MoveIt
 
 In this demonstration, we use MoveIt to move Spot's arm left-and-right in a repeating path.
-The demo can be run in simulation (default) or on the real robot (work in progress).
+The demo can be run in simulation (default) or on the real robot.
 
 **Simulated Version** - To run this demo in simulation, open a terminal into Docker and follow
 the **Docker Demo Setup** instructions above. Then, run the command:
@@ -126,28 +108,32 @@ the **Docker Demo Setup** instructions above. Then, run the command:
 roslaunch spot_skills moveit_spot_demo.launch
 ```
 
-RViz should open, showing a simulated Spot. A target pose for Spot's
-end-effector should soon be displayed as RGB axes. As this target pose moves
-back-and-forth, MoveIt creates motion plans to the target, which are then used to
-control the simulated Spot's arm. An example screenshot from the demo is shown below.
+RViz should open, showing a simulated Spot, as shown below.
 
 ![Simulated Spot moving its arm to an end-effector target (shown as RGB axes).](images/sim-moveit-spot.png "Spot's Arm Moving to an End-Effector Target")
+
+A target pose for Spot's end-effector should soon be displayed as RGB axes. As this target pose moves
+back-and-forth, MoveIt creates motion plans to the target, which are then used to
+control the simulated Spot's arm.
 
 **Real Robot Version** - To run this demo using a real robot, perform the following steps:
 
 1. Use the tablet to teleoperate Spot to an open area free of obstacles.
    Make sure there's space in front of Spot for Spot's arm to fully extend.
+
 2. Use the tablet to make Spot sit, which may be hidden under the _Stand_ menu. Then,
    release tablet control of Spot by entering the _Power Button_ menu (top of the
    screen), then tapping _Advanced_, and selecting **Release Control**.
+
    - _Check_: Are Spot's front lights now flashing rainbow?
+
 3. On your computer, make sure you've followed the **Docker Demo Setup** instructions above.
    We will need two terminal tabs opened into Docker.
 4. We will need to tell ROS which Spot we're using. Note the name of the Spot robot you're using (e.g., `snouter`).
-5. Now, launch the real-robot demo using the following command, replacing `<SPOT-NAME>` with your Spot's name:
+5. Now, launch the real-robot demo using the following command, replacing `NAME_HERE` with your Spot's name (e.g., `spot_name:=barker`):
 
 ```bash
-roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=<SPOT-NAME>
+roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=NAME_HERE
 ```
 
 6. In the second Docker terminal tab, source `devel/setup.bash`, and then run:
