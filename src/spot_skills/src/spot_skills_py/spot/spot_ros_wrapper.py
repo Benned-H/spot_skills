@@ -24,6 +24,7 @@ from spot_skills_py.spot.spot_arm_controller import (
 )
 from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient
 from spot_skills_py.spot.spot_manager import SpotManager
+from spot_skills_py.spot.spot_navigation import SpotNavigationServer
 
 
 class SpotROS1Wrapper:
@@ -85,6 +86,8 @@ class SpotROS1Wrapper:
         )
         self._gripper_action_server.start()
         rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
+
+        self._navigation_server = SpotNavigationServer(manager=self._manager)
 
     def handle_stand(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to have Spot stand up.
