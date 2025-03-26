@@ -12,12 +12,12 @@ Development Kit License (20191101-BDSDK-SL).
 from __future__ import annotations
 
 import math
-import sys
 import time
 
 import rospy
 from spot_skills_py.joint_trajectory import JointsPoint, JointTrajectory
 from spot_skills_py.spot.spot_arm_controller import SpotArmController
+from spot_skills_py.spot.spot_configuration import SPOT_URDF_ARM_JOINT_NAMES
 from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.time_stamp import TimeStamp
 
@@ -61,6 +61,8 @@ def query_trajectory(t_s: float) -> JointsPoint:
 def main() -> None:
     """Use the Boston Dynamics API to command Spot's arm through a long trajectory."""
     rospy.init_node("arm_long_trajectory_demo")
+
+    rospy.sleep(5)  # Wait for other nodes to finish setup
 
     # Attempt to load Spot's username, password, and IP from ROS parameters
     spot_rosparams = ["/spot/username", "/spot/password", "/spot/hostname"]
@@ -113,7 +115,8 @@ def main() -> None:
     ref_timestamp = TimeStamp.from_time_s(start_time_s)
 
     # Create and send the full trajectory
-    full_trajectory = JointTrajectory(ref_timestamp, full_trajectory_points)
+    joint_names = SPOT_URDF_ARM_JOINT_NAMES
+    full_trajectory = JointTrajectory(ref_timestamp, full_trajectory_points, joint_names)
     arm_controller.unlock_arm()
     arm_controller.command_trajectory(full_trajectory)
 

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import rospy
 from transform_utils.kinematics import Pose3D
 from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
-from transform_utils.ros.service_caller import ServiceCaller
+from transform_utils.ros.services import ServiceCaller
 from transform_utils.transform_manager import TransformManager
 
 from pose_estimation_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse

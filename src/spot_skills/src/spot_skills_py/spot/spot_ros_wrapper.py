@@ -87,7 +87,9 @@ class SpotROS1Wrapper:
         self._gripper_action_server.start()
         rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
 
-        self._navigation_server = SpotNavigationServer(manager=self._manager)
+        navigation_active = rospy.get_param("/spot_navigation/active", default=False)
+        if navigation_active:
+            self._navigation_server = SpotNavigationServer(manager=self._manager)
 
     def handle_stand(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to have Spot stand up.
@@ -263,6 +265,12 @@ class SpotROS1Wrapper:
         result = FollowJointTrajectoryResult()
         result.error_code = -1  # Default error code: INVALID_GOAL
 
+        if self._arm_locked:
+            result.error_string = "Could not follow trajectory because Spot's arm remains locked."
+            self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
+            self._arm_action_server.set_aborted(result)
+            return
+
         has_control = self._manager.check_control()  # Only take control of Spot once necessary
         if not has_control:
             has_control = self._manager.take_control()
@@ -312,9 +320,14 @@ class SpotROS1Wrapper:
         :param goal: Gripper command to be executed
         :param delay_s: Delay (seconds) to wait after command execution has nominally finished
         """
-        goal_position_rad = goal.command.position  # Ignoring goal.command.max_effort
-
         gripper_command_result = GripperCommandResult()
+
+        if self._arm_locked:
+            gripper_command_result.reached_goal = False
+            self._gripper_action_server.set_aborted(gripper_command_result)
+            return
+
+        goal_position_rad = goal.command.position  # Ignoring goal.command.max_effort
 
         has_control = self._manager.check_control()  # Only take control of Spot once necessary
         if not has_control:
