@@ -8,7 +8,7 @@ import rospy
 from actionlib import GoalStatus, SimpleActionClient
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
-from transform_utils.math.distances import absolute_yaw_error_rad, euclidean_distance_m
+from transform_utils.math.distances import absolute_yaw_error_rad, euclidean_distance_2d_m
 from transform_utils.transform_manager import TransformManager
 
 from spot_skills.srv import (
@@ -19,11 +19,12 @@ from spot_skills.srv import (
     NavigateToPoseRequest,
     NavigateToPoseResponse,
 )
-from spot_skills_py.spot.spot_manager import SpotManager
 
 if TYPE_CHECKING:
     from geometry_msgs.msg import PoseStamped
     from transform_utils.kinematics import Pose2D, Pose3D
+
+    from spot_skills_py.spot.spot_manager import SpotManager
 
 
 class SpotNavigationServer:
@@ -71,7 +72,7 @@ class SpotNavigationServer:
             rospy.logfatal(f"Could not look up body pose in frame '{target_pose_2d.ref_frame}'.")
             return False
 
-        distance_2d_m = euclidean_distance_m(target_pose_2d, curr_pose.to_2d())
+        distance_2d_m = euclidean_distance_2d_m(target_pose_2d, curr_pose)
         abs_yaw_error_rad = absolute_yaw_error_rad(target_pose_2d, curr_pose)
 
         return distance_2d_m < self.close_to_goal_m and abs_yaw_error_rad < self.close_to_goal_rad
@@ -108,7 +109,7 @@ class SpotNavigationServer:
         """
         has_control = self._manager.check_control()  # Only take control of Spot once necessary
         if not has_control:
-            has_control = self._manager.check_control()
+            has_control = self._manager.take_control()
 
         if not has_control:
             return False, "Could not obtain control of Spot using the SpotManager."
