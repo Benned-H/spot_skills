@@ -58,8 +58,10 @@ class SpotImageClient:
         self.camera_names = ["frontleft", "frontright", "left", "right", "back", "hand"]
 
         self._cv_bridge = CvBridge()
-        self._debug_rgb_pub = rospy.Publisher("~debug_rgb_image", ImageMsg, queue_size=5)
-        self._debug_depth_pub = rospy.Publisher("~debug_depth_image", ImageMsg, queue_size=5)
+
+        # Map from camera names to camera-specific debug image topics
+        self._debug_rgb_pubs: dict[str, rospy.Publisher] = {}
+        self._debug_depth_pubs: dict[str, rospy.Publisher] = {}
 
     def make_image_request(self, camera: str, image_format: ImageFormat) -> ImageRequest | None:
         """Build an image request Protobuf message to be sent to Spot.
@@ -91,6 +93,38 @@ class SpotImageClient:
             return []
 
         return responses
+
+    def get_images_as_cv2(self, sources: list[str]) -> tuple[dict, dict]:
+        """Request images from the robot, output in OpenCV and Protobuf formats.
+
+        Note: Adapted directly from the open_door.py demo of the Spot SDK.
+
+        :param sources: List of names of image sources
+        :return: Dictionary from image source name to (image proto, CV2 image) pairs
+        """
+        image_responses = self._image_client.get_image_from_sources(sources)
+        image_dict = dict()
+
+        for response in image_responses:
+            # Convert image proto to CV2 image, for displaying later
+            image = np.frombuffer(response.shot.image.data, dtype=np.uint8)
+            image = cv2.imdecode(image, -1)
+            image_dict[response.source.name] = (response, image)  # Image response and CV2 image
+
+        rgb_requests = [
+            build_image_request(source, quality_percent=100, pixel_format=Image.PIXEL_FORMAT_RGB_U8)
+            for source in sources
+        ]
+        rgb_image_responses = self._image_client.get_image(rgb_requests)
+        rgb_image_dict = dict()
+
+        for response in rgb_image_responses:
+            # Convert image proto to CV2 image, for displaying later
+            image = np.frombuffer(response.shot.image.data, dtype=np.uint8)
+            image = cv2.imdecode(image, -1)
+            rgb_image_dict[response.source.name] = (response, image)
+
+        return image_dict, rgb_image_dict
 
     def camera_to_image_source(self, camera_name: str, image_format: ImageFormat) -> str:
         """Convert a camera name and image format into the corresponding image source from Spot.
@@ -161,16 +195,30 @@ class SpotImageClient:
 
         image_msg = self._cv_bridge.cv2_to_imgmsg(image_np, encoding)
         image_msg.header.stamp = capture_time
-        image_msg.header.frame_id = image_capture.frame_name_image_sensor
+        camera_name = image_capture.frame_name_image_sensor
+        image_msg.header.frame_id = camera_name
 
         # Verify expected properties of the constructed Image message
         assert image_msg.height == rows
         assert image_msg.width == cols
 
         if pixel_format == Image.PIXEL_FORMAT_RGB_U8:
-            self._debug_rgb_pub.publish(image_msg)
+            if camera_name not in self._debug_rgb_pubs:
+                self._debug_rgb_pubs[camera_name] = rospy.Publisher(
+                    f"~{camera_name}/debug_rgb_image",
+                    ImageMsg,
+                    queue_size=5,
+                )
+            self._debug_rgb_pubs[camera_name].publish(image_msg)
+
         elif pixel_format == Image.PIXEL_FORMAT_DEPTH_U16:
-            self._debug_depth_pub.publish(image_msg)
+            if camera_name not in self._debug_depth_pubs:
+                self._debug_depth_pubs[camera_name] = rospy.Publisher(
+                    f"~{camera_name}/debug_depth_image",
+                    ImageMsg,
+                    queue_size=5,
+                )
+            self._debug_depth_pubs[camera_name].publish(image_msg)
 
         return image_msg
 

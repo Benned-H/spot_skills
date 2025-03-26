@@ -93,7 +93,7 @@ export SPOT_NAME=spot_name
 5. We're now ready to run the demo. In the first tab, run the command:
 
 ```bash
-roslaunch spot_skills authenticate_spot_driver.launch spot_name:=$SPOT_NAME
+roslaunch spot_skills spot_driver_bringup.launch spot_name:=$SPOT_NAME
 ```
 
 That command will bring up RViz, which may initially show a bugged-out simulated Spot.
@@ -186,3 +186,42 @@ catkin build rtabmap_ros -DRTABMAP_SYNC_MULTI_RGBD=ON
 ```
 
 You can change the minimum/maximum height of the point cloud by editing `config/spot_cloud_filter.yaml`.
+
+## Real-Robot Experiments
+
+This section of the README describes the process for running physical experiments with Spot. Note that
+the TAMP codebase (`TMP3`) is required to generate and execute TAMP plans involving multiple skills.
+
+### Phase 1 - Mapping
+
+Before any real-world experiment, we use Spot to collect a map of the environment, consisting of a 3D pointcloud
+and the poses of any objects that will be manipulated during the experiment.
+
+To collect a map of the environment, follow these steps:
+
+1. Use the tablet to undock Spot and navigate to an area of interest for the experiment. You _do not_ need to release tablet control of Spot.
+
+   - Leave Spot standing, controlled by the tablet, when progressing to the next step.
+
+2. Open a window into the Spot Skills and Pose Dockers using the command:
+
+   ```bash
+   bash docker/tmux_launch.sh
+   ```
+
+3. Launch the nodes used to map the environment using the following commands.
+
+   i. In the left window, in the `spot_skills` Docker, run:
+
+   ```bash
+   roslaunch tmp3 map_environment.launch spot_name:=NAME
+   ```
+
+   - You'll need to modify the command by specifying the name of the Spot you're using (e.g., `spot_name:=prowler`).
+   - To change the output path of the RTAB-Map database, you can specify: `rtabmap_database_path:=PATH`
+
+   ii. In the right window, in the `pose` Docker, run:
+
+   ```bash
+   sh /docker/pose/run_service.sh
+   ```
