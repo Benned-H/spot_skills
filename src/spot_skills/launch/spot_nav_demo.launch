@@ -1,14 +1,28 @@
-<!-- Launch the nodes needed to demonstrate navigation on Spot -->
+<!-- Launch all nodes needed to demonstrate the navigation system on Spot -->
 <launch>
 
     <!-- For safety reasons, do not assume which Spot is being used -->
     <arg name="spot_name" />
 
-    <include file="$(find spot_skills)/launch/spot_slam_demo.launch">
-        <arg name="spot_name" value="$(arg spot_name)" />
+    <!-- We can only run the navigation system on the real robot -->
+    <arg name="real_robot" value="true" />
+
+    <!-- Launch the navigation system using its bringup file -->
+    <include file="$(find spot_skills)/launch/spot_nav_bringup.launch" />
+
+    <!-- Default: Start the robot in localization mode and load in an existing map -->
+    <arg name="localization_mode" default="true" />
+    <arg name="start_new_map" default="false" />
+
+    <!-- Launch the SLAM system using its main launch file -->
+    <include file="$(find spot_rtabmap)/launch/spot_rtabmap.launch">
+        <arg name="localization_mode" value="$(arg localization_mode)" />
+        <arg name="start_new_map" value="$(arg start_new_map)" />
     </include>
 
-    <!-- Launch Spot's navigation stack from spot_move_base -->
-    <include file="$(find spot_move_base)/launch/move_base.launch"/>
+    <!-- Launch all nodes to control Spot using MoveIt (this loads the robot description) -->
+    <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true" />
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" />
 
 </launch>

@@ -160,29 +160,8 @@ rosrun spot_skills spot_moveit_demo.py
 
 The Docker container will have handled the installation of any additional dependencies.
 
-To launch `spot_move_base` and `rtabmap`, run the command:
+To demonstrate Spot's navigation system, run the following command, with the name of the Spot you're using filled in:
 
 ```bash
-roslaunch spot_move_base spot_navigation.launch
+roslaunch spot_skills spot_nav_demo.launch spot_name:=NAME
 ```
-
-You can adjust the local planning in the following ways:
-
-- `move_base` for global and local planning - Comment out the line saying `<remap from="cmd_vel" to="/null/cmd_vel" />` in `spot_move_base/launch/move_base.launch`. This sends velocities directly to Spot, which may produce jerky motion depending on the latency.
-- `move_base` for global planning and custom Spot local controller - Start `spot_navigation.launch`, then run the following command:
-
-```bash
-rosrun spot_move_base send_traj.py
-```
-
-This node sends every 60th point in the global planner trajectory to `/spot/go_to_pose`. This can be smoother than the `move_base` method when using WiFi.
-
-### Using `spot_rtabmap`
-
-We need to compile `rtabmap` using a special flag to support multiple cameras. Therefore, we have included `rtabmap_ros` as a submodule of `spot_skills`. The Docker's entrypoint script should have already installed the dependencies of `rtabmap_ros`, so all we need to do is `catkin build` with a special flag ([source](https://github.com/introlab/rtabmap_ros/issues/453)):
-
-```bash
-catkin build rtabmap_ros -DRTABMAP_SYNC_MULTI_RGBD=ON
-```
-
-You can change the minimum/maximum height of the point cloud by editing `config/spot_cloud_filter.yaml`.
