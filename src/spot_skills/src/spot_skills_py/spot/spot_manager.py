@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import time
 
+import numpy as np
+from bosdyn.api.basic_command_pb2 import StandCommand
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.robot_command_pb2 import RobotCommand
 from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client import create_standard_sdk, frame_helpers
+from bosdyn.client.door import DoorClient
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
+from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
     RobotCommandClient,
@@ -21,6 +25,7 @@ from bosdyn.client.robot_command import (
 from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_command
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
+from bosdyn.geometry import EulerZXY
 from rospy import loginfo as ros_loginfo
 from transform_utils.kinematics import Configuration, Pose2D
 from transform_utils.transform_manager import TransformManager
@@ -82,6 +87,10 @@ class SpotManager:
 
         # Define an image client to interface with Spot's cameras
         self.image_client = SpotImageClient(self._robot)
+
+        # Define clients used to control Spot to open doors
+        self.manip_client = self._robot.ensure_client(ManipulationApiClient.default_service_name)
+        self.door_client = self._robot.ensure_client(DoorClient.default_service_name)
 
         # Define a client to later obtain control of Spot (i.e., Spot's "lease")
         self._lease_client: LeaseClient = self._robot.ensure_client(
@@ -300,6 +309,37 @@ class SpotManager:
 
         blocking_sit(self.command_client, timeout_sec=timeout_s)
         self.log_info("Robot sitting.")
+        return True
+
+    def pitch_up(self, timeout_s: float) -> bool:
+        """Pitch the robot body up to allow looking upwards with the body cameras.
+
+        :param timeout_s: Timeout (seconds) for the pitch up command
+        :return: True if the body was successfully pitched, else False
+        """
+        if not self.check_control():
+            return False
+
+        body_euler_zxy = EulerZXY(0.0, 0.0, -np.pi / 6.0)
+        pitch_command = RobotCommandBuilder.synchro_stand_command(footprint_R_body=body_euler_zxy)
+        command_id = self.send_robot_command(pitch_command)
+
+        if command_id is None:
+            self.log_info("Could not pitch Spot's body.")
+            return False
+
+        end_time = time.time() + timeout_s
+        while time.time() < end_time:
+            command_feedback = self.command_client.robot_command_feedback(command_id)
+            synchronized_feedback = command_feedback.feedback.synchronized_feedback
+            status = synchronized_feedback.mobility_command_feedback.stand_feedback.status
+
+            if status == StandCommand.Feedback.STATUS_IS_STANDING:
+                self.log_info("Robot pitched.")
+                return True
+
+            time.sleep(0.25)
+
         return True
 
     def block_until_arm_arrives(self, command_id: int) -> None:
