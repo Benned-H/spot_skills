@@ -12,11 +12,14 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
+from ros_numpy import msgify
+from sensor_msgs.msg import Image as ImageMsg
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from spot_skills.msg import RGBDPair
 from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
 from spot_skills_py.joint_trajectory import JointTrajectory
+from spot_skills_py.perception.object_detection_client import DetectObjectClient
 from spot_skills_py.spot.spot_arm_controller import (
     ArmCommandOutcome,
     GripperCommandOutcome,
@@ -25,6 +28,7 @@ from spot_skills_py.spot.spot_arm_controller import (
 from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient
 from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.spot.spot_navigation import SpotNavigationServer
+from spot_skills_py.spot.spot_open_door import SpotDoorOpener
 
 
 class SpotROS1Wrapper:
@@ -47,6 +51,8 @@ class SpotROS1Wrapper:
         self._arm_controller = SpotArmController(self._manager, max_segment_len)
         self._arm_locked = True  # Begin without ROS control of Spot's arm
 
+        self._door_opener = SpotDoorOpener(self._manager)
+
         # Only take immediate control of Spot if requested via rosparam
         immediate_control: bool = rospy.get_param("/spot/immediate_control", default=False)
 
@@ -59,6 +65,7 @@ class SpotROS1Wrapper:
         self._shutdown_service = rospy.Service("spot/shutdown", Trigger, self.handle_shutdown)
         self._unlock_arm_service = rospy.Service("spot/unlock_arm", Trigger, self.handle_unlock_arm)
         self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
+        self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
 
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
@@ -86,6 +93,9 @@ class SpotROS1Wrapper:
         )
         self._gripper_action_server.start()
         rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
+
+        # Create a client to request object detections from the torch-enabled Docker
+        self.detect_object_client = DetectObjectClient(["door handle"])
 
         navigation_active = rospy.get_param("/spot_navigation/active", default=False)
         if navigation_active:
@@ -235,7 +245,46 @@ class SpotROS1Wrapper:
 
         return response_msg
 
-    def arm_action_callback(self, goal: FollowJointTrajectoryGoal) -> None:
+    def handle_open_door(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to open a door in front of Spot.
+
+        :param _: ROS message representing a request to open a door (unused)
+        :return: Response conveying whether Spot was able to open the door
+        """
+        if self._arm_locked:
+            message = "Could not open door because Spot's arm remains locked."
+            return TriggerResponse(success=False, message=message)
+
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
+
+        if not has_control:
+            message = "Could not open door because SpotManager could not take control of Spot."
+            return TriggerResponse(success=False, message=message)
+
+        # Call the operations needed for door-opening, step-by-step
+        side_by_side_image = self._door_opener.capture_side_by_side_image()
+        side_by_side_msg = msgify(ImageMsg, side_by_side_image, encoding="rgb8")
+
+        response_msg = self.detect_object_client.call_on_image(side_by_side_msg)
+        if response_msg is None:
+            message = "Cannot open door because object detection returned None."
+            return TriggerResponse(success=False, message=message)
+        rospy.loginfo("Received response for the door handle photo.")
+
+        pixel_point_msg = response_msg.pixels[0]
+        handle_xy = (pixel_point_msg.x, pixel_point_msg.y)
+        self._door_opener.set_handle_xy(handle_xy)
+        rospy.loginfo("Successfully saved door handle pixel in SpotDoorOpener.")
+
+        door_opened = self._door_opener.open_door(open_door_timeout_s=120)
+
+        message = "Spot opened the door." if door_opened else "Could not open the door."
+
+        return TriggerResponse(door_opened, message)
+
+    def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 1.0) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
 
         If Spot's arm is unlocked, trajectories sent to this server will be executed.
@@ -243,6 +292,7 @@ class SpotROS1Wrapper:
         Reference: https://tinyurl.com/FollowJointTrajectory
 
         :param goal: Joint trajectory to be followed
+        :param delay_s: Delay (seconds) to wait after any successful command execution
         """
         # Extract all fields of the received action goal message
         trajectory = JointTrajectory.from_ros_msg(goal.trajectory)
@@ -288,6 +338,8 @@ class SpotROS1Wrapper:
 
         # Update the ROS action server based on the outcome of the trajectory
         if outcome == ArmCommandOutcome.SUCCESS:
+            rospy.sleep(delay_s)  # Delay after the end of any successful trajectory
+
             result.error_code = int(outcome)
             result.error_string = "Success!"
             self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
