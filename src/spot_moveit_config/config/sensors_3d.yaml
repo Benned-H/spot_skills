@@ -1,6 +1,6 @@
 sensors:
   - sensor_plugin: occupancy_map_monitor/PointCloudOctomapUpdater
-    point_cloud_topic: /spot/lidar/filtered_points
+    point_cloud_topic: /rtabmap/octomap_occupied_space
     max_range: 5.0 # MoveIt won't use points further than this (m)
     point_subsample: 1 # Use one of every N points
     padding_offset: 0.03 # Absolute padding (m) around scaled collision shapes
