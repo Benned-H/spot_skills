@@ -2,12 +2,17 @@
 <launch>
 
     <!-- Launch all nodes to control Spot, simulated or real, using MoveIt
+
+        Required arguments:
+            spot_name - For example, "snouter" or "tusker"
     
         Optional arguments that can be modified and forwarded to the Spot-MoveIt bringup:
             real_robot (Default: false)
-            spot_name (Default: snouter)
     -->
+    <arg name="spot_name" />
     <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true" />
+
+    <arg name="/spot/immediate_control" value="true" />
 
     <!-- Run Rviz using a config file designed for this demo -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" />

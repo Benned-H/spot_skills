@@ -2,8 +2,7 @@
 
 WRAPPER_DIR="/docker/spot_skills/src/spot_ros"
 SKILLS_DIR="/docker/spot_skills"
-REQUIREMENTS_TXT="/docker/spot_skills/src/spot_skills/requirements.txt"
-PACKAGE_PATH="/docker/spot_skills/src/tmp3"
+PIP_INSTALL_SH="/docker/spot_skills/docker/pip_install.sh"
 
 # Check if a directory exists, and if not, warn the user and exit
 check_directory() {
@@ -42,41 +41,15 @@ install_ros_dependencies() {
     fi
 }
 
-# Install the Python requirements in the specified requirements.txt file
-install_requirements() {
-    local filepath="$1"
-
-    if [[ -f "$filepath" ]]; then
-        echo "$filepath found. Installing packages..."
-        pip install --upgrade -r "$filepath"
-    else
-        echo "Error: $filepath not found."
-    fi
-}
-
-# Install the dependencies of the specified Python package
-install_package_deps() {
-    local package_path="$1"
-
-    if [[ -f "$package_path/pyproject.toml" ]]; then
-        pip install "$package_path"
-    else
-        echo "Error: $package_path not found."
-    fi
-}
-
-
 # Check required directories
 check_directory "$WRAPPER_DIR"
 check_directory "$SKILLS_DIR"
-check_directory "$PACKAGE_PATH"
 
 # Execute installation functions
 apt-get update >/dev/null 2>&1
 install_spot_wrapper
 install_ros_dependencies
-install_requirements "$REQUIREMENTS_TXT"
-install_package_deps "$PACKAGE_PATH"
+bash "$PIP_INSTALL_SH"
 
 # Run the main process specified as CMD in the Dockerfile
 exec "$@"

@@ -1,0 +1,16 @@
+<!-- Launch nodes to demonstrate the Spot SDK controlling Spot's arm -->
+<launch>
+
+    <!-- For safety reasons, do not assume which Spot is being used -->
+    <arg name="spot_name"/>
+
+    <!-- Launch the Spot ROS 1 driver and load a model of Spot -->
+    <include file="$(find spot_skills)/launch/spot_driver_bringup.launch">
+        <arg name="spot_name" value="$(arg spot_name)"/>
+        <arg name="load_robot_description" value="true"/>
+    </include>
+
+    <!-- Launch a node to control Spot's arm through a trajectory -->
+    <node name="arm_long_trajectory_demo" pkg="spot_skills" type="arm_long_trajectory_demo.py" required="true" output="screen"/>
+
+</launch>

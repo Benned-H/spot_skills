@@ -12,13 +12,12 @@ Development Kit License (20191101-BDSDK-SL).
 from __future__ import annotations
 
 import math
-import sys
 import time
 
 import rospy
 from spot_skills_py.joint_trajectory import JointsPoint, JointTrajectory
-from spot_skills_py.ros_utilities import get_ros_param
 from spot_skills_py.spot.spot_arm_controller import SpotArmController
+from spot_skills_py.spot.spot_configuration import SPOT_URDF_ARM_JOINT_NAMES
 from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.time_stamp import TimeStamp
 
@@ -63,9 +62,11 @@ def main() -> None:
     """Use the Boston Dynamics API to command Spot's arm through a long trajectory."""
     rospy.init_node("arm_long_trajectory_demo")
 
+    rospy.sleep(5)  # Wait for other nodes to finish setup
+
     # Attempt to load Spot's username, password, and IP from ROS parameters
     spot_rosparams = ["/spot/username", "/spot/password", "/spot/hostname"]
-    spot_rosparam_values = [get_ros_param(param) for param in spot_rosparams]
+    spot_rosparam_values = [rospy.get_param(param) for param in spot_rosparams]
     spot_username, spot_password, spot_hostname = spot_rosparam_values
 
     # Create a manager for Spot and a controller for Spot's arm
@@ -114,17 +115,16 @@ def main() -> None:
     ref_timestamp = TimeStamp.from_time_s(start_time_s)
 
     # Create and send the full trajectory
-    full_trajectory = JointTrajectory(ref_timestamp, full_trajectory_points)
+    joint_names = SPOT_URDF_ARM_JOINT_NAMES
+    full_trajectory = JointTrajectory(ref_timestamp, full_trajectory_points, joint_names)
     arm_controller.unlock_arm()
     arm_controller.command_trajectory(full_trajectory)
 
-    # We're done executing our trajectory, so we can shut down Spot
-    spot_manager.shutdown()
+    spot_manager.shutdown()  # We're done executing our trajectory, so we can shut down Spot
 
     rospy.loginfo("Finished running the long joint trajectory.")
     rospy.spin()  # Keep the node alive for debugging purposes
 
 
 if __name__ == "__main__":
-    if not main():
-        sys.exit(1)
+    main()

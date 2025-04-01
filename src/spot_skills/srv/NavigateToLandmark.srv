@@ -1,0 +1,5 @@
+# Command the robot to navigate to a named landmark
+string landmark_name
+---
+bool success
+string message

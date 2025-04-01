@@ -5,18 +5,26 @@ build-backend = "hatchling.build"
 [project]
 name = "spot_skills"
 version = "0.0.1"
-dependencies = []
 authors = [{ name = "Benned Hedegaard", email = "bhedegaa@cs.brown.edu" }]
 description = "Motion-planning-based skills for Boston Dynamics' Spot robot."
+classifiers = ["Typing :: Typed"]
+
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">= 3.8"
 
+dependencies = ["numpy", "trimesh", "scipy", "pycollada", "pyglet<2", "scipy>=1.5", "rosnumpy"]
+
 [project.optional-dependencies]
 dev = ["ruff", "mypy"]
 
+
 [tool.hatch.build.targets.wheel]
-packages = ["src/spot_skills"] # Include packages at these paths
+packages = [
+    "src/spot_skills/src/spot_skills_py",
+    "src/tmp3/src/tmp3",
+    "src/spot_skills/src/transform_utils"
+] # Include packages at these paths
 
 
 [tool.ruff]

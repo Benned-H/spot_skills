@@ -82,29 +82,11 @@ In this real-world demonstration, Spot will use its arm to follow a 20-second tr
    - _Check_: Are Spot's front lights now flashing rainbow?
 
 3. On your computer, make sure you've followed the **Docker Demo Setup** instructions above.
-   We will need _two_ terminal tabs to be opened into Docker.
 
-4. We need to tell ROS which Spot we're using. Run the following command in the first tab, with `spot_name` substituted for the Spot you're using (e.g., `snouter`):
-
-```bash
-export SPOT_NAME=spot_name
-```
-
-5. We're now ready to run the demo. In the first tab, run the command:
+4. To begin the demo, run the following command, with `NAME_HERE` replaced by the name of the Spot you're using (e.g., `spot_name:=barker`):
 
 ```bash
-roslaunch spot_skills authenticate_spot_driver.launch spot_name:=$SPOT_NAME
-```
-
-That command will bring up RViz, which may initially show a bugged-out simulated Spot.
-Wait a bit until you see the Spot sitting as it is in the real world, something like:
-
-![Simulated Spot sitting, as shown in RViz.](images/sitting-spot-rviz.png "Spot Sitting")
-
-6. In the second terminal tab, run the following command (make sure to source `devel/setup.bash` first):
-
-```bash
-rosrun spot_skills arm_long_trajectory_demo.py
+roslaunch spot_skills spot_sdk_demo.launch spot_name:=NAME_HERE
 ```
 
 Spot should power on, stand up, deploy its arm, and begin executing the trajectory.
@@ -117,7 +99,7 @@ Once the trajectory is complete, Spot should stow its arm, sit down, power off, 
 ### Control Spot's Arm using MoveIt
 
 In this demonstration, we use MoveIt to move Spot's arm left-and-right in a repeating path.
-The demo can be run in simulation (default) or on the real robot (work in progress).
+The demo can be run in simulation (default) or on the real robot.
 
 **Simulated Version** - To run this demo in simulation, open a terminal into Docker and follow
 the **Docker Demo Setup** instructions above. Then, run the command:
@@ -126,28 +108,32 @@ the **Docker Demo Setup** instructions above. Then, run the command:
 roslaunch spot_skills moveit_spot_demo.launch
 ```
 
-RViz should open, showing a simulated Spot. A target pose for Spot's
-end-effector should soon be displayed as RGB axes. As this target pose moves
-back-and-forth, MoveIt creates motion plans to the target, which are then used to
-control the simulated Spot's arm. An example screenshot from the demo is shown below.
+RViz should open, showing a simulated Spot, as shown below.
 
 ![Simulated Spot moving its arm to an end-effector target (shown as RGB axes).](images/sim-moveit-spot.png "Spot's Arm Moving to an End-Effector Target")
+
+A target pose for Spot's end-effector should soon be displayed as RGB axes. As this target pose moves
+back-and-forth, MoveIt creates motion plans to the target, which are then used to
+control the simulated Spot's arm.
 
 **Real Robot Version** - To run this demo using a real robot, perform the following steps:
 
 1. Use the tablet to teleoperate Spot to an open area free of obstacles.
    Make sure there's space in front of Spot for Spot's arm to fully extend.
+
 2. Use the tablet to make Spot sit, which may be hidden under the _Stand_ menu. Then,
    release tablet control of Spot by entering the _Power Button_ menu (top of the
    screen), then tapping _Advanced_, and selecting **Release Control**.
+
    - _Check_: Are Spot's front lights now flashing rainbow?
+
 3. On your computer, make sure you've followed the **Docker Demo Setup** instructions above.
    We will need two terminal tabs opened into Docker.
 4. We will need to tell ROS which Spot we're using. Note the name of the Spot robot you're using (e.g., `snouter`).
-5. Now, launch the real-robot demo using the following command, replacing `<SPOT-NAME>` with your Spot's name:
+5. Now, launch the real-robot demo using the following command, replacing `NAME_HERE` with your Spot's name (e.g., `spot_name:=barker`):
 
 ```bash
-roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=<SPOT-NAME>
+roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=NAME_HERE
 ```
 
 6. In the second Docker terminal tab, source `devel/setup.bash`, and then run:
@@ -156,33 +142,61 @@ roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=<SPOT-
 rosrun spot_skills spot_moveit_demo.py
 ```
 
-### Using `spot_move_base`
+## Real-Robot Experiments
+
+This section of the README describes the process for running physical experiments with Spot. Note that
+the TAMP codebase (`TMP3`) is required to generate and execute TAMP plans involving multiple skills.
+
+### Phase 1 - Mapping
+
+Before any real-world experiment, we use Spot to collect a map of the environment, consisting of a 3D pointcloud
+and the poses of any objects that will be manipulated during the experiment.
+
+We begin by collecting a map of the environment using the following steps:
+
+1. Use the tablet to undock Spot and navigate to an area of interest for the experiment. You _do not_ need to release tablet control of Spot.
+
+   - Leave Spot standing, controlled by the tablet, during the next step.
+
+2. Enter the `spot_skills` Docker using the command:
+
+   ```bash
+   bash docker/launch.sh
+   ```
+
+3. Once you're in the Docker, run the following commands to verify your workspace is set up:
+
+```bash
+catkin build
+source devel/setup.bash
+```
+
+4. Launch the nodes used to map the environment a command of the form:
+
+```bash
+roslaunch spot_skills spot_slam_demo.launch spot_name:=NAME_HERE
+```
+
+- Specify the name of the Spot you're using (e.g., `spot_name:=breaker`).
+- You can modify the output path of the pointcloud map by adding the argument:
+
+```
+... rtabmap_database_path:=~/path/goes/here.db
+```
+
+You should then see RViz open with a visualization of Spot and the pointcloud map being built.
+Use the tablet to navigate Spot around to collect a map of the relevant area. When you are done,
+press `Crtl-C` in the terminal used to launch SLAM. RTAB-Map (the package we're
+using for SLAM) will save the map to file before it exits. The default output path is
+`~/.ros/rtabmap.db` and **any output path will be overwritten if you use it multiple times**. To
+prevent this, save the file elsewhere or change its name (and/or the argument-specified name).
+
+<!-- ### Using `spot_move_base`
 
 The Docker container will have handled the installation of any additional dependencies.
 
-To launch `spot_move_base` and `rtabmap`, run the command:
+To demonstrate Spot's navigation system, run the following command, with the name of the Spot you're using filled in:
 
 ```bash
-roslaunch spot_move_base spot_navigation.launch
-```
-
-You can adjust the local planning in the following ways:
-
-- `move_base` for global and local planning - Comment out the line saying `<remap from="cmd_vel" to="/null/cmd_vel" />` in `spot_move_base/launch/move_base.launch`. This sends velocities directly to Spot, which may produce jerky motion depending on the latency.
-- `move_base` for global planning and custom Spot local controller - Start `spot_navigation.launch`, then run the following command:
-
-```bash
-rosrun spot_move_base send_traj.py
-```
-
-This node sends every 60th point in the global planner trajectory to `/spot/go_to_pose`. This can be smoother than the `move_base` method when using WiFi.
-
-### Using `spot_rtabmap`
-
-We need to compile `rtabmap` using a special flag to support multiple cameras. Therefore, we have included `rtabmap_ros` as a submodule of `spot_skills`. The Docker's entrypoint script should have already installed the dependencies of `rtabmap_ros`, so all we need to do is `catkin build` with a special flag ([source](https://github.com/introlab/rtabmap_ros/issues/453)):
-
-```bash
-catkin build rtabmap_ros -DRTABMAP_SYNC_MULTI_RGBD=ON
-```
-
-You can change the minimum/maximum height of the point cloud by editing `config/spot_cloud_filter.yaml`.
+roslaunch spot_skills spot_nav_demo.launch spot_name:=NAME
+``` -->

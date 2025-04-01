@@ -51,7 +51,6 @@ catkin_python_setup()
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
-  ObjectPose.msg
   RGBDPair.msg
 )
 
@@ -59,6 +58,9 @@ add_message_files(
 add_service_files(
   FILES
   GetRGBDPairs.srv
+  NavigateToLandmark.srv
+  NavigateToPose.srv
+  ObjectNameService.srv
 )
 
 ## Generate actions in the 'action' folder
