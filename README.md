@@ -142,7 +142,56 @@ roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=NAME_H
 rosrun spot_skills spot_moveit_demo.py
 ```
 
-### Using `spot_move_base`
+## Real-Robot Experiments
+
+This section of the README describes the process for running physical experiments with Spot. Note that
+the TAMP codebase (`TMP3`) is required to generate and execute TAMP plans involving multiple skills.
+
+### Phase 1 - Mapping
+
+Before any real-world experiment, we use Spot to collect a map of the environment, consisting of a 3D pointcloud
+and the poses of any objects that will be manipulated during the experiment.
+
+We begin by collecting a map of the environment using the following steps:
+
+1. Use the tablet to undock Spot and navigate to an area of interest for the experiment. You _do not_ need to release tablet control of Spot.
+
+   - Leave Spot standing, controlled by the tablet, during the next step.
+
+2. Enter the `spot_skills` Docker using the command:
+
+   ```bash
+   bash docker/launch.sh
+   ```
+
+3. Once you're in the Docker, run the following commands to verify your workspace is set up:
+
+```bash
+catkin build
+source devel/setup.bash
+```
+
+4. Launch the nodes used to map the environment a command of the form:
+
+```bash
+roslaunch spot_skills spot_slam_demo.launch spot_name:=NAME_HERE
+```
+
+- Specify the name of the Spot you're using (e.g., `spot_name:=breaker`).
+- You can modify the output path of the pointcloud map by adding the argument:
+
+```
+... rtabmap_database_path:=~/path/goes/here.db
+```
+
+You should then see RViz open with a visualization of Spot and the pointcloud map being built.
+Use the tablet to navigate Spot around to collect a map of the relevant area. When you are done,
+press `Crtl-C` in the terminal used to launch SLAM. RTAB-Map (the package we're
+using for SLAM) will save the map to file before it exits. The default output path is
+`~/.ros/rtabmap.db` and **any output path will be overwritten if you use it multiple times**. To
+prevent this, save the file elsewhere or change its name (and/or the argument-specified name).
+
+<!-- ### Using `spot_move_base`
 
 The Docker container will have handled the installation of any additional dependencies.
 
@@ -150,4 +199,4 @@ To demonstrate Spot's navigation system, run the following command, with the nam
 
 ```bash
 roslaunch spot_skills spot_nav_demo.launch spot_name:=NAME
-```
+``` -->
