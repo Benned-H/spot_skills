@@ -4,7 +4,7 @@
     <!-- Indicate that the navigation system is active -->
     <param name="/spot_navigation/active" value="true" />
 
-    <!-- Path specifying the 2D poses of named landmarks -->
+    <!-- YAML file specifying the 2D poses of named landmarks -->
     <param name="/spot_navigation/landmarks_yaml_path" value="$(find spot_skills)/config/known_landmarks.yaml" />
 
     <!-- Distance (meters) within which Spot is considered "close" to its goal -->
