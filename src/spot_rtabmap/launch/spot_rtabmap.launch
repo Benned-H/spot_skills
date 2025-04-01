@@ -7,7 +7,7 @@
 
     <arg name="camera0" default="frontleft" />
     <arg name="camera1" default="frontright" />
-    <arg name="rtabmap_viz" default="true" />
+    <arg name="rtabmap_viz" default="false" />
 
     <!-- In mapping mode, we have the option to start from a clean map -->
     <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg start_new_map)" />
