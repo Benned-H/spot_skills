@@ -3,7 +3,7 @@
     <!-- Localization mode can be used once a map of >30 locations has been created -->
     <arg name="localization_mode" default="false" />
     <arg name="start_new_map" default="true" />
-    <arg name="rtabmap_database_path" default="/docker/spot_skills/maps/_rtabmap.db" />
+    <arg name="rtabmap_database_path" default="~/.ros/rtabmap.db" />
 
     <arg name="camera0" default="frontleft" />
     <arg name="camera1" default="frontright" />
