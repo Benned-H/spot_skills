@@ -3,20 +3,21 @@
     This file launches/includes the following nodes/launch files:
         - spot_moveit_bringup.launch - Launches all nodes to control Spot using MoveIt, including:
             - moveit_core.launch - All MoveIt-specific nodes for controlling any robot
-            - spot_driver_bringup.launch - Connects to Spot using its ROS driver
+            - spot_driver_bringup.launch - Connects to Spot using its ROS driver, for sensor data
             - spot_wrapper_node - Connects to Spot using the ROS wrapper, to control the robot
         
         - spot_rtabmap.launch - Launches all nodes to run SLAM for Spot using rtabmap, including:
             - pointcloud2_filter_chain - Filters Spot's point cloud data to remove noise
             - rgbd_image_publisher - Publishes synchronized RGB-D images from Spot to rtabmap
             - rtabmap - Core node that runs SLAM using rtabmap
-        
-        - RViz - Launched with a SLAM-specific configuration file
 -->
 <launch>
 
     <!-- For safety reasons, do not assume which Spot is being used -->
     <arg name="spot_name" />
+
+    <!-- Allow users to specify the output path of the constructed pointcloud map -->
+    <arg name="rtabmap_database_path" default="~/.ros/rtabmap.db" />
 
     <!-- We can only run the SLAM system on the real robot -->
     <arg name="real_robot" value="true" />
@@ -34,6 +35,7 @@
     <include file="$(find spot_rtabmap)/launch/spot_rtabmap.launch">
         <arg name="localization_mode" value="$(arg localization_mode)" />
         <arg name="start_new_map" value="$(arg start_new_map)" />
+        <arg name="rtabmap_database_path" value="$(arg rtabmap_database_path)" />
     </include>
 
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" />

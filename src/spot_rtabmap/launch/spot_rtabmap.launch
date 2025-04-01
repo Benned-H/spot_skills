@@ -45,6 +45,8 @@
         <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen" args="$(arg rtabmap_args)">
             <param name="frame_id" type="string" value="body" />
 
+            <param name="database_path" type="string" value="$(arg rtabmap_database_path)" />
+
             <!-- Use RGB-D instead of just depth images -->
             <param name="subscribe_depth" type="bool" value="false" />
             <param name="subscribe_stereo" type="bool" value="false" />
