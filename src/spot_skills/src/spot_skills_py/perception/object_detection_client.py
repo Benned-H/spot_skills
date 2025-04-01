@@ -12,19 +12,15 @@ from pose_estimation_msgs.srv import DetectObjects, DetectObjectsRequest, Detect
 class DetectObjectClient:
     """A client of the object detection ROS service."""
 
-    def __init__(
-        self,
-        text_queries: list[str],
-        detection_service_name: str = "/detect_object_pixel_xy",
-    ) -> None:
+    def __init__(self, queries: list[str], service_name: str = "/detect_object_pixel_xy") -> None:
         """Initialize the client by establishing its service caller object."""
-        self.text_queries = text_queries  # Strings used to prompt the object detector
+        self.text_queries = queries  # Strings used to prompt the object detector
 
         self._obj_detect_service: ServiceCaller | None = None
 
         try:
             self._obj_detect_service = ServiceCaller[DetectObjectsRequest, DetectObjectsResponse](
-                detection_service_name,
+                service_name,
                 DetectObjects,
                 timeout_s=30,
             )

@@ -31,7 +31,7 @@ def calculate_hinge_side(handle_xy: PixelXY, hinge_xy: PixelXY) -> int:
 
     :param handle_xy: Pixel coordinate of the door handle
     :param hinge_xy: Pixel coordinate of the door hinge
-    :return: Integer representing a hinge on the left side, right side, or unknown
+    :return: Integer representing a hinge on the left or right side
     """
     handle_x = handle_xy[0]
     hinge_x = hinge_xy[0]
@@ -51,7 +51,7 @@ class SpotDoorOpener:
         self.manager = manager
         self.image_dict = None
         self.rgb_image_dict = None
-        self.side_by_side = None
+        self.side_by_side = None  # Combined side-by-side images from Spot's two front cameras
         self.handle_xy = None  # Pixel coordinate of door handle in the side-by-side image
         self.pixel_source_image = None
         self.rotated_pixel = None
@@ -59,7 +59,7 @@ class SpotDoorOpener:
     def capture_side_by_side_image(self) -> np.ndarray:
         """Pitch Spot's body and take a combined image using the two front fisheye cameras.
 
-        :return: Combined side-by-side image from the two front cameras
+        :return: Combined side-by-side image from Spot's two front cameras
         """
         self.manager.pitch_up(timeout_s=60)
 
@@ -80,7 +80,7 @@ class SpotDoorOpener:
         return self.side_by_side
 
     def set_handle_xy(self, handle_xy: PixelXY) -> None:
-        """Store the given pixel coordinate for the door handle, and any related values.
+        """Store the given pixel coordinate for the door handle.
 
         :param handle_xy: Estimated pixel coordinate of the door handle
         """
@@ -165,7 +165,7 @@ class SpotDoorOpener:
     def open_door(self, open_door_timeout_s: float = 60) -> bool:
         """Command the robot to automatically open a door using the Spot SDK.
 
-        :param open_door_timeout_s: Timeout (sec) for the "Open Door" robot command, defaults to 60
+        :param open_door_timeout_s: Timeout (seconds) for the "Open Door" command (defaults to 60)
         :return: True if the door was opened, otherwise False
         """
         assert self.handle_xy is not None, "Cannot open door without the door handle pixel!"
@@ -179,8 +179,8 @@ class SpotDoorOpener:
 
         assert self.pixel_source_image is not None, "Expected pixel image source to be known."
 
-        # The ManipulationApiResponse for the WalkToObjectInImage command returns a transform snapshot
-        # that contains where the door handle pixel intersects the world. We use this
+        # The ManipulationApiResponse for the WalkToObjectInImage command returns a transform
+        # snapshot that contains where the door handle pixel intersects the world. We use this
         # intersection point to execute the door command.
         snapshot = manipulation_feedback.transforms_snapshot_manipulation_data
 
@@ -200,9 +200,9 @@ class SpotDoorOpener:
         )
 
         raycast_point_wrt_vision = vision_tform_raycast.get_translation()
-        ray_from_camera_to_object = raycast_point_wrt_vision - vision_tform_sensor.get_translation()
-        ray_from_camera_to_object_norm = np.sqrt(np.sum(ray_from_camera_to_object**2))
-        ray_from_camera_normalized = ray_from_camera_to_object / ray_from_camera_to_object_norm
+        ray_from_camera_to_obj = raycast_point_wrt_vision - vision_tform_sensor.get_translation()
+        ray_from_camera_to_obj_norm = np.sqrt(np.sum(ray_from_camera_to_obj**2))
+        ray_from_camera_normalized = ray_from_camera_to_obj / ray_from_camera_to_obj_norm
 
         auto_cmd = door_pb2.DoorCommand.AutoGraspCommand()
         auto_cmd.frame_name = frame_helpers.VISION_FRAME_NAME
@@ -226,10 +226,11 @@ class SpotDoorOpener:
             ),
         )
 
-        hinge_xy = (0, 0)  # Hardcoded hinge value to enforce door opening LEFT
-        auto_cmd.hinge_side = calculate_hinge_side(self.handle_xy, hinge_xy)
-        auto_cmd.swing_direction = door_pb2.DoorCommand.SWING_DIRECTION_PULL  # Hardcoded as PULL
+        hinge_xy = (0, 0)  # TODO: Hardcoded hinge value to enforce door opening LEFT
+        swing_direction = door_pb2.DoorCommand.SWING_DIRECTION_PULL  # TODO: Hardcoded as PULL
 
+        auto_cmd.hinge_side = calculate_hinge_side(self.handle_xy, hinge_xy)
+        auto_cmd.swing_direction = swing_direction
         door_command = door_pb2.DoorCommand.Request(auto_grasp_command=auto_cmd)
         request = door_pb2.OpenDoorCommandRequest(door_command=door_command)
 
