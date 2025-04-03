@@ -6,6 +6,11 @@
 # Move to the directory of this script
 cd $(dirname "$0")
 
+# Create src/tmp3 if it doesn't exist
+if [ ! -d "../src/tmp3" ]; then
+  mkdir "../src/tmp3"
+fi
+
 # Import a utility function to identify the local environment
 source ros_docker/scripts/identify_env.sh
 env_type=$(identify_env)
