@@ -31,20 +31,7 @@ bash docker/launch.sh
 
 To enter the running container in another terminal, just run the same script again.
 
-## Working with the Spot ROS 1 Driver
-
-Before launching the Spot driver, navigate to `/docker/spot_skills` in the container, then run:
-
-```bash
-rosdep install -y --from-paths src --ignore-src --rosdistro noetic
-pip3 install -e src/spot_ros/spot_wrapper/
-```
-
-Then, rebuild and source the Catkin workspace by running:
-
-```bash
-bash docker/catkin_rebuild.sh
-```
+_Troubleshooting_: If the launch script isn't working, check that you've successfully pulled all submodules.
 
 ## Example Demonstrations
 
@@ -60,7 +47,7 @@ catkin build
 source devel/setup.bash
 ```
 
-If a demo requires a second or third terminal tab to be opened into Docker, that tab will need to move to the same directiory and source `devel/setup.bash`.
+If a demo requires a second or third terminal tab to be opened into Docker, move to the same directory and source `devel/setup.bash`.
 
 ```bash
 # For a second, third, etc. terminal tab in Docker
@@ -68,7 +55,7 @@ cd /docker/spot_skills
 source devel/setup.bash
 ```
 
-### Long Trajectory Using Spot SDK
+### Long Trajectory Using Spot SDK (Real-World)
 
 In this real-world demonstration, Spot will use its arm to follow a 20-second trajectory. To run the demo, perform the following steps:
 
@@ -84,16 +71,11 @@ In this real-world demonstration, Spot will use its arm to follow a 20-second tr
 3. On your computer, make sure you've followed the **Docker Demo Setup** instructions above.
    We will need _two_ terminal tabs to be opened into Docker.
 
-4. We need to tell ROS which Spot we're using. Run the following command in the first tab, with `spot_name` substituted for the Spot you're using (e.g., `snouter`):
+4. We're now ready to run the demo. In the first tab, run the following command, with the name of
+   the Spot you're using filled in place of `NAME_HERE` (e.g., `spot_name:=helter`):
 
 ```bash
-export SPOT_NAME=spot_name
-```
-
-5. We're now ready to run the demo. In the first tab, run the command:
-
-```bash
-roslaunch spot_skills authenticate_spot_driver.launch spot_name:=$SPOT_NAME
+roslaunch spot_skills authenticate_spot_driver.launch spot_name:=NAME_HERE
 ```
 
 That command will bring up RViz, which may initially show a bugged-out simulated Spot.
@@ -101,7 +83,7 @@ Wait a bit until you see the Spot sitting as it is in the real world, something 
 
 ![Simulated Spot sitting, as shown in RViz.](images/sitting-spot-rviz.png "Spot Sitting")
 
-6. In the second terminal tab, run the following command (make sure to source `devel/setup.bash` first):
+5. In the second terminal tab, run the following command (make sure to source `devel/setup.bash` first):
 
 ```bash
 rosrun spot_skills arm_long_trajectory_demo.py
