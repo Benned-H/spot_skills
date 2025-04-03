@@ -69,7 +69,6 @@ install_package_deps() {
 # Check required directories
 check_directory "$WRAPPER_DIR"
 check_directory "$SKILLS_DIR"
-check_directory "$PACKAGE_PATH"
 
 # Execute installation functions
 apt-get update >/dev/null 2>&1
