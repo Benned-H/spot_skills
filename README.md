@@ -7,7 +7,7 @@ Motion-planning-based skills for Boston Dynamics' Spot robot
 This repository includes others, such as [`spot_ros`](https://github.com/heuristicus/spot_ros), as nested submodules. To ensure that all submodules are cloned alongside this repository, use the command:
 
 ```bash
-git clone --recurse-submodules https://github.com/Benned-H/spot_skills.git
+git clone --recurse-submodules git@github.com:Benned-H/spot_skills.git
 ```
 
 If you have already cloned the repository, run the following command to ensure that all submodules are up-to-date:
