@@ -31,7 +31,15 @@ bash docker/launch.sh
 
 To enter the running container in another terminal, just run the same script again.
 
-_Troubleshooting_: If the launch script isn't working, check that you've successfully pulled all submodules.
+_Troubleshooting_:
+
+1. If the launch script isn't working, check that you've successfully pulled all submodules. Use:
+   - `git submodule update --init --recursive`
+2. Try the following command to see the errors preventing you from entering Docker. Replace `SERVICE_NAME` with the name of the service that you're unable to enter (e.g., `spot-tamp-gpu-v2` is the service name in `Selected Docker service: 'spot-tamp-gpu-v2'`).
+
+```bash
+docker compose up --pull missing SERVICE_NAME
+```
 
 ## Example Demonstrations
 
