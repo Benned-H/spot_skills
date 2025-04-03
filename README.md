@@ -80,7 +80,7 @@ In this real-world demonstration, Spot will use its arm to follow a 20-second tr
    We will need _two_ terminal tabs to be opened into Docker.
 
 4. We're now ready to run the demo. In the first tab, run the following command, with the name of
-   the Spot you're using filled in place of `NAME_HERE` (e.g., `spot_name:=helter`):
+   the Spot you're using in place of `NAME_HERE` (e.g., `spot_name:=helter`):
 
 ```bash
 roslaunch spot_skills authenticate_spot_driver.launch spot_name:=NAME_HERE
