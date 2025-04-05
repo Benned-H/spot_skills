@@ -53,10 +53,10 @@ class SpotNavigationServer:
         )
 
         # Load landmark locations from a YAML file specified via ROS param
-        landmarks_yaml_path = Path(rospy.get_param("/spot_navigation/landmarks_yaml_path"))
+        landmarks_yaml_path = Path(rospy.get_param("/spot_navigation/known_landmarks_yaml"))
         yaml_data = load_yaml_into_dict(landmarks_yaml_path)
-        landmarks_data = yaml_data.get("landmarks", {})
-        default_frame = yaml_data.get("frame", DEFAULT_FRAME)
+        landmarks_data = yaml_data.get("known_landmarks", {})
+        default_frame = yaml_data.get("default_frame", DEFAULT_FRAME)
 
         self._landmarks: dict[str, Pose2D] = load_named_poses_2d(landmarks_data, default_frame)
 
