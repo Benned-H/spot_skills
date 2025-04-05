@@ -284,7 +284,7 @@ class SpotROS1Wrapper:
 
         return TriggerResponse(door_opened, message)
 
-    def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 1.0) -> None:
+    def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
 
         If Spot's arm is unlocked, trajectories sent to this server will be executed.
@@ -362,7 +362,7 @@ class SpotROS1Wrapper:
         elif outcome == ArmCommandOutcome.PREEMPTED:
             self._arm_action_server.set_preempted()
 
-    def gripper_action_callback(self, goal: GripperCommandGoal, delay_s: float = 3.0) -> None:
+    def gripper_action_callback(self, goal: GripperCommandGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the GripperCommandAction action server.
 
         If Spot's arm is unlocked, gripper commands sent to this server will be executed.

@@ -160,9 +160,9 @@ We begin by collecting a map of the environment using the following steps:
 
 2. Enter the `spot_skills` Docker using the command:
 
-   ```bash
-   bash docker/launch.sh
-   ```
+```bash
+bash docker/launch.sh
+```
 
 3. Once you're in the Docker, run the following commands to verify your workspace is set up:
 
@@ -171,7 +171,7 @@ catkin build
 source devel/setup.bash
 ```
 
-4. Launch the nodes used to map the environment a command of the form:
+4. Launch the nodes used for SLAM with the command:
 
 ```bash
 roslaunch spot_skills spot_slam_demo.launch spot_name:=NAME_HERE
