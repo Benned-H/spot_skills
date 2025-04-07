@@ -1,0 +1,19 @@
+<!-- Launch nodes to demonstrate Spot detecting visual fiducial markers using Alvar -->
+<launch>
+
+    <!-- For safety reasons, do not assume which Spot is being used -->
+    <arg name="spot_name"/>
+
+    <!-- Use the Alvar tag tracking library to detect and estimate the pose of AprilTags -->
+    <include file="$(find spot_skills)/launch/spot_track_alvar.launch" />
+
+    <!-- Launch the Spot ROS 1 driver and load a model of Spot -->
+    <include file="$(find spot_skills)/launch/spot_driver_bringup.launch">
+        <arg name="spot_name" value="$(arg spot_name)"/>
+        <arg name="load_robot_description" value="true"/>
+    </include>
+
+    <!-- Run Rviz using a config file designed for the SLAM demo -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" />
+
+</launch>
