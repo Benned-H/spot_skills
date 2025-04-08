@@ -12,7 +12,7 @@ from transform_utils.kinematics import DEFAULT_FRAME
 from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
 from transform_utils.math.distances import absolute_yaw_error_rad, euclidean_distance_2d_m
 from transform_utils.transform_manager import TransformManager
-from transform_utils.world_model.load_from_yaml import load_named_poses_2d, load_yaml_into_dict
+from transform_utils.world_model.known_landmarks import KnownLandmarks2D
 
 from spot_skills.srv import (
     NavigateToLandmark,
@@ -54,11 +54,9 @@ class SpotNavigationServer:
 
         # Load landmark locations from a YAML file specified via ROS param
         landmarks_yaml_path = Path(rospy.get_param("/spot_navigation/known_landmarks_yaml"))
-        yaml_data = load_yaml_into_dict(landmarks_yaml_path)
-        landmarks_data = yaml_data.get("known_landmarks", [])
-        default_frame = yaml_data.get("default_frame", DEFAULT_FRAME)
+        known_landmarks = KnownLandmarks2D.from_yaml(landmarks_yaml_path)
+        self._landmarks: dict[str, Pose2D] = known_landmarks.landmarks
 
-        self._landmarks: dict[str, Pose2D] = load_named_poses_2d(landmarks_data, default_frame)
         rospy.loginfo(f"Loaded {len(self._landmarks)} named landmarks from YAML.")
 
         # Wait for the move_base action server to become available
