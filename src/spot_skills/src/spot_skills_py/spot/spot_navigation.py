@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import rospy
 from actionlib import GoalStatus, SimpleActionClient
+from geometry_msgs.msg import Twist
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from transform_utils.kinematics import DEFAULT_FRAME
+from transform_utils.kinematics import DEFAULT_FRAME, Pose3D
 from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
 from transform_utils.math.distances import absolute_yaw_error_rad, euclidean_distance_2d_m
 from transform_utils.transform_manager import TransformManager
@@ -21,6 +23,9 @@ from spot_skills.srv import (
     NavigateToPose,
     NavigateToPoseRequest,
     NavigateToPoseResponse,
+    ObjectNameService,
+    ObjectNameServiceRequest,
+    ObjectNameServiceResponse,
 )
 
 if TYPE_CHECKING:
@@ -52,6 +57,13 @@ class SpotNavigationServer:
             self.handle_landmark,
         )
 
+        # Provide a service to create new landmarks at Spot's current base pose
+        self._make_landmarks_srv = rospy.Service(
+            "/spot/make_landmark_at_base_pose",
+            ObjectNameService,
+            self.handle_make_landmark,
+        )
+
         # Load landmark locations from a YAML file specified via ROS param
         landmarks_yaml_path = Path(rospy.get_param("/spot_navigation/known_landmarks_yaml"))
         known_landmarks = KnownLandmarks2D.from_yaml(landmarks_yaml_path)
@@ -67,6 +79,15 @@ class SpotNavigationServer:
         self.close_to_goal_m = rospy.get_param("/spot_navigation/close_to_goal_m")
         self.close_to_goal_rad = rospy.get_param("/spot_navigation/close_to_goal_rad")
         self.timeout_s = rospy.get_param("/spot_navigation/timeout_s")
+
+        # Subscribe to a topic providing body-frame velocity commands
+        self._cmd_vel_sub = rospy.Subscriber("cmd_vel", Twist, self.handle_cmd_vel, queue_size=1)
+
+        self._CMD_VEL_DURATION_S = 1.0  # Duration (seconds) to execute each velocity command
+
+        self._tf_publisher_thread = threading.Thread(target=self._publish_landmarks_tf_loop)
+        self._tf_publisher_thread.daemon = True  # Thread exits when main process does
+        self._tf_publisher_thread.start()
 
     def check_close_to_goal(self, target_pose_2d: Pose2D) -> bool:
         """Check whether Spot is currently "close" to a goal pose, using the stored thresholds.
@@ -84,6 +105,32 @@ class SpotNavigationServer:
         abs_yaw_error_rad = absolute_yaw_error_rad(target_pose_2d, curr_pose)
 
         return distance_2d_m < self.close_to_goal_m and abs_yaw_error_rad < self.close_to_goal_rad
+
+    def handle_make_landmark(self, request: ObjectNameServiceRequest) -> ObjectNameServiceResponse:
+        """Handle a ROS service request to create a new landmark at Spot's current base pose.
+
+        :param request: Request specifying the landmark name to be used
+        :return: Response specifying whether the landmark was successfully created
+        """
+        default_frame = DEFAULT_FRAME  # "vision"
+
+        lookup_time = rospy.Time.now() + rospy.Duration.from_sec(3.0)
+        curr_base_pose = TransformManager.lookup_transform("body", default_frame, lookup_time)
+        if curr_base_pose is None:
+            message = f"Could not look up the transform from 'body' to '{default_frame}'."
+            return ObjectNameServiceResponse(success=False, message=message)
+
+        new_name = request.object_name
+        curr_2d_pose = curr_base_pose.to_2d()
+        self._landmarks[new_name] = curr_2d_pose
+
+        success = new_name in self._landmarks
+        if success:
+            message = f"Added landmark named '{new_name}' at {curr_2d_pose}."
+        else:
+            message = f"Failed to add landmark named '{new_name}' at {curr_2d_pose}."
+
+        return ObjectNameServiceResponse(success=success, message=message)
 
     def handle_pose(self, request: NavigateToPoseRequest) -> NavigateToPoseResponse:
         """Handle a ROS service request for Spot to navigate to a given pose.
@@ -145,3 +192,27 @@ class SpotNavigationServer:
         message = "Navigation was successful." if success else "Navigation failed."
 
         return success, message
+
+    def handle_cmd_vel(self, msg: Twist) -> None:
+        """Handle a body-frame velocity command.
+
+        :param msg: Twist message specifying the commanded velocity
+        """
+        self._manager.send_velocity_command(
+            linear_x_mps=msg.linear.x,
+            linear_y_mps=msg.linear.y,
+            angular_z_radps=msg.angular.z,
+            duration_s=self._CMD_VEL_DURATION_S,
+        )
+
+    def _publish_landmarks_tf_loop(self) -> None:
+        """Publish the known landmarks' poses in a loop."""
+        try:
+            rate_hz = rospy.Rate(TransformManager.loop_hz)
+            while not rospy.is_shutdown():
+                for name, pose in self._landmarks.items():
+                    TransformManager.broadcast_transform(frame_name=name, pose=Pose3D.from_2d(pose))
+
+                rate_hz.sleep()
+        except rospy.ROSInterruptException as ros_exc:
+            rospy.logwarn(f"[_publish_landmarks_tf_loop] {ros_exc}")

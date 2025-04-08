@@ -269,10 +269,9 @@ class SpotManager:
                 self.log_info("Cannot send robot command because the robot is not time-synced.")
                 return None
 
-            robot_end_time_s = time.time() + duration_s + self.time_sync.robot_clock_skew_s
             command_id: int = self.command_client.robot_command(
                 command,
-                end_time_secs=robot_end_time_s,
+                end_time_secs=time.time() + duration_s,
                 timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
             )
 

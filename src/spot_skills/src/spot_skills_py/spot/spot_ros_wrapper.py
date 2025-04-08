@@ -94,8 +94,12 @@ class SpotROS1Wrapper:
         self._gripper_action_server.start()
         rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
 
-        # Create a client to request object detections from the torch-enabled Docker
-        self.detect_object_client = DetectObjectClient(["door handle"])
+        # If needed, create a client to request object detections
+        object_detection_active = rospy.get_param("/spot/object_detection/active", default=False)
+        if object_detection_active:
+            self.detect_object_client = DetectObjectClient(["door handle"])
+        else:
+            rospy.loginfo("Skipping initialization of DetectObjectClient...")
 
         navigation_active = rospy.get_param("/spot_navigation/active", default=False)
         if navigation_active:

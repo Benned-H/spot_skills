@@ -72,41 +72,29 @@ Visualization Manager:
           Value: true
         body:
           Value: true
-        dock_521:
-          Value: true
-        expo_spray:
-          Value: true
-        expo_spray_wrt_camera:
+        dock_535:
           Value: true
         feet_center:
           Value: true
         fiducial_105:
           Value: true
+        fiducial_106:
+          Value: true
         fiducial_109:
           Value: true
         fiducial_118:
           Value: true
-        fiducial_125:
-          Value: true
-        fiducial_128:
-          Value: true
-        fiducial_129:
-          Value: true
-        fiducial_521:
+        fiducial_535:
           Value: true
         filtered_fiducial_105:
+          Value: true
+        filtered_fiducial_106:
           Value: true
         filtered_fiducial_109:
           Value: true
         filtered_fiducial_118:
           Value: true
-        filtered_fiducial_125:
-          Value: true
-        filtered_fiducial_128:
-          Value: true
-        filtered_fiducial_129:
-          Value: true
-        filtered_fiducial_521:
+        filtered_fiducial_535:
           Value: true
         flat_body:
           Value: true
@@ -180,10 +168,6 @@ Visualization Manager:
           Value: true
         sensor_origin_velodyne-point-cloud:
           Value: true
-        table:
-          Value: true
-        table_wrt_camera:
-          Value: true
         vision:
           Value: true
       Marker Alpha: 1
@@ -194,14 +178,11 @@ Visualization Manager:
       Show Names: true
       Tree:
         map:
-          expo_spray: {}
-          expo_spray_wrt_camera: {}
-          table: {}
-          table_wrt_camera: {}
           vision:
             body:
               arm0.link_wr1:
-                hand_color_image_sensor: {}
+                hand_color_image_sensor:
+                  {}
               arm_link_sh0:
                 arm_link_sh1:
                   arm_link_hr0:
@@ -209,60 +190,91 @@ Visualization Manager:
                       arm_link_el1:
                         arm_link_wr0:
                           arm_link_wr1:
-                            arm_link_fngr: {}
-              base_link: {}
-              feet_center: {}
-              flat_body: {}
-              front_left_foot: {}
+                            arm_link_fngr:
+                              {}
+              base_link:
+                {}
+              feet_center:
+                {}
+              flat_body:
+                {}
+              front_left_foot:
+                {}
               front_left_hip:
                 front_left_upper_leg:
-                  front_left_lower_leg: {}
-              front_rail: {}
-              front_right_foot: {}
+                  front_left_lower_leg:
+                    {}
+              front_rail:
+                {}
+              front_right_foot:
+                {}
               front_right_hip:
                 front_right_upper_leg:
-                  front_right_lower_leg: {}
-              hand: {}
+                  front_right_lower_leg:
+                    {}
+              hand:
+                {}
               head:
                 back:
-                  back_fisheye: {}
+                  back_fisheye:
+                    {}
                 frontleft:
-                  frontleft_fisheye: {}
+                  frontleft_fisheye:
+                    {}
                 frontright:
-                  frontright_fisheye: {}
+                  frontright_fisheye:
+                    {}
                 left:
-                  left_fisheye: {}
+                  left_fisheye:
+                    {}
                 right:
-                  right_fisheye: {}
-              link_wr1: {}
+                  right_fisheye:
+                    {}
+              link_wr1:
+                {}
               odom:
-                gpe: {}
-                sensor_origin_velodyne-point-cloud: {}
-              rear_left_foot: {}
+                gpe:
+                  {}
+                sensor_origin_velodyne-point-cloud:
+                  {}
+              rear_left_foot:
+                {}
               rear_left_hip:
                 rear_left_upper_leg:
-                  rear_left_lower_leg: {}
-              rear_rail: {}
-              rear_right_foot: {}
+                  rear_left_lower_leg:
+                    {}
+              rear_rail:
+                {}
+              rear_right_foot:
+                {}
               rear_right_hip:
                 rear_right_upper_leg:
-                  rear_right_lower_leg: {}
-              sensor: {}
-            dock_521: {}
-            fiducial_105: {}
-            fiducial_109: {}
-            fiducial_118: {}
-            fiducial_125: {}
-            fiducial_128: {}
-            fiducial_129: {}
-            fiducial_521: {}
-            filtered_fiducial_105: {}
-            filtered_fiducial_109: {}
-            filtered_fiducial_118: {}
-            filtered_fiducial_125: {}
-            filtered_fiducial_128: {}
-            filtered_fiducial_129: {}
-            filtered_fiducial_521: {}
+                  rear_right_lower_leg:
+                    {}
+              sensor:
+                {}
+            dock_535:
+              {}
+            fiducial_105:
+              {}
+            fiducial_106:
+              {}
+            fiducial_109:
+              {}
+            fiducial_118:
+              {}
+            fiducial_535:
+              {}
+            filtered_fiducial_105:
+              {}
+            filtered_fiducial_106:
+              {}
+            filtered_fiducial_109:
+              {}
+            filtered_fiducial_118:
+              {}
+            filtered_fiducial_535:
+              {}
       Update Interval: 0
       Value: true
     - Class: moveit_rviz_plugin/PlanningScene
@@ -700,20 +712,19 @@ Visualization Manager:
     - Alpha: 0.699999988079071
       Class: rviz/Map
       Color Scheme: map
-      Draw Behind: true
-      Enabled: false
+      Draw Behind: false
+      Enabled: true
       Name: Map
       Topic: /rtabmap/grid_map
       Unreliable: false
       Use Timestamp: false
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /visualization_marker
       Name: Visualization Markers
       Namespaces:
-        expo_spray: true
-        table: true
+        {}
       Queue Size: 100
       Value: true
   Enabled: true
@@ -748,9 +759,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.42539796233177185
+      Pitch: 0.34539806842803955
       Target Frame: body
-      Yaw: 2.662259578704834
+      Yaw: 4.017252445220947
     Saved: ~
 Window Geometry:
   Displays:
