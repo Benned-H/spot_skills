@@ -132,21 +132,25 @@ class SpotManager:
         list_leases = self._lease_client.list_leases()
         self.log_info(f"List of SpotManager's leases: {list_leases}")
 
-    def take_control(self, resource: str = "body") -> bool:
+    def take_control(self, resource: str = "body", force: bool = False) -> bool:
         """Request control of a resource from Spot and ensure Spot is powered on.
 
         In detail, this method performs these steps:
             1. Attempt to acquire the resource's lease and then keep it alive
             2. Attempt to power on Spot, if necessary
 
-        :params     resource    Name of the resource for which to acquire a lease
-
-        :returns    Boolean indicating if all attempted operations were successful
+        :param resource: Name of the resource for which to acquire a lease
+        :param force: Whether the lease should be taken forcefully from any other owner
+        :return: Boolean indicating if all attempted operations were successful
         """
         # 1. Attempt to acquire a lease from Spot and keep it alive
         if self._lease_keeper is None:
             self.log_info(f"Acquiring resource '{resource}'...")
-            self._lease_client.acquire(resource=resource)
+
+            if force:
+                self._lease_client.take(resource=resource)  # Forcefully take the lease
+            else:
+                self._lease_client.acquire(resource=resource)
             self._lease_keeper = LeaseKeepAlive(
                 lease_client=self._lease_client,
                 resource=resource,

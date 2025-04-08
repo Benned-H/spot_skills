@@ -55,10 +55,11 @@ class SpotNavigationServer:
         # Load landmark locations from a YAML file specified via ROS param
         landmarks_yaml_path = Path(rospy.get_param("/spot_navigation/known_landmarks_yaml"))
         yaml_data = load_yaml_into_dict(landmarks_yaml_path)
-        landmarks_data = yaml_data.get("known_landmarks", {})
+        landmarks_data = yaml_data.get("known_landmarks", [])
         default_frame = yaml_data.get("default_frame", DEFAULT_FRAME)
 
         self._landmarks: dict[str, Pose2D] = load_named_poses_2d(landmarks_data, default_frame)
+        rospy.loginfo(f"Loaded {len(self._landmarks)} named landmarks from YAML.")
 
         # Wait for the move_base action server to become available
         self._move_base_client = SimpleActionClient("move_base", MoveBaseAction)
@@ -118,7 +119,7 @@ class SpotNavigationServer:
         """
         has_control = self._manager.check_control()  # Only take control of Spot once necessary
         if not has_control:
-            has_control = self._manager.take_control()
+            has_control = self._manager.take_control(force=True)  # Forcefully take control of Spot
 
         if not has_control:
             return False, "Could not obtain control of Spot using the SpotManager."
@@ -140,7 +141,7 @@ class SpotNavigationServer:
             if not self.check_close_to_goal(target_pose_2d):
                 return (False, f"Move base failed with message: {result_text}")
 
-        rospy.log_info("Spot has successfully moved 'close' to the goal using move_base.")
+        rospy.loginfo("Spot has successfully moved 'close' to the goal using move_base.")
 
         success = self._manager.navigate_to_base_pose(target_pose_2d, self.timeout_s)
         message = "Navigation was successful." if success else "Navigation failed."
