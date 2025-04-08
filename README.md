@@ -142,6 +142,34 @@ roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=NAME_H
 rosrun spot_skills spot_moveit_demo.py
 ```
 
+### Spot Navigation Demo
+
+In this real-world demonstration, Spot will navigate to a selection of named poses. To run the demo, perform the following steps:
+
+1. Collect a map of the environment using the below **"Phase 1 - Mapping"** instructions.
+
+2. Launch the nodes used for the demo using the following command, replacing `NAME_HERE` with the name of the Spot you're using (e.g., `spot_name:=hopper`):
+
+```bash
+roslaunch spot_skills spot_nav_demo.launch spot_name:=NAME_HERE
+```
+
+- You can modify the import path of the pointcloud map by adding the argument:
+
+```bash
+... rtabmap_database_path:=~/path/goes/here.db
+```
+
+3. Use the tablet to walk Spot around the environment until RTAB-Map successfully localizes Spot.
+
+   - Look for the simulated Spot to "match" the real-world robot's position in the world, as visualized by the pointcloud in RViz.
+
+4. Command Spot to navigate to a named location by calling the appropriate ROS service from the command-line:
+
+```bash
+rosservice call ...TODO
+```
+
 ## Real-Robot Experiments
 
 This section of the README describes the process for running physical experiments with Spot. Note that
@@ -156,7 +184,7 @@ We begin by collecting a map of the environment using the following steps:
 
 1. Use the tablet to undock Spot and navigate to an area of interest for the experiment. You _do not_ need to release tablet control of Spot.
 
-   - Leave Spot standing, controlled by the tablet, during the next step.
+   - **Leave Spot standing**, controlled by the tablet, during the next step.
 
 2. Enter the `spot_skills` Docker using the command:
 
