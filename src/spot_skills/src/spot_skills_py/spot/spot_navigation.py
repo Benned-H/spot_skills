@@ -112,12 +112,9 @@ class SpotNavigationServer:
         :param request: Request specifying the landmark name to be used
         :return: Response specifying whether the landmark was successfully created
         """
-        default_frame = DEFAULT_FRAME  # "vision"
-
-        lookup_time = rospy.Time.now() + rospy.Duration.from_sec(3.0)
-        curr_base_pose = TransformManager.lookup_transform("body", default_frame, lookup_time)
+        curr_base_pose = TransformManager.lookup_transform("body", DEFAULT_FRAME)
         if curr_base_pose is None:
-            message = f"Could not look up the transform from 'body' to '{default_frame}'."
+            message = f"Could not look up the transform from 'body' to '{DEFAULT_FRAME}'."
             return ObjectNameServiceResponse(success=False, message=message)
 
         new_name = request.object_name
