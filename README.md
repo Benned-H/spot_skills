@@ -179,8 +179,8 @@ rosservice call /spot/navigation/to_landmark "landmark_name: 'door_to_lab'"
 
 In this real-world demonstration, we'll use ROS to trigger Spot's off-the-shelf skill to open a door.
 
-1. Use the tablet to walk Spot to stand in front of the door, facing the door. To verify that Spot's
-   in the right position, enter **Stand** mode on the tablet and tilt Spot's body up using the right
+1. Use the tablet to walk Spot to stand in front of the door, facing the door. To verify that Spot is
+   correctly positioned, enter **Stand** mode on the tablet and tilt Spot's body up using the right
    joystick. The door handle should be visible through Spot's front body camera(s).
 
 2. Use the tablet to make Spot sit, which may be hidden under the _Stand_ menu. Then,
