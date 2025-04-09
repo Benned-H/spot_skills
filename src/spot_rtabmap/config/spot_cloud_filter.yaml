@@ -7,13 +7,12 @@ cloud_filter_chain:
       active: True
 
       # Input/output frames transformed into before/after processing
-      # TODO: Shouldn't this be the ground? Check location of this frame
-      input_frame: "sensor_origin_velodyne-point-cloud"
-      output_frame: "sensor_origin_velodyne-point-cloud"
+      input_frame: "gpe"
+      output_frame: "vision"
 
       filter_field_name: "z" # Field to be used for filtering data
-      filter_limit_min: 0.2 # Minimum allowed z-value
-      filter_limit_max: 3.0 # Maximum allowed z-value (3 meters)
+      filter_limit_min: 0 # Minimum allowed z-value
+      filter_limit_max: 3 # Maximum allowed z-value (3 meters)
 
   # Filter points likely to have resulted from laser-body collisions
   - name: lidar_body_filter
@@ -30,7 +29,7 @@ cloud_filter_chain:
 
       filter/do_clipping: True # Enables clipping points outside of min/max distance
       filter/do_contains_test: True # Enables marking points as inside/outside robot body
-      filter/do_shadow_test: False # Enables ray-tracing to identify points shadowed by robot body
+      filter/do_shadow_test: True # Enables ray-tracing to identify points shadowed by robot body
 
       body_model/robot_description_param: "/robot_description" # ROS parameter defining the body model
       body_model/inflation/scale: 1.1 # Scale applied to the body model

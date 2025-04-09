@@ -1,0 +1,6 @@
+known_landmarks:
+  cabinet: [5.44, 1.76, 0] # (x,y,yaw)
+  door_to_lab: [5, 6, 0]
+  white_board: [9.981, 10.514, 3.14]
+
+default_frame: map
