@@ -1,0 +1,34 @@
+<launch>
+  <!-- Set arguments -->
+  <arg name="real_robot" default="true" />
+  <arg name="spot_name" default="tusker" />
+
+  <!-- Launch the Spot ROS driver and authenticate with Spot -->
+  <include file="$(find spot_skills)/launch/authenticate_spot_driver.launch">
+    <arg name="spot_name" value="$(arg spot_name)" />
+    <!-- Load full robot description to enable proper lease and TF management -->
+    <arg name="load_robot_description" value="true" />
+  </include>
+
+  <!-- Launch robot_state_publisher (ensure a unique name) -->
+  <node name="robot_state_publisher_spot" pkg="robot_state_publisher" type="robot_state_publisher" />
+
+  <!-- Launch the Spot wrapper node to provide arm and gripper interfaces -->
+  <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen" />
+
+  <!-- Launch AR marker detection node from ar_track_alvar -->
+  <node name="ar_single" pkg="ar_track_alvar" type="individualMarkers" output="screen">
+    <!-- The camera_frame should match the optical frame that the gripper camera uses.
+         If your driver doesn't publish "hand_color_optical_frame", you may need to run a static transform publisher. -->
+    <param name="camera_frame" value="hand_color_optical_frame" />
+    <!-- Marker size (in cm) -->
+    <param name="marker_size" value="7.26" />
+    <!-- The output_frame here is used for TF transforms; set it to your robot's base frame -->
+    <param name="output_frame" value="base_link" />
+    <remap from="image" to="/spot/camera/hand_color/image"/>
+    <remap from="camera_info" to="/spot/camera/hand_color/camera_info"/>
+  </node>
+
+  <!-- Launch your marker listener script which opens the gripper and subscribes to /ar_pose_marker -->
+  <node name="marker_listener" pkg="spot_skills" type="marker_listener.py" output="screen"/>
+</launch>

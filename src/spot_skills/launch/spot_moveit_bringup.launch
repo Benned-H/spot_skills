@@ -9,10 +9,10 @@
 <launch>
 
     <!-- Are we using a simulated (default) or real Spot? -->
-    <arg name="real_robot" default="false" />
+    <arg name="real_robot" default="true" />
 
     <!-- Default: Assume Spot's name is "snouter" - Override using all-lowercase -->
-    <arg name="spot_name" default="snouter" />
+    <arg name="spot_name" default="tusker" />
 
     <!-- Launch the core nodes MoveIt uses to control a robot (simulated or real) -->
     <include file="$(dirname)/moveit_core.launch" pass_all_args="true">
@@ -43,4 +43,6 @@
         <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen"/>
 
     </group>
+
+
 </launch>

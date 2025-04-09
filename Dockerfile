@@ -4,7 +4,7 @@
 #       https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
 #
 # For reference, Benned's driver version (570.86.15) supports CUDA toolkit 12.8 GA
-ARG CUDA_VERSION=12.8.0
+ARG CUDA_VERSION=12.3.0
 
 # Enable overriding the base image for non-GPU machines (default uses GPU)
 ARG BASE_IMAGE=nvidia/cuda:${CUDA_VERSION}-base-ubuntu20.04

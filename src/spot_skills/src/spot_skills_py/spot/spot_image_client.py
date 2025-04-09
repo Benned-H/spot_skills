@@ -150,14 +150,32 @@ class SpotImageClient:
 
             image_np = np.frombuffer(image_capture.image.data, dtype=np.uint8)
 
+        # if image_format == Image.FORMAT_RAW:
+        #     try:  # Attempt to reshape array into an RGB rows x cols shape.
+        #         image_np = image_np.reshape((rows, cols, num_bytes))
+        #     except ValueError:
+        #         rospy.logerr("[extract_image_msg] Unable to reshape image data")
+        #         image_np = cv2.imdecode(image_np, -1)
+        # else:
+        #     image_np = cv2.imdecode(image_np, -1)
+            
         if image_format == Image.FORMAT_RAW:
-            try:  # Attempt to reshape array into an RGB rows x cols shape.
-                image_np = image_np.reshape((rows, cols, num_bytes))
-            except ValueError:
-                rospy.logerr("[extract_image_msg] Unable to reshape image data")
-                image_np = cv2.imdecode(image_np, -1)
+            if pixel_format == Image.PIXEL_FORMAT_DEPTH_U16:
+                # For depth images, reshape to a 2D array.
+                try:
+                    image_np = image_np.reshape((rows, cols))
+                except ValueError:
+                    rospy.logerr("[extract_image_msg] Unable to reshape depth image data")
+                    # Decide on a fallback: you might choose to return here or handle the error accordingly.
+            else:
+                try:
+                    image_np = image_np.reshape((rows, cols, num_bytes))
+                except ValueError:
+                    rospy.logerr("[extract_image_msg] Unable to reshape image data")
+                    image_np = cv2.imdecode(image_np, -1)
         else:
             image_np = cv2.imdecode(image_np, -1)
+
 
         image_msg = self._cv_bridge.cv2_to_imgmsg(image_np, encoding)
         image_msg.header.stamp = capture_time

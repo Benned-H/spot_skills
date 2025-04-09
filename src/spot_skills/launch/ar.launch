@@ -1,0 +1,24 @@
+<launch>
+    <arg name="marker_size_frontleft" default="7.62" />
+    <arg name="marker_size_frontright" default="7.62" />
+
+
+    <!-- Launch all nodes to control Spot, simulated or real, using MoveIt -->
+    <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true" />
+
+    <!-- Run Rviz using a config file designed for this demo -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" />
+
+    <!-- Launch the image republisher node -->
+    <!-- <node name="image_republisher" pkg="spot_driver" type="image_republisher.py" output="screen" /> -->
+
+    <!-- Launch the AR marker detection -->
+    <include file="$(find ar_track_alvar)/launch/detect_markers.launch" >
+        <arg name="marker_size_frontleft" value="$(arg marker_size_frontleft)" />
+        <arg name="marker_size_frontright" value="$(arg marker_size_frontright)" />
+    </include>
+
+    <!-- Launch the Python node that prompts MoveIt to generate motion plans -->
+    <node name="simple_marker_listener" pkg="spot_skills" type="marker_listener.py" output="screen" />
+
+</launch>
