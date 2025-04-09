@@ -25,6 +25,7 @@ from spot_skills_py.spot.spot_arm_controller import (
     GripperCommandOutcome,
     SpotArmController,
 )
+from spot_skills_py.spot.spot_erase_board import erase_board
 from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient
 from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.spot.spot_navigation import SpotNavigationServer
@@ -66,6 +67,7 @@ class SpotROS1Wrapper:
         self._unlock_arm_service = rospy.Service("spot/unlock_arm", Trigger, self.handle_unlock_arm)
         self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
         self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
+        self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
 
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
@@ -290,6 +292,30 @@ class SpotROS1Wrapper:
         message = "Spot opened the door." if door_opened else "Could not open the door."
 
         return TriggerResponse(door_opened, message)
+
+    def handle_erase_board(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to erase a whiteboard.
+
+        :param _: Message representing a request to erase a board
+        :return: Response conveying whether the whiteboard was erased
+        """
+        if self._arm_locked:
+            message = "Could not erase whiteboard because Spot's arm remains locked."
+            return TriggerResponse(success=False, message=message)
+
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
+
+        if has_control:
+            erase_board(self._manager)
+            board_erased = True
+        else:
+            board_erased = False
+
+        message = "Erased the whiteboard." if board_erased else "Could not erase the whiteboard."
+
+        return TriggerResponse(board_erased, message)
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
