@@ -1,13 +1,17 @@
 <launch>
+
+    <!-- Localization mode can be used once a map of >30 locations has been created -->
+    <arg name="localization_mode" default="false" />
+    <arg name="start_new_map" default="true" />
+    <arg name="rtabmap_database_path" default="~/.ros/rtabmap.db" />
+
     <arg name="camera0" default="frontleft" />
     <arg name="camera1" default="frontright" />
-    <arg name="localization_mode" default="false" />
-    <arg name="reload" default="false" />
     <arg name="rtabmap_viz" default="false" />
 
-    <!--  should reload? -->
-    <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg reload)" />
-    <arg name="rtabmap_args" value="" unless="$(arg reload)" />
+    <!-- In mapping mode, we have the option to start from a clean map -->
+    <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg start_new_map)" />
+    <arg name="rtabmap_args" value="" unless="$(arg start_new_map)" />
 
     <!-- Parametrize any external interface topic names -->
     <arg name="pointcloud2_input_topic" default="/spot/lidar/points" />
@@ -34,12 +38,14 @@
         <!-- Launch an RGB-D image publisher for four (rtabmap's limit) of Spot's cameras -->
         <node name="rgbd_image_publisher" pkg="spot_rtabmap" type="rgbd_image_publisher.py" output="screen">
             <param name="rgbd_camera_names" type="string" value="frontleft,frontright,left,right" />
-            <param name="pub_frequency" type="double" value="1.0" />
+            <param name="pub_frequency" type="double" value="5.0" />
         </node>
 
         <!-- args="delete_db_on_start" if you want to start a new map -->
         <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen" args="$(arg rtabmap_args)">
             <param name="frame_id" type="string" value="body" />
+
+            <param name="database_path" type="string" value="$(arg rtabmap_database_path)" />
 
             <!-- Use RGB-D instead of just depth images -->
             <param name="subscribe_depth" type="bool" value="false" />
@@ -59,20 +65,21 @@
             <remap from="scan_cloud" to="$(arg filtered_pointcloud2_topic)" />
 
             <!-- Remap ROS topics related to navigation -->
-            <remap from="goal" to="/spot/go_to_pose" />
+            <remap from="goal" to="/rtabmap/goal" />
             <remap from="goal_out" to="/move_base_simple/goal" />
 
             <!-- Synchronization parameters for RGB-D cameras -->
             <param name="rgbd_cameras" type="int" value="4" />
             <param name="approx_sync" type="bool" value="true" />
-            <param name="approx_sync_max_interval" type="double" value="0.2" /> <!-- Max interval (sec) allowed between the synchronized input topics -->
+            <param name="approx_sync_max_interval" type="double" value="0.2" />
+            <!-- Max interval (sec) allowed between the synchronized input topics -->
 
             <!-- Increase the flexibility of synchronizing across all rtabmap inputs -->
             <param name="sync_queue_size" type="int" value="30" />
             <param name="topic_queue_size" type="int" value="30" />
 
             <!-- Localization mode -->
-            <param name="Mem/IncrementalMemory" type="bool" value="true" if="$(arg localization_mode)" />
+            <param name="Mem/IncrementalMemory" type="bool" value="false" if="$(arg localization_mode)" />
             <param name="Mem/ReduceGraph" type="bool" value="false" if="$(arg localization_mode)" />
             <param name="RGBD/StartAtOrigin" type="bool" value="false" if="$(arg localization_mode)" />
 

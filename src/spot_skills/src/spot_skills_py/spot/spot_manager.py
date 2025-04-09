@@ -4,22 +4,31 @@ from __future__ import annotations
 
 import time
 
+import numpy as np
+from bosdyn.api.basic_command_pb2 import StandCommand
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.robot_command_pb2 import RobotCommand
-from bosdyn.client import create_standard_sdk
+from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
+from bosdyn.client import create_standard_sdk, frame_helpers
+from bosdyn.client.door import DoorClient
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
+from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
     RobotCommandClient,
+    block_for_trajectory_cmd,
+    blocking_sit,
     blocking_stand,
 )
 from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_command
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
+from bosdyn.geometry import EulerZXY
 from rospy import loginfo as ros_loginfo
-from transform_utils.kinematics import Configuration
+from transform_utils.kinematics import Configuration, Pose2D
+from transform_utils.transform_manager import TransformManager
 
 from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
 from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
@@ -79,20 +88,25 @@ class SpotManager:
         # Define an image client to interface with Spot's cameras
         self.image_client = SpotImageClient(self._robot)
 
+        # Define clients used to control Spot to open doors
+        self.manip_client = self._robot.ensure_client(ManipulationApiClient.default_service_name)
+        self.door_client = self._robot.ensure_client(DoorClient.default_service_name)
+
         # Define a client to later obtain control of Spot (i.e., Spot's "lease")
         self._lease_client: LeaseClient = self._robot.ensure_client(
             LeaseClient.default_service_name,
         )
         self._lease_keeper = None  # Stores a lease and keeps it alive once obtained
 
+        self._mobility_params = RobotCommandBuilder.mobility_params()
+
         assert self.wait_while_estopped()  # Wait until Spot isn't e-stopped
 
     def wait_while_estopped(self, timeout_s: int = 30) -> bool:
         """Notify the user if Spot is e-stopped by spamming the ROS and Spot logs.
 
-        :param      timeout_s       Time (seconds) after which the method gives up
-
-        :returns    Boolean: Was Spot "e-started" (un-e-stopped) in time?
+        :param timeout_s: Time (seconds) after which the method gives up
+        :return: True if Spot "e-started" (un-e-stopped) in time, else False
         """
         estop_level = self._estop_client.get_status().stop_level
 
@@ -118,21 +132,25 @@ class SpotManager:
         list_leases = self._lease_client.list_leases()
         self.log_info(f"List of SpotManager's leases: {list_leases}")
 
-    def take_control(self, resource: str = "body") -> bool:
+    def take_control(self, resource: str = "body", force: bool = False) -> bool:
         """Request control of a resource from Spot and ensure Spot is powered on.
 
         In detail, this method performs these steps:
             1. Attempt to acquire the resource's lease and then keep it alive
             2. Attempt to power on Spot, if necessary
 
-        :params     resource    Name of the resource for which to acquire a lease
-
-        :returns    Boolean indicating if all attempted operations were successful
+        :param resource: Name of the resource for which to acquire a lease
+        :param force: Whether the lease should be taken forcefully from any other owner
+        :return: Boolean indicating if all attempted operations were successful
         """
         # 1. Attempt to acquire a lease from Spot and keep it alive
         if self._lease_keeper is None:
             self.log_info(f"Acquiring resource '{resource}'...")
-            self._lease_client.acquire(resource=resource)
+
+            if force:
+                self._lease_client.take(resource=resource)  # Forcefully take the lease
+            else:
+                self._lease_client.acquire(resource=resource)
             self._lease_keeper = LeaseKeepAlive(
                 lease_client=self._lease_client,
                 resource=resource,
@@ -147,18 +165,23 @@ class SpotManager:
             self._robot.power_on(timeout_sec=20)
 
         # Verify that the attempted operations succeeded
-        lease_alive = self.check_lease_alive()
         power_success = self._robot.is_powered_on()
 
         self.log_info("Spot powered on." if power_success else "Spot power on failed.")
 
         self.log_info("Exiting SpotManager.take_control()...\n")
 
-        return lease_alive and power_success
+        return self.check_control()
 
-    def check_lease_alive(self) -> bool:
-        """Check whether the SpotManager has a live lease for Spot."""
-        return self._lease_keeper is not None and self._lease_keeper.is_alive()
+    def check_control(self) -> bool:
+        """Check whether the SpotManager has control of a powered-on robot.
+
+        :returns: Boolean indicating if the manager has the lease and Spot is powered on
+        """
+        lease_alive = self._lease_keeper is not None and self._lease_keeper.is_alive()
+        powered_on = self._robot.is_powered_on()
+
+        return lease_alive and powered_on
 
     def log_info(self, message: str) -> None:
         """Log the given message to the Spot and ROS information logs.
@@ -218,42 +241,114 @@ class SpotManager:
             if joint.name in SPOT_SDK_ARM_JOINT_NAMES
         }
 
-    def send_robot_command(self, command: RobotCommand) -> int:
+    def send_robot_command(
+        self,
+        command: RobotCommand,
+        duration_s: float | None = None,
+    ) -> int | None:
         """Command Spot to execute the given robot command.
 
         Note: The RobotCommandClient.robot_command() method will automatically update
             all timestamps in the command from local time to robot time.
 
-        :param      command     Command for Spot to execute
-
-        :returns    ID (integer) of the issued robot command
+        :param command: Robot command for Spot to execute
+        :param duration_s: Duration (seconds) after which to end the command
+        :return: ID (integer) of the issued robot command, or None if manager doesn't control Spot
         """
+        if not self.check_control():
+            return None
+
         # Issue a command to the robot synchronously (blocks until done sending)
-        command_id: int = self.command_client.robot_command(
-            command,
-            timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
-        )
+        if duration_s is None:
+            command_id: int = self.command_client.robot_command(
+                command,
+                timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+            )
+        else:  # Cut off the command after the given duration
+            if self.time_sync.robot_clock_skew_s is None:
+                self.log_info("Cannot send robot command because the robot is not time-synced.")
+                return None
+
+            command_id: int = self.command_client.robot_command(
+                command,
+                end_time_secs=time.time() + duration_s,
+                timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+            )
+
         self.log_info(f"Issued robot command with ID: {command_id}")
 
         return command_id
 
-    def stand_up(self, timeout_s: float) -> bool:
+    def stand_up(self, timeout_s: float, control_params: BodyControlParams | None = None) -> bool:
         """Tell Spot to stand up within the given timeout (in seconds).
 
         :param timeout_s: Timeout (seconds) for the blocking stand command
-        :returns: True if Spot stood up, otherwise False
+        :param control_params: Parameters modifying Spot's standing body pose (defaults to None)
+        :return: True if Spot stood up, otherwise False
         """
-        if not self.check_lease_alive():
+        if not self.check_control():
             return False
 
-        blocking_stand(self.command_client, timeout_sec=timeout_s)
+        if control_params is None:
+            blocking_stand(self.command_client, timeout_sec=timeout_s)
+        else:
+            blocking_stand(
+                self.command_client,
+                timeout_sec=10.0,
+                params=MobilityParams(body_control=control_params),
+            )
+
         self.log_info("Robot standing.")
+        return True
+
+    def sit_down(self, timeout_s: float) -> bool:
+        """Tell Spot to sit down within the given timeout (in seconds).
+
+        :param timeout_s: Timeout (seconds) for the sit command
+        :return: True if Spot sat down, otherwise False
+        """
+        if not self.check_control():
+            return False
+
+        blocking_sit(self.command_client, timeout_sec=timeout_s)
+        self.log_info("Robot sitting.")
+        return True
+
+    def pitch_up(self, timeout_s: float) -> bool:
+        """Pitch the robot body up to allow looking upwards with the body cameras.
+
+        :param timeout_s: Timeout (seconds) for the pitch up command
+        :return: True if the body was successfully pitched, else False
+        """
+        if not self.check_control():
+            return False
+
+        body_euler_zxy = EulerZXY(0.0, 0.0, -np.pi / 6.0)
+        pitch_command = RobotCommandBuilder.synchro_stand_command(footprint_R_body=body_euler_zxy)
+        command_id = self.send_robot_command(pitch_command)
+
+        if command_id is None:
+            self.log_info("Could not pitch Spot's body.")
+            return False
+
+        end_time = time.time() + timeout_s
+        while time.time() < end_time:
+            command_feedback = self.command_client.robot_command_feedback(command_id)
+            synchronized_feedback = command_feedback.feedback.synchronized_feedback
+            status = synchronized_feedback.mobility_command_feedback.stand_feedback.status
+
+            if status == StandCommand.Feedback.STATUS_IS_STANDING:
+                self.log_info("Robot pitched.")
+                return True
+
+            time.sleep(0.25)
+
         return True
 
     def block_until_arm_arrives(self, command_id: int) -> None:
         """Block until Spot's arm arrives at the identified command's goal.
 
-        :param      command_id      ID of a robot command for Spot's arm
+        :param command_id: ID of a robot command for Spot's arm
         """
         self.log_info("Blocking until arm arrives...")
         bd_block_arm_command(self.command_client, command_id)
@@ -302,12 +397,16 @@ class SpotManager:
 
         :returns: True if Spot's arm was deployed, otherwise False
         """
-        if not self.check_lease_alive():
+        if not self.check_control():
             return False
 
         self.log_info("Deploying Spot's arm to the 'ready' position...")
         arm_ready = RobotCommandBuilder.arm_ready_command()
         command_id = self.send_robot_command(arm_ready)
+        if command_id is None:
+            self.log_info("Could not deploy Spot's arm.")
+            return False
+
         self.block_until_arm_arrives(command_id)
         self.log_info("Arm is now ready.")
         return True
@@ -317,15 +416,85 @@ class SpotManager:
 
         :returns: True if Spot's arm was stowed, otherwise False
         """
-        if not self.check_lease_alive():
+        if not self.check_control():
             return False
 
         self.log_info("Stowing Spot's arm...")
         arm_stow = RobotCommandBuilder.arm_stow_command()
         command_id = self.send_robot_command(arm_stow)
+        if command_id is None:
+            self.log_info("Could not stow Spot's arm.")
+            return False
+
         self.block_until_arm_arrives(command_id)
         self.log_info("Arm is now stowed.")
         return True
+
+    def navigate_to_base_pose(self, goal_base_pose: Pose2D, timeout_s: float) -> bool:
+        """Send a command to Spot to navigate to the given base pose.
+
+        Note: By default, the command is converted into the "vision" frame.
+
+        :param goal_base_pose: Target base pose for the navigation
+        :param timeout_s: Duration (seconds) after which the command times out
+        :return: True if the navigation command succeeded, else False
+        """
+        if not self.check_control():
+            return False
+
+        vision_frame = frame_helpers.VISION_FRAME_NAME
+
+        target_pose_v_b = TransformManager.convert_to_frame(goal_base_pose, vision_frame)
+        _, _, target_yaw_rad = target_pose_v_b.orientation.to_euler_rpy()
+
+        trajectory_command = RobotCommandBuilder.synchro_se2_trajectory_point_command(
+            goal_x=target_pose_v_b.position.x,
+            goal_y=target_pose_v_b.position.y,
+            goal_heading=target_yaw_rad,
+            frame_name=vision_frame,
+            params=self._mobility_params,
+        )
+
+        command_id = self.send_robot_command(trajectory_command)
+        if command_id is None:
+            self.log_info("Navigation attempt returned None instead of a command ID.")
+            return False
+
+        return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=timeout_s)
+
+    def send_velocity_command(
+        self,
+        linear_x_mps: float,
+        linear_y_mps: float,
+        angular_z_radps: float,
+        duration_s: float,
+    ) -> bool:
+        """Send a velocity command to Spot.
+
+        :param linear_x_mps: Linear velocity in the X direction (m/s)
+        :param linear_y_mps: Linear velocity in the Y direction (m/s)
+        :param angular_z_radps: Angular velocity about the Z axis (rad/s)
+        :param duration_s: Duration (seconds) of the sent command
+        :return: Boolean indicating if the command was successfully sent
+        """
+        if not self.check_control():
+            return False
+
+        velocity_cmd = RobotCommandBuilder.synchro_velocity_command(
+            v_x=linear_x_mps,
+            v_y=linear_y_mps,
+            v_rot=angular_z_radps,
+            params=self._mobility_params,
+        )
+
+        self.log_info(f"Sending velocity command to Spot with duration of {duration_s} seconds...")
+        command_id = self.send_robot_command(velocity_cmd, duration_s)
+        if command_id is None:
+            self.log_info("Velocity command returned None instead of a command ID.")
+            return False
+
+        self.log_info("Now blocking until the velocity command finishes...")
+        return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=duration_s)
 
     def release_control(self) -> None:
         """Release control of Spot so that other clients can control Spot."""
@@ -342,9 +511,9 @@ class SpotManager:
 
     def shutdown(self) -> None:
         """Shut-down by stowing the arm, sitting, powering off, and releasing Spot."""
-        self.log_info("Shutting down Spot manager...")
+        if self.check_control():
+            self.log_info("Shutting down Spot using the controlling SpotManager...")
 
-        if self.check_lease_alive():
             self.stow_arm()
             self.safely_power_off()  # Send a "safe power off" command
             self.release_control()  # Return Spot's lease

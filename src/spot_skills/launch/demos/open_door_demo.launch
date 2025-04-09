@@ -1,0 +1,16 @@
+<!-- Launch the nodes needed to run the OpenDoor skill -->
+
+<launch>
+
+    <!-- For safety reasons, do not assume which Spot is being used -->
+    <arg name="spot_name"/>
+    <arg name="/spot/immediate_control" default="true"/>
+    <arg name="real_robot" default="true"/>
+
+    <!-- Ensure that object detection will be available to detect the door handle -->
+    <param name="/spot/object_detection/active" value="true"/>
+
+    <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true"/>
+    <include file="$(find spot_skills)/launch/pose_estimation_bringup.launch"/>
+
+</launch>
