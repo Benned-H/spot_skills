@@ -4,7 +4,7 @@
 -->
 <launch>
 
-    <!-- Enable/disable using GUI showing the images used for pose estimation (default: false) -->
+    <!-- Enable/disable a GUI showing the images used for pose estimation (default: false) -->
     <arg name="debug_images_gui" default="false"/>
 
     <!-- Which camera(s) should be used for pose estimation? -->

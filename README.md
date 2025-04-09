@@ -178,13 +178,13 @@ the TAMP codebase (`TMP3`) is required to generate and execute TAMP plans involv
 ### Phase 1 - Mapping
 
 Before any real-world experiment, we use Spot to collect a map of the environment, consisting of a 3D pointcloud
-and the poses of any objects that will be manipulated during the experiment.
+and the poses of any objects to be manipulated during the experiment.
 
 We begin by collecting a map of the environment using the following steps:
 
-1. Use the tablet to undock Spot and navigate to an area of interest for the experiment. You _do not_ need to release tablet control of Spot.
+1. Use the tablet to undock Spot and navigate to an area of interest for the experiment. _Do not_ release tablet control of Spot.
 
-   - **Leave Spot standing**, controlled by the tablet, during the next step.
+   - **Leave Spot standing**, controlled by the tablet, during the following steps.
 
 2. Enter the `spot_skills` Docker using the command:
 
