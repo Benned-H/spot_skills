@@ -46,26 +46,26 @@ class SpotNavigationServer:
         self._manager = manager
 
         self._nav_to_pose_srv = rospy.Service(
-            "/spot/navigate_to_pose",
+            "/spot/navigation/to_pose",
             NavigateToPose,
             self.handle_pose,
         )
 
         self._nav_to_landmark_srv = rospy.Service(
-            "/spot/navigate_to_landmark",
+            "/spot/navigation/to_landmark",
             NavigateToLandmark,
             self.handle_landmark,
         )
 
         # Provide a service to create new landmarks at Spot's current base pose
-        self._make_landmarks_srv = rospy.Service(
-            "/spot/make_landmark_at_base_pose",
+        self._new_landmark_srv = rospy.Service(
+            "/spot/navigation/create_landmark",
             ObjectNameService,
-            self.handle_make_landmark,
+            self.handle_create_landmark,
         )
 
         # Load landmark locations from a YAML file specified via ROS param
-        landmarks_yaml_path = Path(rospy.get_param("/spot_navigation/known_landmarks_yaml"))
+        landmarks_yaml_path = Path(rospy.get_param("/spot/navigation/known_landmarks_yaml"))
         known_landmarks = KnownLandmarks2D.from_yaml(landmarks_yaml_path)
         self._landmarks: dict[str, Pose2D] = known_landmarks.landmarks
 
@@ -76,9 +76,9 @@ class SpotNavigationServer:
         self._move_base_client.wait_for_server(timeout=rospy.Duration.from_sec(60.0))
 
         # Load thresholds for when Spot is considered "close to a goal" from ROS params
-        self.close_to_goal_m = rospy.get_param("/spot_navigation/close_to_goal_m")
-        self.close_to_goal_rad = rospy.get_param("/spot_navigation/close_to_goal_rad")
-        self.timeout_s = rospy.get_param("/spot_navigation/timeout_s")
+        self.close_to_goal_m = rospy.get_param("/spot/navigation/close_to_goal_m")
+        self.close_to_goal_rad = rospy.get_param("/spot/navigation/close_to_goal_rad")
+        self.timeout_s = rospy.get_param("/spot/navigation/timeout_s")
 
         # Subscribe to a topic providing body-frame velocity commands
         self._cmd_vel_sub = rospy.Subscriber("cmd_vel", Twist, self.handle_cmd_vel, queue_size=1)
@@ -106,7 +106,10 @@ class SpotNavigationServer:
 
         return distance_2d_m < self.close_to_goal_m and abs_yaw_error_rad < self.close_to_goal_rad
 
-    def handle_make_landmark(self, request: ObjectNameServiceRequest) -> ObjectNameServiceResponse:
+    def handle_create_landmark(
+        self,
+        request: ObjectNameServiceRequest,
+    ) -> ObjectNameServiceResponse:
         """Handle a ROS service request to create a new landmark at Spot's current base pose.
 
         :param request: Request specifying the landmark name to be used

@@ -167,8 +167,62 @@ roslaunch spot_skills spot_nav_demo.launch spot_name:=NAME_HERE
 4. Command Spot to navigate to a named location by calling the appropriate ROS service from the command-line:
 
 ```bash
-rosservice call ...TODO
+rosservice call /spot/navigation/to_landmark "landmark_name: 'door_to_lab'"
 ```
+
+- To define a new named landmark at Spot's current base pose, you can run the command:
+  ```bash
+  rosservice call /spot/navigation/create_landmark "object_name: 'NAME_HERE'"
+  ```
+
+### `OpenDoor` Demo
+
+In this real-world demonstration, we'll use ROS to trigger Spot's off-the-shelf skill to open a door.
+
+1. Use the tablet to walk Spot to stand in front of the door, facing the door. To verify that Spot's
+   in the right position, enter **Stand** mode on the tablet and tilt Spot's body up using the right
+   joystick. The door handle should be visible through Spot's front body camera(s).
+
+2. Use the tablet to make Spot sit, which may be hidden under the _Stand_ menu. Then,
+   release tablet control of Spot by entering the _Power Button_ menu (top of the
+   screen), then tapping _Advanced_, and selecting **Release Control**.
+
+   - _Check_: Are Spot's front lights now flashing rainbow?
+
+3. On your computer, launch the `spot_skills` Docker and the `pose` Docker using the command:
+
+   ```bash
+   bash docker/tmux_launch.sh
+   ```
+
+4. On the right window of `tmux`, launch the pose estimation and object detection server:
+
+   ```bash
+   sh /docker/pose/run_service.sh
+   ```
+
+5. On the left window of `tmux`, launch the nodes for the demo using the following commands, replacing
+   `NAME_HERE` with the name of the Spot you're using (e.g., `spot_name:=opener`):
+
+   ```bash
+   bash docker/pip_install.sh
+   roslaunch spot_skills open_door_demo.launch spot_name:=NAME_HERE
+   ```
+
+   - Wait until ROS has "settled" and output messages of the form:
+
+     ```
+     You can start planning now!
+
+     [INFO] [...]: Pose estimation is currently inactive for all objects.
+     ```
+
+6. In another window in the `spot_skills` Docker, source `devel/setup.bash` and launch the `OpenDoor` skill using the commands:
+
+   ```bash
+   rosservice call /spot/unlock_arm "{}"
+   rosservice call /spot/open_door "{}"
+   ```
 
 ## Real-Robot Experiments
 

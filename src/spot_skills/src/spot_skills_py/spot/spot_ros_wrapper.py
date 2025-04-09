@@ -101,7 +101,7 @@ class SpotROS1Wrapper:
         else:
             rospy.loginfo("Skipping initialization of DetectObjectClient...")
 
-        navigation_active = rospy.get_param("/spot_navigation/active", default=False)
+        navigation_active = rospy.get_param("/spot/navigation/active", default=False)
         if navigation_active:
             rospy.loginfo("Now initializing the SpotNavigationServer...")
             self._navigation_server = SpotNavigationServer(manager=self._manager)

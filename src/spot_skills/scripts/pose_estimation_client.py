@@ -58,7 +58,7 @@ class PoseEstimateClient:
         self.active_objects: list[str] = []
         self._next_obj_idx = 0
 
-        self.global_frame = DEFAULT_FRAME  # Relative frame used as the static "world" frame
+        self.global_frame = "vision"  # Relative frame used as the static "world" frame
 
         # Publish estimated object poses to the /estimated_object_poses topic
         self.pose_pub = rospy.Publisher("/estimated_object_poses", PoseEstimate, queue_size=10)
