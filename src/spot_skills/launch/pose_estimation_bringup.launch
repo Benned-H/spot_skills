@@ -10,6 +10,9 @@
     <!-- Which camera(s) should be used for pose estimation? -->
     <param name="/pose_estimation/default_cameras" type="str" value="hand"/>
 
+    <!-- Load the list of known objects into the ROS parameters -->
+    <rosparam command="load" file="$(find spot_skills)/config/known_objects.yaml"/>
+
     <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" args="--perspective-file $(find spot_skills)/rviz/pose_estimate.perspective" if="$(arg debug_images_gui)"/>
 
     <!-- Launch the object pose estimate client -->

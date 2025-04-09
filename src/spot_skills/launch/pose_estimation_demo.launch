@@ -3,7 +3,7 @@
 
     <!-- For safety reasons, do not assume which Spot is being used -->
     <arg name="spot_name"/>
-    <arg name="debug_images_gui" default="true"/>
+    <arg name="debug_images_gui" default="false"/>
 
     <!-- Include the launch file to bringup nodes for pose estimation -->
     <include file="$(find spot_skills)/launch/pose_estimation_bringup.launch">
@@ -15,9 +15,6 @@
         <arg name="load_robot_description" value="true"/>
         <arg name="spot_name" value="$(arg spot_name)"/>
     </include>
-
-    <!-- Load the list of known objects into the ROS parameters -->
-    <rosparam command="load" file="$(find spot_skills)/config/known_objects.yaml"/>
 
     <!-- Launch the Spot ROS wrapper (provides RGBD image pair service) -->
     <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen"/>
