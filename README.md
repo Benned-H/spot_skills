@@ -7,7 +7,7 @@ Motion-planning-based skills for Boston Dynamics' Spot robot
 This repository includes others, such as [`spot_ros`](https://github.com/heuristicus/spot_ros), as nested submodules. To ensure that all submodules are cloned alongside this repository, use the command:
 
 ```bash
-git clone --recurse-submodules https://github.com/Benned-H/spot_skills.git
+git clone --recurse-submodules git@github.com:Benned-H/spot_skills.git
 ```
 
 If you have already cloned the repository, run the following command to ensure that all submodules are up-to-date:
@@ -31,19 +31,14 @@ bash docker/launch.sh
 
 To enter the running container in another terminal, just run the same script again.
 
-## Working with the Spot ROS 1 Driver
+_Troubleshooting_:
 
-Before launching the Spot driver, navigate to `/docker/spot_skills` in the container, then run:
-
-```bash
-rosdep install -y --from-paths src --ignore-src --rosdistro noetic
-pip3 install -e src/spot_ros/spot_wrapper/
-```
-
-Then, rebuild and source the Catkin workspace by running:
+1. If the launch script isn't working, check that you've successfully pulled all submodules. Use:
+   - `git submodule update --init --recursive`
+2. Try the following command to see the errors preventing you from entering Docker. Replace `SERVICE_NAME` with the name of the service that you're unable to enter (e.g., `spot-tamp-gpu-v2` is the service name in `Selected Docker service: 'spot-tamp-gpu-v2'`).
 
 ```bash
-bash docker/catkin_rebuild.sh
+docker compose up --pull missing SERVICE_NAME
 ```
 
 ## Example Demonstrations
@@ -60,7 +55,7 @@ catkin build
 source devel/setup.bash
 ```
 
-If a demo requires a second or third terminal tab to be opened into Docker, that tab will need to move to the same directiory and source `devel/setup.bash`.
+If a demo requires a second or third terminal tab to be opened into Docker, move to the same directory and source `devel/setup.bash`.
 
 ```bash
 # For a second, third, etc. terminal tab in Docker
@@ -68,7 +63,7 @@ cd /docker/spot_skills
 source devel/setup.bash
 ```
 
-### Long Trajectory Using Spot SDK
+### Long Trajectory Using Spot SDK (Real-World)
 
 In this real-world demonstration, Spot will use its arm to follow a 20-second trajectory. To run the demo, perform the following steps:
 
