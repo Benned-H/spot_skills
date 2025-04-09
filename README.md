@@ -162,7 +162,7 @@ roslaunch spot_skills spot_nav_demo.launch spot_name:=NAME_HERE
 
 3. Use the tablet to walk Spot around the environment until RTAB-Map successfully localizes Spot.
 
-   - Look for the simulated Spot to "match" the real-world robot's position in the world, as visualized by the pointcloud in RViz.
+   - Look for the simulated Spot to "match" the real-world robot's position in the world, as visualized by the robot and pointcloud in RViz.
 
 4. Command Spot to navigate to a named location by calling the appropriate ROS service from the command-line:
 
