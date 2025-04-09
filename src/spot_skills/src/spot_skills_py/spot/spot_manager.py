@@ -487,11 +487,13 @@ class SpotManager:
             params=self._mobility_params,
         )
 
+        self.log_info(f"Sending velocity command to Spot with duration of {duration_s} seconds...")
         command_id = self.send_robot_command(velocity_cmd, duration_s)
         if command_id is None:
             self.log_info("Velocity command returned None instead of a command ID.")
             return False
 
+        self.log_info("Now blocking until the velocity command finishes...")
         return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=duration_s)
 
     def release_control(self) -> None:
