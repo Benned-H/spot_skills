@@ -25,6 +25,7 @@ from spot_skills_py.spot.spot_arm_controller import (
     GripperCommandOutcome,
     SpotArmController,
 )
+from spot_skills_py.spot.spot_erase_board import erase_board
 from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient
 from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.spot.spot_navigation import SpotNavigationServer
@@ -66,6 +67,9 @@ class SpotROS1Wrapper:
         self._unlock_arm_service = rospy.Service("spot/unlock_arm", Trigger, self.handle_unlock_arm)
         self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
         self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
+        self._erase_board_service = rospy.Service(
+            "spot/erase_board", Trigger, self.handle_erase_board
+        )
 
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
@@ -290,6 +294,30 @@ class SpotROS1Wrapper:
         message = "Spot opened the door." if door_opened else "Could not open the door."
 
         return TriggerResponse(door_opened, message)
+
+    def handle_erase_board(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to erase a whiteboard.
+
+        :param _: ROS message requesting whiteboard erasure (unused)
+        :return: Response conveying whether Spot successfully erased the board
+        """
+        if self._arm_locked:
+            message = "Cannot erase whiteboard because Spot's arm is locked."
+            return TriggerResponse(success=False, message=message)
+
+        has_control = self._manager.check_control()
+        if not has_control:
+            has_control = self._manager.take_control()
+
+        if not has_control:
+            return TriggerResponse(success=False, message="Could not take control of Spot.")
+
+        try:
+            erase_board(self._manager)
+            return TriggerResponse(success=True, message="Successfully erased the whiteboard.")
+        except Exception as e:
+            rospy.logerr(f"Error while erasing board: {e}")
+            return TriggerResponse(success=False, message=f"Failed to erase board: {e}")
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.

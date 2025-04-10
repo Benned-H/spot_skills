@@ -21,6 +21,32 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     # Clean up layer after using apt-get update
     rm -rf /var/lib/apt/lists/* && apt-get clean
 
+
+
+
+# Install ROS Noetic
+RUN apt-get update && \
+    apt-get install -y curl gnupg2 lsb-release && \
+    sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list' && \
+    curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add - && \
+    apt-get update && \
+    apt-get install -y ros-noetic-desktop-full && \
+    echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc && \
+    source /opt/ros/noetic/setup.bash
+
+RUN apt-get install -y python3-rosdep python3-rosinstall python3-rosinstall-generator python3-wstool build-essential
+
+RUN rosdep init || true && rosdep update
+
+
+
+
+
+
+
+
+
+
 ## Stage A1: Install ROS 1 Noetic (Desktop-Full) and MoveIt 1 onto the Ubuntu-Git image
 FROM ubuntu-git-py AS noetic-moveit
 ENV ROS_DISTRO=noetic
@@ -105,11 +131,45 @@ RUN git config --global http.sslVerify "false" && \
     git clone --depth 1 --branch noetic-devel https://github.com/introlab/rtabmap_ros && \
     git config --global http.sslVerify "true"
 
+
+
+
+
+
+
+#WORKDIR /docker/rtabmap_ws
+#RUN rosdep install -y --from-paths src --ignore-src --rosdistro "${ROS_DISTRO}" && \
+#    catkin config --extend "/opt/ros/${ROS_DISTRO}" --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+#    catkin build rtabmap_ros -DRTABMAP_SYNC_MULTI_RGBD=ON
+#VOLUME /docker/rtabmap_ws
+
 WORKDIR /docker/rtabmap_ws
+
+# Install catkin tools (already pip-installed)
+# Source ROS
+RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
+
+# Resolve dependencies and build
+RUN source /opt/ros/noetic/setup.bash && \
+    rosdep install -y --from-paths src --ignore-src --rosdistro="${ROS_DISTRO}" && \
+    catkin config --extend "/opt/ros/${ROS_DISTRO}" --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    catkin build rtabmap_ros -DRTABMAP_SYNC_MULTI_RGBD=ON
+
+
+
+# Set up and build rtabmap_ros
 RUN rosdep install -y --from-paths src --ignore-src --rosdistro "${ROS_DISTRO}" && \
     catkin config --extend "/opt/ros/${ROS_DISTRO}" --cmake-args -DCMAKE_BUILD_TYPE=Release && \
     catkin build rtabmap_ros -DRTABMAP_SYNC_MULTI_RGBD=ON
+
 VOLUME /docker/rtabmap_ws
+
+
+
+
+
+
+
 
 # Source the rtabmap workspace in all terminals
 RUN echo "source /docker/rtabmap_ws/devel/setup.bash" >> ~/.bashrc
