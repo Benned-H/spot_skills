@@ -63,7 +63,12 @@ class JointStateMux:
         self._pub_rate_hz = 10.0  # Frequency (Hz) at which joint state is republished
 
         # Define a map from joint state sources to their latest data
-        self.latest_joint_states: dict[str, Configuration] = {mode: {name:0.0 for name in self.all_joints} for mode in self.valid_modes}
+        self.latest_joint_states: dict[str, JointState] = {mode:JointState(name=self.all_joints) for mode in self.valid_modes}
+
+        for msg in self.latest_joint_states.values():
+            msg.position = [0.0] * len(msg.name)
+            msg.velocity = [0.0] * len(msg.name)
+            msg.effort = [0.0] * len(msg.name)
 
         print('Creating rospy service')
         rospy.loginfo('Creating rospy service')
@@ -88,20 +93,13 @@ class JointStateMux:
     def publish_state(self) -> None:
         """Publish the current joint state according to the multiplexer's current mode."""
         mode_joint_state = self.latest_joint_states.get(self.mode)
-
-        msg = JointState()
         
         if mode_joint_state is not None:
             now_stamp = rospy.Time.now()
-            msg.header.stamp = now_stamp
-
-            for key,val in mode_joint_state.items():
-                msg.name.append(key)
-                msg.position.append(val)
-
+            mode_joint_state.header.stamp = now_stamp
             rospy.loginfo(f"[JointStateMux] Publishing JointState with timestamp: {now_stamp}")
 
-            self.pub.publish(msg)
+            self.pub.publish(mode_joint_state)
 
     def publish_mode(self) -> None:
         """Publish the current mode of the joint state multiplexer."""
@@ -118,9 +116,10 @@ class JointStateMux:
         name_to_index = {name: i for i, name in enumerate(msg.name)}
         
         for joint in msg.name:
-            idx = name_to_index[joint]
-            self.latest_joint_states["planning"][joint] = msg.position[idx]
-        
+            if joint in self.latest_joint_states["planning"].name:
+                idx = name_to_index[joint]
+                latest_idx = self.latest_joint_states["planning"].name.index(joint)
+                self.latest_joint_states["planning"].position[latest_idx] = msg.position[idx]
 
     def real_execution_callback(self, msg: JointState) -> None:
         """Process a joint state message from the real-robot execution-mode topic.
@@ -131,9 +130,12 @@ class JointStateMux:
         name_to_index = {name: i for i, name in enumerate(msg.name)}
         
         for joint in msg.name:
-            idx = name_to_index[joint]
-            self.latest_joint_states["real_execution"][joint] = msg.position[idx]
-        
+            if joint in self.latest_joint_states["real_execution"].name:
+                idx = name_to_index[joint]
+                latest_idx = self.latest_joint_states["real_execution"].name.index(joint)
+                self.latest_joint_states["real_execution"].position[latest_idx] = msg.position[idx]
+
+        # self.latest_joint_states["real_execution"] = msg
 
     def sim_execution_callback(self, msg: JointState) -> None:
         """Process a joint state message from the simulated execution-mode topic.
@@ -143,9 +145,11 @@ class JointStateMux:
         name_to_index = {name: i for i, name in enumerate(msg.name)}
         
         for joint in msg.name:
-            idx = name_to_index[joint]
-            self.latest_joint_states["sim_execution"][joint] = msg.position[idx]
-        
+            if joint in self.latest_joint_states["sim_execution"].name:
+                idx = name_to_index[joint]
+                latest_idx = self.latest_joint_states["sim_execution"].name.index(joint)
+                self.latest_joint_states["sim_execution"].position[latest_idx] = msg.position[idx]
+
         
     def set_mode_callback(self, request: SetJointStateModeRequest) -> SetJointStateModeResponse:
         """Handle a request to set the mode of the joint state multiplexer.
