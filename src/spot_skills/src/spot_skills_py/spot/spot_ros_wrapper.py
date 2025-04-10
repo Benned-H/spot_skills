@@ -68,7 +68,9 @@ class SpotROS1Wrapper:
         self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
         self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
         self._erase_board_service = rospy.Service(
-            "spot/erase_board", Trigger, self.handle_erase_board
+            "spot/erase_board",
+            Trigger,
+            self.handle_erase_board,
         )
 
         self._get_rgbd_pairs_service = rospy.Service(
