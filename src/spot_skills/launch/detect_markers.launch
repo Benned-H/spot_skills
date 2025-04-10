@@ -1,0 +1,23 @@
+<launch>
+  <!-- Define arguments -->
+  <arg name="marker_size_frontleft" default="7.62" />
+  <arg name="marker_size_frontright" default="7.62" />
+
+  <!-- Front Left Camera Detection -->
+  <node name="ar_single_left" pkg="ar_track_alvar" type="individualMarkersNoKinect" output="screen">
+    <param name="marker_size" value="$(arg marker_size_frontleft)" />
+    <param name="output_frame" value="frontleft_fisheye" />
+    <remap from="camera_image" to="/spot/camera/frontleft/image"/>
+    <remap from="camera_info" to="/spot/camera/frontleft/camera_info"/>
+    <remap from="ar_pose_marker" to="/ar_pose_marker_frontleft"/>
+  </node>
+
+  <!-- Front Right Camera Detection -->
+  <node name="ar_single_right" pkg="ar_track_alvar" type="individualMarkersNoKinect" output="screen">
+    <param name="marker_size" value="$(arg marker_size_frontright)" />
+    <param name="output_frame" value="frontright_fisheye" />
+    <remap from="camera_image" to="/spot/camera/frontright/image"/>
+    <remap from="camera_info" to="/spot/camera/frontright/camera_info"/>
+    <remap from="ar_pose_marker" to="/ar_pose_marker_frontright"/>
+  </node>
+</launch>
