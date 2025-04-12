@@ -1,9 +1,0 @@
-# Specify AprilTag-object relative transforms to be used in pose estimation
-transforms:
-  tag-39:
-    object: "expo_spray"
-    relative_pose: [0.01, 0, 0.05, 0, 0, 0] # Object's pose w.r.t. the AprilTag
-
-  tag-41:
-    object: "table1"
-    relative_pose: [-0.1, 0, -0.5, 0, 0, 0]
