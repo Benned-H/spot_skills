@@ -1,0 +1,26 @@
+<!-- Launch the nodes needed to demonstrate Spot tracking AR markers -->
+<launch>
+
+    <!-- For safety reasons, do not assume which Spot is being used -->
+    <arg name="spot_name" />
+
+    <!-- We can only run AR marker detection on the real robot -->
+    <arg name="real_robot" value="true" />
+
+    <!-- Launch nodes for AR tag tracking using ar_track_alvar -->
+    <include file="$(find spot_skills)/launch/spot_alvar_bringup.launch" pass_all_args="true" />
+
+    <!-- Launch all nodes to control Spot, simulated or real, using MoveIt -->
+    <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true" />
+
+    <!-- Launch the main launch file from spot_rtabmap in mapping mode -->
+    <include file="$(find spot_rtabmap)/launch/spot_rtabmap.launch">
+        <arg name="localization_mode" value="false" />
+        <arg name="start_new_map" value="true" />
+        <arg name="rtabmap_database_path" value="~/.ros/temp-rtabmap.db" />
+    </include>
+
+    <!-- Launch RViz with the config for SLAM -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" />
+
+</launch>
