@@ -37,6 +37,7 @@ br = None
 
 def marker_callback(msg):
     global br
+    rospy.loginfo(f"Received message with {len(msg.markers)} markers, header: {msg.markers[0].header if msg.markers else 'N/A'}")
     if not msg.markers:
         rospy.loginfo("No markers detected in this frame.")
     else:
@@ -60,6 +61,59 @@ def marker_callback(msg):
             # Broadcast the transform.
             br.sendTransform(t)
 
+
+# def marker_callback(msg):
+#     global br
+#     if not msg.markers:
+#         rospy.loginfo("No markers detected in this frame.")
+#     else:
+#         # Use only the first marker as the bundle pose.
+#         marker = msg.markers[0]
+#         rospy.loginfo(f"Detected Bundle with Marker ID: {marker.id}")
+            
+#         t = TransformStamped()
+#         # Use the header from the bundle pose
+#         t.header = marker.pose.header  
+#         # Set a unique child frame name, e.g. "ar_bundle"
+#         t.child_frame_id = "ar_bundle"
+#         t.transform.translation.x = marker.pose.pose.position.x
+#         t.transform.translation.y = marker.pose.pose.position.y
+#         t.transform.translation.z = marker.pose.pose.position.z
+#         t.transform.rotation = marker.pose.pose.orientation
+
+#         # Ensure the parent frame is set
+#         if not t.header.frame_id:
+#             t.header.frame_id = msg.markers[0].header.frame_id 
+
+#         br.sendTransform(t)
+
+
+
+# def marker_callback_left2(msg):
+#     global br
+#     if not msg.markers:
+#         rospy.loginfo("Left2: No markers detected in this frame.")
+#     else:
+#         for marker in msg.markers:
+#             rospy.loginfo(f"Left2: Detected Marker ID: {marker.id}")
+            
+#             # Create and broadcast a transform for the detected marker.
+#             t = TransformStamped()
+#             # Use the header from the marker's pose; it contains timestamp and reference frame.
+#             t.header = marker.pose.header  
+#             # Create a child frame name, for example "ar_marker_42" for marker with id 42.
+#             t.child_frame_id = f"ar_marker_{marker.id}_left2"
+#             # Copy the pose from the marker message.
+#             t.transform.translation.x = marker.pose.pose.position.x
+#             t.transform.translation.y = marker.pose.pose.position.y
+#             t.transform.translation.z = marker.pose.pose.position.z
+#             t.transform.rotation = marker.pose.pose.orientation
+
+#             t.header.frame_id = msg.markers[0].header.frame_id  # <- this sets the parent frame correctly
+
+#             # Broadcast the transform.
+#             br.sendTransform(t)
+
 def main():
     global br
     rospy.init_node("simple_marker_listener", anonymous=True)
@@ -76,6 +130,7 @@ def main():
 
     # rospy.Subscriber("/ar_pose_marker", AlvarMarkers, marker_callback)
     rospy.Subscriber("/ar_pose_marker_frontleft", AlvarMarkers, marker_callback)
+    # rospy.Subscriber("/ar_pose_marker_frontleft_2", AlvarMarkers, marker_callback_left2)
     rospy.Subscriber("/ar_pose_marker_frontright", AlvarMarkers, marker_callback)
 
     rospy.loginfo("Marker listener node started. Waiting for markers...")

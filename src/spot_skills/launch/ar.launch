@@ -1,6 +1,8 @@
 <launch>
-    <arg name="marker_size_frontleft" default="7.62" />
-    <arg name="marker_size_frontright" default="7.62" />
+    <!-- <arg name="marker_size_frontleft" default="7.62" /> -->
+    <!-- <arg name="marker_size_frontleft_2" default="7.62" /> -->
+    <!-- <arg name="marker_size_frontright" default="7.62" /> -->
+    <!-- <arg name="use_bundle" default="true" /> -->
 
 
     <!-- Launch all nodes to control Spot, simulated or real, using MoveIt -->
@@ -13,12 +15,13 @@
     <node name="image_republisher" pkg="spot_driver" type="image_republisher.py" output="screen" />
 
     <!-- Launch the AR marker detection -->
-    <include file="$(find spot_skills)/launch/detect_markers.launch" >
-        <arg name="marker_size_frontleft" value="$(arg marker_size_frontleft)" />
-        <arg name="marker_size_frontright" value="$(arg marker_size_frontright)" />
-    </include>
+    <include file="$(find spot_skills)/launch/detect_markers.launch" />
+        <!-- <arg name="marker_size_frontleft" value="$(arg marker_size_frontleft)" /> -->
+        <!-- <arg name="marker_size_frontleft_2" value="$(arg marker_size_frontleft_2)" /> -->
+        <!-- <arg name="marker_size_frontright" value="$(arg marker_size_frontright)" /> -->
+        <!-- <arg name="use_bundle" value="$(arg use_bundle)" /> -->
+    <!-- </include> -->
 
     <!-- Launch the Python node that prompts MoveIt to generate motion plans -->
-    <node name="simple_marker_listener" pkg="spot_skills" type="marker_listener.py" output="screen" />
-
+    <!-- <node name="simple_marker_listener" pkg="spot_skills" type="marker_listener.py" output="screen" /> -->
 </launch>
