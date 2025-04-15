@@ -11,11 +11,9 @@
     <!-- Run Rviz using a config file designed for this demo -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" />
 
-    <!-- Launch the image republisher node -->
-    <node name="image_republisher" pkg="spot_driver" type="image_republisher.py" output="screen" />
-
     <!-- Launch the AR marker detection -->
-    <include file="$(find spot_skills)/launch/detect_markers.launch" />
+    <include file="$(find spot_skills)/launch/detect_markers_bundle.launch" />
+    <!-- <include file="$(find spot_skills)/launch/detect_markers_single.launch" /> -->
         <!-- <arg name="marker_size_frontleft" value="$(arg marker_size_frontleft)" /> -->
         <!-- <arg name="marker_size_frontleft_2" value="$(arg marker_size_frontleft_2)" /> -->
         <!-- <arg name="marker_size_frontright" value="$(arg marker_size_frontright)" /> -->

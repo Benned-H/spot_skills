@@ -1,22 +1,52 @@
 <launch>
-  <!-- Define arguments -->
-  <arg name="marker_size" default="7.62" />
+  <!-- Common arguments -->
+  <arg name="marker_size_left" default="7.62" />
+  <arg name="marker_size_right" default="7.62" />
   <arg name="max_new_marker_error" default="0.08" />
   <arg name="max_track_error" default="0.2" />
-  <arg name="cam_image_topic" default="/spot/camera/frontleft/image" />
-  <arg name="cam_info_topic" default="/spot/camera/frontleft/camera_info" />
-  <arg name="output_frame" default="frontleft_fisheye" />
-  <arg name="bundle_files" default="$(find spot_skills)/cabinet_ar/MarkerData_1_2_3_4.xml" />
-  <!-- <arg name="bundle_files" default="$(find spot_skills)/door_ar/MarkerData_80_82_84.xml" /> -->
+
+  <!-- Left camera arguments -->
+  <arg name="cam_image_topic_left" default="/spot/camera/frontleft/image" />
+  <arg name="cam_info_topic_left" default="/spot/camera/frontleft/camera_info" />
+  <arg name="output_frame_left" default="frontleft_fisheye" />
+  <!-- <arg name="bundle_files_left" default="$(find spot_skills)/cabinet_ar/MarkerData_1_2_3_4.xml" /> -->
+  <arg name="bundle_files_left" default="$(find spot_skills)/door_ar/MarkerData_80_82_84.xml" />
 
 
+  <!-- Right camera arguments -->
+  <arg name="cam_image_topic_right" default="/spot/camera/frontright/image" />
+  <arg name="cam_info_topic_right" default="/spot/camera/frontright/camera_info" />
+  <arg name="output_frame_right" default="frontright_fisheye" />
+  <!-- <arg name="bundle_files_right" default="$(find spot_skills)/cabinet_ar/MarkerData_1_2_3_4.xml" /> -->
+  <arg name="bundle_files_right" default="$(find spot_skills)/door_ar/MarkerData_80_82_84.xml" />
+
+
+  <!-- AR detection for left camera -->
   <node name="ar_track_alvar_left" pkg="ar_track_alvar" type="findMarkerBundlesNoKinect" output="screen">
-    <param name="marker_size" type="double" value="$(arg marker_size)" />
+    <param name="marker_size"         type="double" value="$(arg marker_size_left)" />
     <param name="max_new_marker_error" type="double" value="$(arg max_new_marker_error)" />
-    <param name="max_track_error" type="double" value="$(arg max_track_error)" />
-    <param name="output_frame" type="string" value="$(arg output_frame)" />
-    <param name="bundle_files" type="string" value="$(arg bundle_files)" />
-    <remap from="camera_image" to="$(arg cam_image_topic)" />
-    <remap from="camera_info" to="$(arg cam_info_topic)" />
+    <param name="max_track_error"      type="double" value="$(arg max_track_error)" />
+    <param name="output_frame"         type="string" value="$(arg output_frame_left)" />
+    <param name="bundle_files"         type="string" value="$(arg bundle_files_left)" />
+    <remap from="camera_image" to="$(arg cam_image_topic_left)" />
+    <remap from="camera_info"  to="$(arg cam_info_topic_left)" />
+    <!-- Remap output topics to differentiate left camera -->
+    <remap from="ar_pose_marker" to="/ar_pose_marker_left" />
+    <remap from="visualization_marker" to="/visualization_marker_left" />
   </node>
+
+  <!-- AR detection for right camera -->
+  <node name="ar_track_alvar_right" pkg="ar_track_alvar" type="findMarkerBundlesNoKinect" output="screen">
+    <param name="marker_size"         type="double" value="$(arg marker_size_right)" />
+    <param name="max_new_marker_error" type="double" value="$(arg max_new_marker_error)" />
+    <param name="max_track_error"      type="double" value="$(arg max_track_error)" />
+    <param name="output_frame"         type="string" value="$(arg output_frame_right)" />
+    <param name="bundle_files"         type="string" value="$(arg bundle_files_right)" />
+    <remap from="camera_image" to="$(arg cam_image_topic_right)" />
+    <remap from="camera_info"  to="$(arg cam_info_topic_right)" />
+    <!-- Remap output topics to differentiate right camera -->
+    <remap from="ar_pose_marker" to="/ar_pose_marker_right" />
+    <remap from="visualization_marker" to="/visualization_marker_right" />
+  </node>
+
 </launch>
