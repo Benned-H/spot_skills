@@ -1,4 +1,4 @@
-"""Define a class to forward Alvar AR tag detections into /tf."""
+"""Launch a ROS node to forward Alvar AR tag detections into /tf frames."""
 
 from pathlib import Path
 
