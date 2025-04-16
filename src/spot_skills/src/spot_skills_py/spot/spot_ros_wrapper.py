@@ -1,7 +1,7 @@
 """Define a class providing a ROS 1 interface to the Spot robot."""
 
 from copy import deepcopy
-
+import cv2
 import rospy
 import sensor_msgs.msg
 from actionlib import SimpleActionServer
@@ -61,15 +61,6 @@ class SpotROS1Wrapper:
         if immediate_control:
             self._manager.take_control()
 
-        # Initialize all ROS services provided by the class
-        self._stand_service = rospy.Service("spot/stand", Trigger, self.handle_stand)
-        self._shutdown_service = rospy.Service("spot/shutdown", Trigger, self.handle_shutdown)
-        self._sit_service = rospy.Service("spot/sit", Trigger, self.handle_sit)
-        self._unlock_arm_service = rospy.Service("spot/unlock_arm", Trigger, self.handle_unlock_arm)
-        self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
-        self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
-        self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
-
         # Create a client to request object detections from the torch-enabled Docker
         self.detect_object_client = DetectObjectClient(["door handle"])
 
@@ -78,6 +69,15 @@ class SpotROS1Wrapper:
             GetRGBDPairs,
             self.handle_get_rgbd_pairs,
         )
+
+        # Initialize all ROS services provided by the class
+        self._stand_service = rospy.Service("spot/stand", Trigger, self.handle_stand)
+        self._shutdown_service = rospy.Service("spot/shutdown", Trigger, self.handle_shutdown)
+        self._sit_service = rospy.Service("spot/sit", Trigger, self.handle_sit)
+        self._unlock_arm_service = rospy.Service("spot/unlock_arm", Trigger, self.handle_unlock_arm)
+        self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
+        self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
+        self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
 
         # Initialize all ROS action servers provided by the class
         self._arm_action_name = "arm_controller/follow_joint_trajectory"
@@ -269,8 +269,11 @@ class SpotROS1Wrapper:
 
         # Call the operations needed for door-opening, step-by-step
         side_by_side_image = self._door_opener.capture_side_by_side_image()
-        side_by_side_msg = msgify(sensor_msgs.msg.Image, side_by_side_image)
-
+        side_by_side_msg = msgify(sensor_msgs.msg.Image, side_by_side_image, encoding="rgb8")
+        # # cv2.circle(side_by_side_org, (int(cx_new), int(cy_new)), 30, (255, 0, 0), 5)
+        # cv2.imshow("stop if bad", side_by_side_image)
+        # cv2.waitKey()
+        # cv2.destroyAllWindows()
         response_msg = self.detect_object_client.call_on_image(side_by_side_msg)
         if response_msg is None:
             message = "Cannot open door because object detection returned None."
