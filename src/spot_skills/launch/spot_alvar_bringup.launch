@@ -1,0 +1,56 @@
+<!-- Launch the nodes needed to track AR tags on Spot using ar_track_alvar -->
+<launch>
+
+    <!-- Require the path to a YAML file configuring the AR marker system -->
+    <arg name="apriltags_yaml_path" />
+
+    <!-- The hand camera is used for smaller tags and the body cameras are used for larger tags -->
+    <arg name="hand_cam_marker_size_cm" value="4.0" />
+    <arg name="body_cam_marker_size_cm" value="18.5" />
+
+    <arg name="max_new_marker_error" default="0.08" />
+    <arg name="max_track_error" default="0.2" />
+
+    <!-- Use Spot's hand camera to track smaller AR markers -->
+    <node name="ar_single_hand" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+        <param name="marker_size" type="double" value="$(arg hand_cam_marker_size_cm)" />
+        <param name="max_new_marker_error" type="double" value="$(arg max_new_marker_error)" />
+        <param name="max_track_error" type="double" value="$(arg max_track_error)" />
+
+        <param name="output_frame" type="string" value="hand" />
+        <remap from="camera_image" to="/spot/camera/hand_color/image" />
+        <remap from="camera_info" to="/spot/camera/hand_color/camera_info" />
+        <remap from="ar_pose_marker" to="/ar_pose_marker/hand"/>
+    </node>
+
+    <!-- Use Spot's two front body cameras to track larger AR markers -->
+    <!-- Front left body camera -->
+    <node name="ar_single_left" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+        <param name="marker_size" type="double" value="$(arg body_cam_marker_size_cm)" />
+        <param name="max_new_marker_error" type="double" value="$(arg max_new_marker_error)" />
+        <param name="max_track_error" type="double" value="$(arg max_track_error)" />
+
+        <param name="output_frame" type="string" value="frontleft_fisheye" />
+        <remap from="camera_image" to="/spot/camera/frontleft/image" />
+        <remap from="camera_info" to="/spot/camera/frontleft/camera_info"/>
+        <remap from="ar_pose_marker" to="/ar_pose_marker/frontleft"/>
+    </node>
+
+    <!-- Front right body camera -->
+    <node name="ar_single_right" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+        <param name="marker_size" type="double" value="$(arg body_cam_marker_size_cm)" />
+        <param name="max_new_marker_error" type="double" value="$(arg max_new_marker_error)" />
+        <param name="max_track_error" type="double" value="$(arg max_track_error)" />
+
+        <param name="output_frame" type="string" value="frontright_fisheye" />
+        <remap from="camera_image" to="/spot/camera/frontright/image" />
+        <remap from="camera_info" to="/spot/camera/frontright/camera_info"/>
+        <remap from="ar_pose_marker" to="/ar_pose_marker/frontright"/>
+    </node>
+
+    <!-- Launch a node to forward transforms from ar_track_alvar to /tf -->
+    <node name="marker_listener" pkg="spot_skills" type="marker_listener.py" output="screen" required="true">
+        <param name="apriltags_yaml_path" value="$(arg apriltags_yaml_path)" />
+    </node>
+
+</launch>
