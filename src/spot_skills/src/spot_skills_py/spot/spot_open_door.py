@@ -66,8 +66,8 @@ class SpotDoorOpener:
         self.image_dict, self.rgb_image_dict = self.manager.image_client.get_images_as_cv2(sources)
 
         # Convert CV2 images to numpy for processing.
-        fr_fisheye_image = self.image_dict["frontright_fisheye_image"][1]
-        fl_fisheye_image = self.image_dict["frontleft_fisheye_image"][1]
+        fr_fisheye_image = self.rgb_image_dict["frontright_fisheye_image"][1]
+        fl_fisheye_image = self.rgb_image_dict["frontleft_fisheye_image"][1]
 
         # Rotate the images to align with robot Z axis.
         fr_fisheye_image = cv2.rotate(fr_fisheye_image, cv2.ROTATE_90_CLOCKWISE)
