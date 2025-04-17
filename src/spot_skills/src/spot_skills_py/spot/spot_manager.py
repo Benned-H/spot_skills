@@ -86,7 +86,7 @@ class SpotManager:
         self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
 
         # Define an image client to interface with Spot's cameras
-        self.image_client = SpotImageClient(self._robot)
+        self.image_client = SpotImageClient(self._robot, self.time_sync)
 
         # Define clients used to control Spot to open doors
         self.manip_client = self._robot.ensure_client(ManipulationApiClient.default_service_name)
