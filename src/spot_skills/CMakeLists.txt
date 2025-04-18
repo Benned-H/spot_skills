@@ -61,6 +61,7 @@ add_service_files(
   NavigateToLandmark.srv
   NavigateToPose.srv
   ObjectNameService.srv
+  SetJointStateMode.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -175,6 +176,7 @@ catkin_install_python(PROGRAMS
   scripts/pose_estimation_client.py
   scripts/dummy_estimate_pose_server.py
   scripts/marker_listener.py
+  scripts/joint_state_mux_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
