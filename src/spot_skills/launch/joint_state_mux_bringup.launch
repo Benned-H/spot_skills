@@ -1,0 +1,28 @@
+<!-- Launch the joint_state_mux and load relevant values into ROS params -->
+<launch>
+
+    <!-- Are we using a real or simulated robot? -->
+    <arg name="real_robot"/>
+
+    <!-- Are we actively computing a plan using the TAMP system? -->
+    <arg name="actively_planning_using_tamp"/>
+
+    <!-- Topic to which the Spot driver publishes real-robot joint states -->
+    <param name="real_joint_states_topic" value="/spot/joint_states"/>
+
+    <!-- Topic to which the TAMP system publishes simulated joint states during planning -->
+    <param name="tamp_joint_states_topic" value="/tamp/joint_states"/>
+
+    <!-- Topic to which MoveIt publishes joint states when controlling a simulated robot -->
+    <param name="sim_joint_states_topic" value="/move_group/fake_controller_joint_states"/>
+
+    <!-- Topic to which the joint_state_mux publishes output joint states -->
+    <param name="joint_mux_output_topic" value="/joint_states"/>
+
+    <!-- Launch the joint_state_mux to multiplex various sources of joint states -->
+    <node name="joint_state_mux" pkg="spot_skills" type="joint_state_mux.py" output="screen" required="true">
+        <param name="real_robot" value="$(arg real_robot)"/>
+        <param name="actively_planning_using_tamp" value="$(arg actively_planning_using_tamp)"/>
+    </node>
+
+</launch>
