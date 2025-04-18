@@ -19,7 +19,7 @@
     <include file="$(find spot_rtabmap)/launch/spot_rtabmap.launch">
         <arg name="localization_mode" value="true" />
         <arg name="start_new_map" value="false" />
-        <arg name="rtabmap_database_path" value="/root/.ros/map.db" />
+        <arg name="rtabmap_database_path" value="/docker/spot_skills/rtabmap.db" />
     </include>
 
     <!-- Launch RViz with the config for SLAM -->
