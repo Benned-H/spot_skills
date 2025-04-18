@@ -2,8 +2,11 @@
 <launch>
 
     <!-- Should MoveIt plan to control a simulated or real robot? -->
-    <arg name="real_robot" />
-    <arg name="load_robot_description" />
+    <arg name="real_robot"/>
+    <arg name="load_robot_description"/>
+
+    <!-- If we're actively running TAMP, give the planner control over the robot joint states -->
+    <arg name="tamp_controls_joint_states" default="false"/>
 
     <!-- Choose MoveIt's controller manager: fake, simple, or ros_control
 
@@ -22,9 +25,6 @@
 
     <!-- Default planning pipeline: OMPL -->
     <arg name="pipeline" default="ompl" />
-
-    <!-- Default: Don't provide a GUI for manual control of the robot joint states -->
-    <arg name="joints_gui" default="false" />
 
     <!-- Default not in debug mode -->
     <arg name="debug" default="false" />
@@ -53,13 +53,8 @@
         fake MoveIt controller using its `source_list` parameter -->
     <group unless="$(arg real_robot)">
 
-        <!-- If no `joints_gui`, use a joint state publisher without a GUI -->
-        <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" unless="$(arg joints_gui)">
-            <rosparam param="source_list" subst_value="true">$(arg joint_state_source_list)</rosparam>
-        </node>
-
-        <!-- Otherwise, use a joint state publisher with a joint-controlling GUI -->
-        <node name="joint_state_publisher" pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" if="$(arg joints_gui)">
+        <!-- Use a joint publisher to provide MoveIt a stable stream of joint states -->
+        <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
             <rosparam param="source_list" subst_value="true">$(arg joint_state_source_list)</rosparam>
         </node>
 
