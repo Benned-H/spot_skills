@@ -83,7 +83,7 @@ class SpotNavigationServer:
         # Subscribe to a topic providing body-frame velocity commands
         self._cmd_vel_sub = rospy.Subscriber("cmd_vel", Twist, self.handle_cmd_vel, queue_size=1)
 
-        self._CMD_VEL_DURATION_S = 1.0  # Duration (seconds) to execute each velocity command
+        self._CMD_VEL_DURATION_S = 0.5  # Duration (seconds) to execute each velocity command
 
         self._tf_publisher_thread = threading.Thread(target=self._publish_landmarks_tf_loop)
         self._tf_publisher_thread.daemon = True  # Thread exits when main process does
