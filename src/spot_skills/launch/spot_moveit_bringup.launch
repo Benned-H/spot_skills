@@ -14,11 +14,15 @@
     <!-- Are we using a simulated (default) or real Spot? -->
     <arg name="real_robot" default="false"/>
 
+    <!-- If we're actively running TAMP, give the planner control over the robot joint states -->
+    <arg name="actively_running_tamp" default="false"/>
+
     <!-- Launch the core nodes MoveIt uses to control a robot (simulated or real) -->
     <include file="$(dirname)/moveit_core.launch">
         <!-- Load/override the robot description (URDF) using MoveIt -->
         <arg name="load_robot_description" value="true"/>
         <arg name="real_robot" value="$(arg real_robot)"/>
+        <arg name="actively_running_tamp" value="$(arg actively_running_tamp)"/>
     </include>
 
     <!-- If we're running in simulation, launch a fake controller for Spot's gripper -->

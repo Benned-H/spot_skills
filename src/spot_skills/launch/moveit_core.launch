@@ -6,7 +6,7 @@
     <arg name="load_robot_description"/>
 
     <!-- If we're actively running TAMP, give the planner control over the robot joint states -->
-    <arg name="actively_running_tamp" default="false"/>
+    <arg name="actively_running_tamp"/>
 
     <!-- Launch the joint_state_mux and load relevant ROS parameters -->
     <include file="$(find spot_skills)/launch/joint_state_mux_bringup.launch">
