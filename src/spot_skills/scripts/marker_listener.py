@@ -3,9 +3,9 @@
 from pathlib import Path
 
 import rospy
+from transform_utils.perception.april_tag import AprilTagSystem
+from transform_utils.perception.tag_tracker import TagTracker
 from transform_utils.transform_manager import TransformManager
-from transform_utils.world_model.april_tag import AprilTagSystem
-from transform_utils.world_model.tag_tracker import TagTracker
 
 
 def main() -> None:
