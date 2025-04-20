@@ -10,12 +10,24 @@ tags:
     relative_frames:
       table1: [-0.1, 0, -0.5, 1.5708, 0, 0] # Roll 90 degrees so table's z-axis is "up"
 
+  tag_1: # Cabinet's bundle master
+    tag_size_cm: 7.62
+    relative_frames:
+      cabinet_handle: [0.32, 0.24, 0.18, 0, 0, 0]
+    bundle: True
+
 cameras:
   hand:
     recognized_tag_sizes_cm: [4.0]
+    detects_single_tags: True
+    detects_bundles: True
   frontleft:
     recognized_tag_sizes_cm: [18.5]
+    detects_single_tags: True
+    detects_bundles: True
   frontright:
     recognized_tag_sizes_cm: [18.5]
+    detects_single_tags: True
+    detects_bundles: True
 
-camera_topic_prefix: "/ar_pose_marker/"
+camera_topic_prefix: "/ar_pose_marker"
