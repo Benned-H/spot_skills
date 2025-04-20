@@ -1,49 +1,24 @@
 # Specify AprilTag-object relative transforms, tag sizes, and which cameras detect which tag sizes
 tags:
-  tag_80: # Door's bundle master
-    tag_size_cm: 7.62
-    relative_frames:
-      door_handle: [0.24, 0.1, 0.2, 0, 0, 0] # TODO: Dummay values
-    bundle: True
-
-  tag_60:
-    tag_size_cm: 4.0 # Length (cm) of side of tag's black square
-    relative_frames:
-      expo_spray: [0.1, 0, 0, 0, 0, 0] # w.r.t. tag
-
   tag_51:
     tag_size_cm: 18.5
     relative_frames:
-      table1: [-0.1, 0, -0.5, 1.5708, 0, 0] # Roll 90 degrees so table's z-axis is "up"
+      whiteboard: [0, 0, 0, 0, 0, 0]
 
   tag_50:
     tag_size_cm: 18.5
     relative_frames:
-      table2: [-0.2, 0, -0.5, 1.5708, 0, 0] # TODO: Dummay values
-
-  tag_5:
-    tag_size_cm: 4.0
-    relative_frames:
-      eraser: [0, 0, -0.5, 1.5708, 0, 0] # TODO: Dummay values
-
-  tag_1: # Cabinet's bundle master
-    tag_size_cm: 7.62
-    relative_frames:
-      cabinet_handle: [0.32, 0.24, 0.18, 0, 0, 0]
-    bundle: True
+      eraser: [0, -0.2243, 0.141, 0, 0, 0]
+      cabinet: [0, -0.3843, 0.141, 0, 0, 0] # TODO: Check this guess!
 
 cameras:
-  hand:
-    recognized_tag_sizes_cm: [4.0]
-    detects_single_tags: True
-    detects_bundles: True
   frontleft:
-    recognized_tag_sizes_cm: [18.5, 4.0, 7.62]
+    recognized_tag_sizes_cm: [18.5]
     detects_single_tags: True
-    detects_bundles: True
+    detects_bundles: False
   frontright:
-    recognized_tag_sizes_cm: [18.5, 4.0, 7.62]
+    recognized_tag_sizes_cm: [18.5]
     detects_single_tags: True
-    detects_bundles: True
+    detects_bundles: False
 
 camera_topic_prefix: "/ar_pose_marker"
