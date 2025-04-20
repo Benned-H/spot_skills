@@ -13,7 +13,7 @@
     <arg name="max_track_error" default="0.2" />
 
     <!-- Use Spot's hand camera to track small (single) and medium (bundle) AprilTags -->
-    <node name="ar_single_hand_small" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+    <!--<node name="ar_single_hand_small" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
         <param name="marker_size" type="double" value="$(arg small_marker_size_cm)" />
         <param name="max_new_marker_error" type="double" value="$(arg max_new_marker_error)" />
         <param name="max_track_error" type="double" value="$(arg max_track_error)" />
@@ -22,10 +22,10 @@
         <remap from="camera_image" to="/spot/camera/hand_color/image" />
         <remap from="camera_info" to="/spot/camera/hand_color/camera_info" />
         <remap from="ar_pose_marker" to="/ar_pose_marker/hand/single"/>
-    </node>
+    </node>-->
 
     <!-- Hand camera also detects bundles of medium tags -->
-    <node name="ar_bundle_hand_medium" pkg="ar_track_alvar" type="findMarkerBundlesNoKinect" respawn="true" output="screen">
+    <!--<node name="ar_bundle_hand_medium" pkg="ar_track_alvar" type="findMarkerBundlesNoKinect" respawn="true" output="screen">
         <param name="marker_size" type="double" value="$(arg medium_marker_size_cm)" />
         <param name="max_new_marker_error" type="double" value="$(arg max_new_marker_error)" />
         <param name="max_track_error" type="double" value="$(arg max_track_error)" />
@@ -35,7 +35,7 @@
         <remap from="camera_image" to="/spot/camera/hand_color/image" />
         <remap from="camera_info" to="/spot/camera/hand_color/camera_info" />
         <remap from="ar_pose_marker" to="/ar_pose_marker/hand/bundle"/>
-    </node>
+    </node>-->
 
     <!-- Use Spot's two front body cameras to detect medium and large tags -->
     <!-- Front-left camera detects bundles of medium tags -->
