@@ -86,7 +86,7 @@ class SpotManager:
         self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
 
         # Define an image client to interface with Spot's cameras
-        self.image_client = SpotImageClient(self._robot, self.time_sync)
+        self.image_client = SpotImageClient(self._robot, self.time_sync, debug_mode=False)
 
         # Define clients used to control Spot to open doors
         self.manip_client = self._robot.ensure_client(ManipulationApiClient.default_service_name)
@@ -440,6 +440,7 @@ class SpotManager:
         :return: True if the navigation command succeeded, else False
         """
         if not self.check_control():
+            self.log_info("Cannot navigate to base pose because SpotManager doesn't control Spot.")
             return False
 
         vision_frame = frame_helpers.VISION_FRAME_NAME

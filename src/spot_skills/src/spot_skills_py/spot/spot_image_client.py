@@ -48,14 +48,16 @@ class ImageFormat(Enum):
 class SpotImageClient:
     """A wrapper for functions related to Spot's image client."""
 
-    def __init__(self, robot: Robot, time_sync: SpotTimeSync) -> None:
+    def __init__(self, robot: Robot, time_sync: SpotTimeSync, debug_mode: bool) -> None:
         """Initialize an image client using the given robot.
 
         :param robot: Point of access for Spot's RPC clients
         :param time_sync: A wrapper to manage time synchronization with Spot
+        :param debug_mode: Should debug messages and images be published?
         """
         self._image_client = robot.ensure_client(ImageClient.default_service_name)
         self._time_sync = time_sync
+        self.debug_mode = debug_mode
 
         # Identify the image sources available from Spot
         image_sources_proto = self._image_client.list_image_sources()
@@ -64,8 +66,9 @@ class SpotImageClient:
 
         self._cv_bridge = CvBridge()
 
-        self._debug_rgb_pub = rospy.Publisher("~debug_rgb_image", ImageMsg, queue_size=5)
-        self._debug_depth_pub = rospy.Publisher("~debug_depth_image", ImageMsg, queue_size=5)
+        if self.debug_mode:
+            self._debug_rgb_pub = rospy.Publisher("~debug_rgb_image", ImageMsg, queue_size=5)
+            self._debug_depth_pub = rospy.Publisher("~debug_depth_image", ImageMsg, queue_size=5)
 
         self.publish_loop_cameras = ["frontleft", "frontright", "hand"]
         self._image_pubs: dict[str, rospy.Publisher] = {}  # Maps camera names to image publishers
@@ -221,9 +224,9 @@ class SpotImageClient:
         assert image_msg.height == rows
         assert image_msg.width == cols
 
-        if pixel_format == Image.PIXEL_FORMAT_RGB_U8:
+        if self.debug_mode and pixel_format == Image.PIXEL_FORMAT_RGB_U8:
             self._debug_rgb_pub.publish(image_msg)
-        elif pixel_format == Image.PIXEL_FORMAT_DEPTH_U16:
+        elif self.debug_mode and pixel_format == Image.PIXEL_FORMAT_DEPTH_U16:
             self._debug_depth_pub.publish(image_msg)
 
         return image_msg
@@ -283,11 +286,14 @@ class SpotImageClient:
                     ros_time = rospy.Time.from_sec(timestamp.to_time_s())
 
                     image_msg = self.extract_image_msg(rgb_response.shot, ros_time)
-                    rospy.loginfo(
-                        f"Publishing {image_msg.height}x{image_msg.width} (HxW) image "
-                        f"with size {len(image_msg.data)} and '{image_msg.encoding}' encoding "
-                        f"from camera '{camera_name}'...",
-                    )
+
+                    if self.debug_mode:
+                        rospy.loginfo(
+                            f"Publishing {image_msg.height}x{image_msg.width} (HxW) image "
+                            f"with size {len(image_msg.data)} and '{image_msg.encoding}' encoding "
+                            f"from camera '{camera_name}'...",
+                        )
+
                     self._image_pubs[camera_name].publish(image_msg)
 
                     camera_info_msg = self.extract_camera_info_msg(rgb_response, ros_time)
