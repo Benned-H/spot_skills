@@ -1,0 +1,21 @@
+# Specify AprilTag-object relative transforms, tag sizes, and which cameras detect which tag sizes
+tags:
+  tag_60:
+    tag_size_cm: 4.0 # Length (cm) of side of tag's black square
+    relative_frames:
+      expo_spray: [0.1, 0, 0, 0, 0, 0] # w.r.t. tag
+
+  tag_51:
+    tag_size_cm: 18.5 # Side length (cm)
+    relative_frames:
+      table1: [-0.1, 0, -0.5, 1.5708, 0, 0] # Roll 90 degrees so table's z-axis is "up"
+
+cameras:
+  hand:
+    recognized_tag_sizes_cm: [4.0]
+  frontleft:
+    recognized_tag_sizes_cm: [18.5]
+  frontright:
+    recognized_tag_sizes_cm: [18.5]
+
+camera_topic_prefix: "/ar_pose_marker/"
