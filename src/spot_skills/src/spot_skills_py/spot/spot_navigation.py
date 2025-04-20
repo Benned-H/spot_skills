@@ -79,6 +79,7 @@ class SpotNavigationServer:
         self.close_to_goal_m = rospy.get_param("/spot/navigation/close_to_goal_m")
         self.close_to_goal_rad = rospy.get_param("/spot/navigation/close_to_goal_rad")
         self.timeout_s = rospy.get_param("/spot/navigation/timeout_s")
+        self.adjustment_timeout_s = rospy.get_param("/spot/navigation/adjustment_timeout_s")
 
         # Subscribe to a topic providing body-frame velocity commands
         self._cmd_vel_sub = rospy.Subscriber("cmd_vel", Twist, self.handle_cmd_vel, queue_size=1)
@@ -188,7 +189,7 @@ class SpotNavigationServer:
 
         rospy.loginfo("Spot has successfully moved 'close' to the goal using move_base.")
 
-        success = self._manager.navigate_to_base_pose(target_pose_2d, self.timeout_s)
+        success = self._manager.navigate_to_base_pose(target_pose_2d, self.adjustment_timeout_s)
         message = "Navigation was successful." if success else "Navigation failed."
 
         return success, message
