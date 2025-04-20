@@ -23,5 +23,6 @@
     <node name="joint_state_mux" pkg="spot_skills" type="joint_state_mux_node.py" output="screen" required="true">
         <param name="real_robot" value="$(arg real_robot)"/>
         <param name="actively_running_tamp" value="$(arg actively_running_tamp)"/>
+    </node>
 
 </launch>

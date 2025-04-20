@@ -79,6 +79,10 @@ class JointStateMux:
             error = f"Current joint state mode '{self._mode}' has no available configuration!"
             raise KeyError(error)
 
+        if not curr_config:
+            rospy.loginfo(f"Current joint state mode '{self._mode}' has an empty joint state.")
+            return
+
         curr_joint_state = config_to_joint_state_msg(curr_config)
         self.pub.publish(curr_joint_state)
 

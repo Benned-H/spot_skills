@@ -95,7 +95,7 @@
         <remap from="ar_pose_marker" to="/ar_pose_marker/frontright/single"/>
     </node>
 
-    <!-- =========  UNIVERSAL UTILITIES  ========= -->
+    <!-- Launch a node to forward transforms from ar_track_alvar to /tf -->
     <node name="marker_listener" pkg="spot_skills" type="marker_listener.py" output="screen" required="true">
         <param name="apriltags_yaml_path" value="$(arg apriltags_yaml_path)"/>
     </node>
