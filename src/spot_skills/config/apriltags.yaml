@@ -1,4 +1,4 @@
-# Specify AprilTag-object relative transforms, tag sizes, and which cameras detect which tag sizes
+# Specify AprilTag-to-object relative transforms, tag sizes, and which cameras detect which tag sizes
 tags:
   tag_51:
     tag_size_cm: 18.5
