@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """Launch a ROS node to forward Alvar AR tag detections into /tf frames."""
 
 from pathlib import Path
@@ -16,4 +18,10 @@ def main() -> None:
     tag_system = AprilTagSystem.from_yaml(yaml_path)
 
     _ = TagTracker(tag_system)
+
+    rospy.loginfo("Successfully initialized TagTracker, now spinning...")
     rospy.spin()
+
+
+if __name__ == "__main__":
+    main()

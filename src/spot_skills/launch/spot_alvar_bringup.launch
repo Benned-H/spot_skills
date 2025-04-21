@@ -6,6 +6,9 @@
     <!-- Require the path to a YAML file configuring the AR marker system -->
     <arg name="apriltags_yaml_path"/>
 
+    <!-- Require a path specifying where estimated object poses are output -->
+    <arg name="yaml_output_path"/>
+
     <!-- Marker sizes (cm) -->
     <arg name="small_marker_size_cm" default="4.0"/>
     <arg name="medium_marker_size_cm" default="7.62"/>
@@ -98,6 +101,7 @@
     <!-- Launch a node to forward transforms from ar_track_alvar to /tf -->
     <node name="marker_listener" pkg="spot_skills" type="marker_listener.py" output="screen" required="true">
         <param name="apriltags_yaml_path" value="$(arg apriltags_yaml_path)"/>
+        <param name="yaml_output_path" value="$(arg yaml_output_path)"/>
     </node>
 
 </launch>

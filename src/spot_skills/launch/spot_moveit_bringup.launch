@@ -12,7 +12,7 @@
     <arg name="spot_name"/>
 
     <!-- If we're actively running TAMP, give the planner control over the robot joint states -->
-    <arg name="actively_running_tamp"/>
+    <arg name="actively_running_tamp" default="false"/>
 
     <!-- Are we using a simulated (default) or real Spot? -->
     <arg name="real_robot" default="false"/>
