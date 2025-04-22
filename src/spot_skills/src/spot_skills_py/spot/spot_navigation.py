@@ -23,9 +23,9 @@ from spot_skills.srv import (
     NavigateToPose,
     NavigateToPoseRequest,
     NavigateToPoseResponse,
-    ObjectNameService,
-    ObjectNameServiceRequest,
-    ObjectNameServiceResponse,
+    StringRequestService,
+    StringRequestServiceRequest,
+    StringRequestServiceResponse,
 )
 
 if TYPE_CHECKING:
@@ -60,7 +60,7 @@ class SpotNavigationServer:
         # Provide a service to create new landmarks at Spot's current base pose
         self._new_landmark_srv = rospy.Service(
             "/spot/navigation/create_landmark",
-            ObjectNameService,
+            StringRequestService,
             self.handle_create_landmark,
         )
 
@@ -112,8 +112,8 @@ class SpotNavigationServer:
 
     def handle_create_landmark(
         self,
-        request: ObjectNameServiceRequest,
-    ) -> ObjectNameServiceResponse:
+        request: StringRequestServiceRequest,
+    ) -> StringRequestServiceResponse:
         """Handle a ROS service request to create a new landmark at Spot's current base pose.
 
         :param request: Request specifying the landmark name to be used
@@ -122,9 +122,9 @@ class SpotNavigationServer:
         curr_base_pose = TransformManager.lookup_transform("body", DEFAULT_FRAME)
         if curr_base_pose is None:
             message = f"Could not look up the transform from 'body' to '{DEFAULT_FRAME}'."
-            return ObjectNameServiceResponse(success=False, message=message)
+            return StringRequestServiceResponse(success=False, message=message)
 
-        new_name = request.object_name
+        new_name = request.data
         curr_2d_pose = curr_base_pose.to_2d()
         self._landmarks[new_name] = curr_2d_pose
 
@@ -134,7 +134,7 @@ class SpotNavigationServer:
         else:
             message = f"Failed to add landmark named '{new_name}' at {curr_2d_pose}."
 
-        return ObjectNameServiceResponse(success=success, message=message)
+        return StringRequestServiceResponse(success=success, message=message)
 
     def handle_pose(self, request: NavigateToPoseRequest) -> NavigateToPoseResponse:
         """Handle a ROS service request for Spot to navigate to a given pose.

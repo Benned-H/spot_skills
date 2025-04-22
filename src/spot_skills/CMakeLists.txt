@@ -60,7 +60,7 @@ add_service_files(
   GetRGBDPairs.srv
   NavigateToLandmark.srv
   NavigateToPose.srv
-  ObjectNameService.srv
+  StringRequestService.srv
   SetJointStateMode.srv
 )
 
