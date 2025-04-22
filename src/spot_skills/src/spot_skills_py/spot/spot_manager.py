@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 
 import numpy as np
-from bosdyn.api.basic_command_pb2 import StandCommand
+from bosdyn.api.basic_command_pb2 import SE2TrajectoryCommand, StandCommand
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.robot_command_pb2 import RobotCommand
@@ -14,7 +14,7 @@ from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client import create_standard_sdk, frame_helpers
 from bosdyn.client.door import DoorClient
 from bosdyn.client.estop import EstopClient
-from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
+from bosdyn.client.lease import Lease, LeaseClient, LeaseKeepAlive
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
@@ -97,9 +97,8 @@ class SpotManager:
         self._lease_client: LeaseClient = self._robot.ensure_client(
             LeaseClient.default_service_name,
         )
+        self._lease: Lease | None = None
         self._lease_keeper = None  # Stores a lease and keeps it alive once obtained
-
-        self._mobility_params = RobotCommandBuilder.mobility_params()
 
         assert self.wait_while_estopped()  # Wait until Spot isn't e-stopped
 
@@ -148,17 +147,20 @@ class SpotManager:
         if self._lease_keeper is None:
             self.log_info(f"Acquiring resource '{resource}'...")
 
-            if force:
-                self._lease_client.take(resource=resource)  # Forcefully take the lease
+            if force:  # Forcefully take the lease
+                self._lease: Lease = self._lease_client.take(resource=resource)
             else:
-                self._lease_client.acquire(resource=resource)
+                self._lease: Lease = self._lease_client.acquire(resource=resource)
+
+            # Keep the lease object alive
             self._lease_keeper = LeaseKeepAlive(
                 lease_client=self._lease_client,
                 resource=resource,
-                must_acquire=True,
+                must_acquire=False,
                 return_at_exit=True,
             )
-            self.log_info("Lease acquired.")
+
+            self.log_info(f"Lease for '{resource}' acquired and will be kept alive.")
 
         # 2. If needed, attempt to power on Spot
         if not self._robot.is_powered_on():
@@ -266,10 +268,13 @@ class SpotManager:
         if not self.check_control():
             return None
 
-        # Issue a command to the robot synchronously (blocks until done sending)
+        # Issue a command to the robot synchronously (blo cks until done sending)
+        lease_proto = self._lease.lease_proto  # bosdyn.api.Lease message
+
         if duration_s is None:
             command_id: int = self.command_client.robot_command(
                 command,
+                lease=lease_proto,
                 timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
             )
         else:  # Cut off the command after the given duration
@@ -279,6 +284,7 @@ class SpotManager:
 
             command_id: int = self.command_client.robot_command(
                 command,
+                lease=lease_proto,
                 end_time_secs=time.time() + duration_s,
                 timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
             )
@@ -438,38 +444,100 @@ class SpotManager:
         self.log_info("Arm is now stowed.")
         return True
 
+    # def navigate_to_base_pose(self, goal_base_pose: Pose2D, timeout_s: float) -> bool:
+    #     """Send a command to Spot to navigate to the given base pose.
+
+    #     Note: By default, the command is converted into the "vision" frame.
+
+    #     :param goal_base_pose: Target base pose for the navigation
+    #     :param timeout_s: Duration (seconds) after which the command times out
+    #     :return: True if the navigation command succeeded, else False
+    #     """
+    #     if not self.check_control():
+    #         self.log_info("Cannot navigate to base pose because SpotManager doesn't control Spot.")
+    #         return False
+
+    #     vision_frame = frame_helpers.VISION_FRAME_NAME
+
+    #     target_pose_v_b = TransformManager.convert_to_frame(goal_base_pose, vision_frame)
+    #     _, _, target_yaw_rad = target_pose_v_b.orientation.to_euler_rpy()
+
+    #     trajectory_command = RobotCommandBuilder.synchro_se2_trajectory_point_command(
+    #         goal_x=target_pose_v_b.position.x,
+    #         goal_y=target_pose_v_b.position.y,
+    #         goal_heading=target_yaw_rad,
+    #         frame_name=vision_frame,
+    #     )
+
+    #     command_id = self.send_robot_command(trajectory_command)
+    #     if command_id is None:
+    #         self.log_info("Navigation attempt returned None instead of a command ID.")
+    #         return False
+
+    #     return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=timeout_s)
+
     def navigate_to_base_pose(self, goal_base_pose: Pose2D, timeout_s: float) -> bool:
-        """Send a command to Spot to navigate to the given base pose.
-
-        Note: By default, the command is converted into the "vision" frame.
-
-        :param goal_base_pose: Target base pose for the navigation
-        :param timeout_s: Duration (seconds) after which the command times out
-        :return: True if the navigation command succeeded, else False
-        """
+        """Send a command to Spot to navigate to the given base pose."""
+        # 0) Verify we still hold the lease
         if not self.check_control():
-            self.log_info("Cannot navigate to base pose because SpotManager doesn't control Spot.")
+            self.log_info("[navigate_to_base_pose] NO CONTROL – aborting")
             return False
 
+        # 1) Convert goal into 'vision' frame
         vision_frame = frame_helpers.VISION_FRAME_NAME
+        target = TransformManager.convert_to_frame(goal_base_pose, vision_frame)
+        x, y = target.position.x, target.position.y
+        roll, pitch, yaw = target.orientation.to_euler_rpy()
+        self.log_info(f"[navigate] goal in '{vision_frame}': x={x:.3f}, y={y:.3f}, yaw={yaw:.3f}")
 
-        target_pose_v_b = TransformManager.convert_to_frame(goal_base_pose, vision_frame)
-        _, _, target_yaw_rad = target_pose_v_b.orientation.to_euler_rpy()
-
-        trajectory_command = RobotCommandBuilder.synchro_se2_trajectory_point_command(
-            goal_x=target_pose_v_b.position.x,
-            goal_y=target_pose_v_b.position.y,
-            goal_heading=target_yaw_rad,
+        # 2) Build trajectory command
+        cmd = RobotCommandBuilder.synchro_se2_trajectory_point_command(
+            goal_x=x,
+            goal_y=y,
+            goal_heading=yaw,
             frame_name=vision_frame,
-            params=self._mobility_params,
         )
+        self.log_info(f"[navigate] sending RobotCommand proto: {cmd}")
 
-        command_id = self.send_robot_command(trajectory_command)
+        # 3) Send it, logging the returned command_id
+        command_id = self.send_robot_command(cmd)
         if command_id is None:
-            self.log_info("Navigation attempt returned None instead of a command ID.")
+            self.log_info("[navigate] send_robot_command → None")
             return False
+        self.log_info(f"[navigate] command_id={command_id}")
 
-        return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=timeout_s)
+        # 4) Poll feedback until timeout or success
+        deadline = time.time() + timeout_s
+        while time.time() < deadline:
+            fb_resp = self.command_client.robot_command_feedback(command_id)
+            sync_fb = fb_resp.feedback.synchronized_feedback
+            mob_fb = sync_fb.mobility_command_feedback
+            traj_fb = mob_fb.se2_trajectory_feedback
+
+            status = traj_fb.status
+            final_status = traj_fb.final_goal_status
+            move_status = traj_fb.body_movement_status
+
+            self.log_info(
+                f"[navigate] status={status}, final_goal={final_status}, body_movement={move_status}",
+            )
+
+            # 5) Check for success via the FinalGoalStatus enum
+            if final_status == SE2TrajectoryCommand.Feedback.FINAL_GOAL_STATUS_ACHIEVABLE:
+                self.log_info("[navigate] FINAL_GOAL_STATUS_ACHIEVABLE → success")
+                return True
+
+            # Optionally catch an explicit STOPPED state too:
+            if status == SE2TrajectoryCommand.Feedback.STATUS_STOPPED:
+                self.log_info("[navigate] STATUS_STOPPED (may have reached or aborted)")
+                # You can inspect final_goal again here if you like
+                return final_status == SE2TrajectoryCommand.Feedback.FINAL_GOAL_STATUS_ACHIEVABLE
+
+            time.sleep(0.5)
+
+        # 6) If we hit the deadline, it really did time out
+        self.log_info("[navigate] timed out waiting for FINAL_GOAL_STATUS_ACHIEVABLE")
+        return False
 
     def send_velocity_command(
         self,
@@ -493,7 +561,6 @@ class SpotManager:
             v_x=linear_x_mps,
             v_y=linear_y_mps,
             v_rot=angular_z_radps,
-            params=self._mobility_params,
         )
 
         self.log_info(f"Sending velocity command to Spot with duration of {duration_s} seconds...")

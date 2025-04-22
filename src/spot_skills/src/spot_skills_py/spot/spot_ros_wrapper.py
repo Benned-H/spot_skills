@@ -68,6 +68,7 @@ class SpotROS1Wrapper:
         self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
         self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
         self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
+        self._take_control = rospy.Service("spot/take_control", Trigger, self.handle_take_control)
 
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
@@ -316,6 +317,18 @@ class SpotROS1Wrapper:
         message = "Erased the whiteboard." if board_erased else "Could not erase the whiteboard."
 
         return TriggerResponse(board_erased, message)
+
+    def handle_take_control(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to forcibly take control of Spot.
+
+        :param request_msg: Message representing a request to forcibly take Spot's lease
+        :return: Response conveying whether control of Spot was obtained
+        """
+        self._manager.take_control(force=True)
+
+        has_control = self._manager.check_control()
+        message = "Took control of Spot." if has_control else "Could not obtain control of Spot."
+        return TriggerResponse(has_control, message)
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
