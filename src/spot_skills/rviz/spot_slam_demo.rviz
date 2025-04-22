@@ -25,7 +25,7 @@ Visualization Manager:
       Cell Size: 1
       Class: rviz/Grid
       Color: 160; 160; 164
-      Enabled: true
+      Enabled: false
       Line Style:
         Line Width: 0.029999999329447746
         Value: Lines
@@ -38,7 +38,7 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
-      Value: true
+      Value: false
     - Class: rviz/TF
       Enabled: true
       Filter (blacklist): ""
@@ -72,7 +72,13 @@ Visualization Manager:
           Value: true
         body:
           Value: true
-        dock_535:
+        cabinet:
+          Value: true
+        dock_520:
+          Value: true
+        dock_521:
+          Value: true
+        door_to_lab:
           Value: true
         feet_center:
           Value: true
@@ -84,7 +90,15 @@ Visualization Manager:
           Value: true
         fiducial_118:
           Value: true
-        fiducial_535:
+        fiducial_125:
+          Value: true
+        fiducial_128:
+          Value: true
+        fiducial_129:
+          Value: true
+        fiducial_520:
+          Value: true
+        fiducial_521:
           Value: true
         filtered_fiducial_105:
           Value: true
@@ -94,7 +108,15 @@ Visualization Manager:
           Value: true
         filtered_fiducial_118:
           Value: true
-        filtered_fiducial_535:
+        filtered_fiducial_125:
+          Value: true
+        filtered_fiducial_128:
+          Value: true
+        filtered_fiducial_129:
+          Value: true
+        filtered_fiducial_520:
+          Value: true
+        filtered_fiducial_521:
           Value: true
         flat_body:
           Value: true
@@ -142,6 +164,8 @@ Visualization Manager:
           Value: true
         odom:
           Value: true
+        pose_a:
+          Value: true
         rear_left_foot:
           Value: true
         rear_left_hip:
@@ -170,6 +194,8 @@ Visualization Manager:
           Value: true
         vision:
           Value: true
+        white_board:
+          Value: true
       Marker Alpha: 1
       Marker Scale: 0.30000001192092896
       Name: TF
@@ -178,6 +204,12 @@ Visualization Manager:
       Show Names: true
       Tree:
         map:
+          cabinet:
+            {}
+          door_to_lab:
+            {}
+          pose_a:
+            {}
           vision:
             body:
               arm0.link_wr1:
@@ -253,7 +285,9 @@ Visualization Manager:
                     {}
               sensor:
                 {}
-            dock_535:
+            dock_520:
+              {}
+            dock_521:
               {}
             fiducial_105:
               {}
@@ -263,7 +297,15 @@ Visualization Manager:
               {}
             fiducial_118:
               {}
-            fiducial_535:
+            fiducial_125:
+              {}
+            fiducial_128:
+              {}
+            fiducial_129:
+              {}
+            fiducial_520:
+              {}
+            fiducial_521:
               {}
             filtered_fiducial_105:
               {}
@@ -273,8 +315,18 @@ Visualization Manager:
               {}
             filtered_fiducial_118:
               {}
-            filtered_fiducial_535:
+            filtered_fiducial_125:
               {}
+            filtered_fiducial_128:
+              {}
+            filtered_fiducial_129:
+              {}
+            filtered_fiducial_520:
+              {}
+            filtered_fiducial_521:
+              {}
+          white_board:
+            {}
       Update Interval: 0
       Value: true
     - Class: moveit_rviz_plugin/PlanningScene
@@ -727,6 +779,30 @@ Visualization Manager:
         {}
       Queue Size: 100
       Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 25; 255; 0
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Queue Size: 10
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /move_base/GlobalPlanner/plan
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -743,7 +819,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 2.2250187397003174
+      Distance: 6.430347442626953
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -751,17 +827,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: 0.32165074348449707
+        Y: 0.7438316345214844
+        Z: 0.5236526131629944
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.34539806842803955
+      Pitch: 0.64479660987854
       Target Frame: body
-      Yaw: 4.017252445220947
+      Yaw: 2.672236919403076
     Saved: ~
 Window Geometry:
   Displays:
