@@ -105,6 +105,9 @@ class SpotNavigationServer:
         distance_2d_m = euclidean_distance_2d_m(target_pose_2d, curr_pose)
         abs_yaw_error_rad = absolute_yaw_error_rad(target_pose_2d, curr_pose)
 
+        self._manager.log_info(f"Current distance from goal: {distance_2d_m}")
+        self._manager.log_info(f"Current angle error from goal: {abs_yaw_error_rad}")
+
         return distance_2d_m < self.close_to_goal_m and abs_yaw_error_rad < self.close_to_goal_rad
 
     def handle_create_landmark(

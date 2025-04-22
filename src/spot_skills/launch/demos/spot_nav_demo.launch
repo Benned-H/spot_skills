@@ -27,6 +27,6 @@
     <!-- Launch all nodes to control Spot using MoveIt (this loads the robot description) -->
     <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true" />
 
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_nav_demo.rviz" />
 
 </launch>

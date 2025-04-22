@@ -14,6 +14,7 @@ from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client import create_standard_sdk, frame_helpers
 from bosdyn.client.door import DoorClient
 from bosdyn.client.estop import EstopClient
+from bosdyn.client.exceptions import LeaseUseError
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import (
@@ -266,22 +267,36 @@ class SpotManager:
         if not self.check_control():
             return None
 
-        # Issue a command to the robot synchronously (blocks until done sending)
-        if duration_s is None:
-            command_id: int = self.command_client.robot_command(
-                command,
-                timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+        ### DEBUG ###
+        all_leases = self._lease_client.list_leases(include_full_lease_info=True)
+        for lr in all_leases:
+            lp = lr.lease
+            self.log_info(
+                f"[DEBUG] wallet has lease: resource={lr.resource} seq={lp.sequence}, epoch={lp.epoch}",
             )
-        else:  # Cut off the command after the given duration
-            if self.time_sync.robot_clock_skew_s is None:
-                self.log_info("Cannot send robot command because the robot is not time-synced.")
-                return None
 
-            command_id: int = self.command_client.robot_command(
-                command,
-                end_time_secs=time.time() + duration_s,
-                timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+        # Issue a command to the robot synchronously (blocks until done sending)
+        try:
+            if duration_s is None:
+                command_id: int = self.command_client.robot_command(
+                    command,
+                    timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+                )
+            else:  # Cut off the command after the given duration
+                if self.time_sync.robot_clock_skew_s is None:
+                    self.log_info("Cannot send robot command because the robot is not time-synced.")
+                    return None
+
+                command_id: int = self.command_client.robot_command(
+                    command,
+                    end_time_secs=time.time() + duration_s,
+                    timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+                )
+        except LeaseUseError as error:
+            self.log_info(
+                f"LeaseUseError: {error.error_message}, lease_use_result={error.lease_use_result}",
             )
+            return None
 
         self.log_info(f"Issued robot command with ID: {command_id}")
 
@@ -468,6 +483,12 @@ class SpotManager:
         if command_id is None:
             self.log_info("Navigation attempt returned None instead of a command ID.")
             return False
+
+        for i in range(10):
+            print(self.command_client.robot_command_feedback(command_id, timeout=1))
+            time.sleep(0.1)
+            for j in range(5):
+                print()
 
         return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=timeout_s)
 

@@ -6,5 +6,5 @@ TrajectoryPlannerROS:
   max_vel_x: 0.5 # Maximum forward velocity (m/s) - Spot can go up to 1.6 m/s
   min_vel_x: 0.1
   yaw_goal_tolerance: 1.5708 # Permit 90 degrees of error from local planner
-  xy_goal_tolerance: 0.5 # Permit 50 cm of (x,y)-position error
+  xy_goal_tolerance: 1.0 # Permit 50 cm of (x,y)-position error
   sim_time: 1.0
