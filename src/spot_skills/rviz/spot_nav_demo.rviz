@@ -5,7 +5,8 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-      Splitter Ratio: 0.48929160833358765
+        - /Path1
+      Splitter Ratio: 0.4881516695022583
     Tree Height: 814
   - Class: rviz/Help
     Name: Help
@@ -74,15 +75,13 @@ Visualization Manager:
           Value: true
         cabinet:
           Value: true
-        dock_521:
+        dock_535:
           Value: true
         door_to_lab:
           Value: true
         feet_center:
           Value: true
         fiducial_105:
-          Value: true
-        fiducial_106:
           Value: true
         fiducial_109:
           Value: true
@@ -92,11 +91,9 @@ Visualization Manager:
           Value: true
         fiducial_129:
           Value: true
-        fiducial_521:
+        fiducial_535:
           Value: true
         filtered_fiducial_105:
-          Value: true
-        filtered_fiducial_106:
           Value: true
         filtered_fiducial_109:
           Value: true
@@ -106,7 +103,7 @@ Visualization Manager:
           Value: true
         filtered_fiducial_129:
           Value: true
-        filtered_fiducial_521:
+        filtered_fiducial_535:
           Value: true
         flat_body:
           Value: true
@@ -154,6 +151,10 @@ Visualization Manager:
           Value: true
         odom:
           Value: true
+        pose_a:
+          Value: true
+        pose_b:
+          Value: true
         rear_left_foot:
           Value: true
         rear_left_hip:
@@ -195,6 +196,10 @@ Visualization Manager:
           cabinet:
             {}
           door_to_lab:
+            {}
+          pose_a:
+            {}
+          pose_b:
             {}
           vision:
             body:
@@ -271,11 +276,9 @@ Visualization Manager:
                     {}
               sensor:
                 {}
-            dock_521:
+            dock_535:
               {}
             fiducial_105:
-              {}
-            fiducial_106:
               {}
             fiducial_109:
               {}
@@ -285,11 +288,9 @@ Visualization Manager:
               {}
             fiducial_129:
               {}
-            fiducial_521:
+            fiducial_535:
               {}
             filtered_fiducial_105:
-              {}
-            filtered_fiducial_106:
               {}
             filtered_fiducial_109:
               {}
@@ -299,7 +300,7 @@ Visualization Manager:
               {}
             filtered_fiducial_129:
               {}
-            filtered_fiducial_521:
+            filtered_fiducial_535:
               {}
           white_board:
             {}
@@ -758,7 +759,7 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
-      Color: 25; 255; 0
+      Color: 0; 85; 127
       Enabled: true
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
@@ -795,7 +796,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 2.3515515327453613
+      Distance: 5.198531627655029
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -803,17 +804,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: -0.4198151230812073
+        Y: -0.2844350337982178
+        Z: -0.35624709725379944
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.34039902687072754
+      Pitch: 0.925398588180542
       Target Frame: body
-      Yaw: 3.070430040359497
+      Yaw: 3.1254303455352783
     Saved: ~
 Window Geometry:
   Displays:

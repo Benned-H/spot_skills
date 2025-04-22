@@ -11,3 +11,4 @@ GlobalPlanner: # Also see: http://wiki.ros.org/global_planner
   cost_factor: 3.0 # Factor to multiply each cost from costmap by, default 3.0
   orientation_mode: 1 # Positive x-axis points along path
   publish_potential: true # Publish Potential Costmap (this is not like the navfn pointcloud2 potential), default true
+  use_grid_path: true
