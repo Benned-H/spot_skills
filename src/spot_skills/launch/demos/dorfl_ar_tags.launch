@@ -1,0 +1,11 @@
+<!-- Launch the nodes needed to demonstrate Spot tracking AR markers -->
+<launch>
+
+    <!-- Launch nodes for AR tag tracking using ar_track_alvar -->
+    <include file="$(find spot_skills)/launch/dorfl_alvar_bringup.launch">
+        <arg name="apriltags_yaml_path" value="/docker/spot_skills/src/spot_skills/config/apriltags.yaml" />
+        <arg name="small_bundle_xml_path" value="/docker/spot_skills/src/spot_skills/config/pb_bundle.xml" />
+        <arg name="med_bundle_xml_path" value="/docker/spot_skills/src/spot_skills/config/shelf_bundle.xml" />
+    </include>
+
+</launch>

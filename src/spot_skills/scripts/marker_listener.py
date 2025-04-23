@@ -13,7 +13,7 @@ def main() -> None:
     TransformManager.init_node("marker_listener")
 
     yaml_path = Path(rospy.get_param("~apriltags_yaml_path"))
-    objects_yml = Path(rospy.get_param("~object_map_yaml", "/tmp/object_map.yaml"))
+    objects_yml = Path(rospy.get_param("~object_world_yaml_path", "/tmp/object_world.yaml"))
     tag_system = AprilTagSystem.from_yaml(yaml_path)
 
     _ = TagTracker(tag_system)

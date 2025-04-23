@@ -1,48 +1,25 @@
 # Specify AprilTag-object relative transforms, tag sizes, and which cameras detect which tag sizes
 tags:
-  # tag_80: # Door's bundle master
-  #   tag_size_cm: 7.62
-  #   relative_frames:
-  #     door_handle: [-0.0635, -0.1651, 0.0588, 0, 0, 0] #distances in meters [x,y,z,roll,pitch,yaw]
-  #   bundle: True
-
-  # tag_60:
-  #   tag_size_cm: 4.0 # Length (cm) of side of tag's black square
-  #   relative_frames:
-  #     expo_spray: [0.1, 0, 0, 0, 0, 0] # w.r.t. tag
-
-  tag_51:
-    tag_size_cm: 18.5 # Side length (cm)
+  tag_76: # bundle master
+    tag_size_cm: 7.62
     relative_frames:
-      whiteboard: [0,0,0,0,0,0]
+      shelf: [-0.0635, -0.1651, 0.0588, 0, 0, 0] #distances in meters [x,y,z,roll,pitch,yaw]
+    bundle: True
 
-  tag_50:
-    tag_size_cm: 18.5 # Side length (cm)
+  tag_: # bundle master
+    tag_size_cm: 4.0 # Length (cm) of side of tag's black square
     relative_frames:
-      eraser: [0, -0.2243, 0.141, 0, 0, 0] 
-  
-  # tag_5:
-  #   tag_size_cm: 4.0 # Side length (cm)
-  #   relative_frames:
-  #     eraser: [0, 0, -0.5, 1.5708, 0, 0] #dummy
+      pb: [0.1, 0, 0, 0, 0, 0] # w.r.t. tag
+    bundle: True
 
-  # tag_1: # Cabinet's bundle master
-  #   tag_size_cm: 7.62
-  #   relative_frames:
-  #     cabinet_handle: [0.32, 0.24, 0.18, 0, 0, 0]
-  #   bundle: True
+  tag_:
+    tag_size_cm: 
+    relative_frames:
+      pb: [0,0,0,0,0,0]
 
 cameras:
-  # hand:
-  #   recognized_tag_sizes_cm: [4.0]
-  #   detects_single_tags: True
-  #   detects_bundles: True
-  frontleft:
-    recognized_tag_sizes_cm: [18.5]
-    detects_single_tags: True
-    detects_bundles: True
-  frontright:
-    recognized_tag_sizes_cm: [18.5]
+  left:
+    recognized_tag_sizes_cm: [4.0, 7.62]
     detects_single_tags: True
     detects_bundles: True
 

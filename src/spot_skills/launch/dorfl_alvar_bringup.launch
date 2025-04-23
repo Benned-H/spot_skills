@@ -1,0 +1,70 @@
+<!-- Launch the requested nodes to track AR tags using ar_track_alvar -->
+<launch>
+
+    <!-- =========  GLOBAL ARGS  ========= -->
+
+    <!-- Require the path to a YAML file configuring the AR marker system -->
+    <arg name="apriltags_yaml_path"/>
+
+    <!-- Require a path specifying where estimated object poses are output -->
+    <arg name="object_world_yaml_path"/>
+
+    <arg name="small_bundle_xml_path"/>
+    <arg name="med_bundle_xml_path"/>
+
+    <!-- Marker sizes (cm) -->
+    <arg name="small_marker_size_cm" default="4.0"/>
+    <arg name="medium_marker_size_cm" default="7.62"/>
+
+    <!-- Tracker parameters -->
+    <arg name="max_new_marker_error" default="0.08"/>
+    <arg name="max_track_error" default="0.2"/>
+
+    <!-- =========  ACTIVATION FLAGS (all false by default)  ========= -->
+
+    <!-- Camera can track small (single and bundle) and medium (bundle) tags -->
+    <arg name="enable_single_small" default="false"/>
+    <arg name="enable_bundle_small" default="false"/>
+    <arg name="enable_bundle_medium" default="false"/>
+
+    <!-- =========  CAMERA  ========= -->
+    <node if="$(arg enable_bundle_medium)" name="ar_bundle_medium" pkg="ar_track_alvar" type="findMarkerBundlesNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
+        <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
+        <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
+        <param name="output_frame" value="multisense/left_camera_optical_frame"/>
+        <param name="bundle_files" value="$arg med_bundle_xml_path"/>
+        <remap from="camera_image" to="/multisense/left/image_color"/>
+        <remap from="camera_info" to="/multisense/left/image_color/camera_info"/>
+        <remap from="ar_pose_marker" to="ar_pose_marker/bundle"/>
+    </node>
+
+    <node if="$(arg enable_bundle_small)" name="ar_bundle_small" pkg="ar_track_alvar" type="findMarkerBundlesNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg small_marker_size_cm)" type="double"/>
+        <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
+        <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
+        <param name="output_frame" value="multisense/left_camera_optical_frame"/>
+        <param name="bundle_files" value="$arg small_bundle_xml_path"/>
+        <remap from="camera_image" to="/multisense/left/image_color"/>
+        <remap from="camera_info" to="/multisense/left/image_color/camera_info"/>
+        <remap from="ar_pose_marker" to="ar_pose_marker/bundle"/>
+    </node>
+
+
+    <node if="$(arg enable_single_small)" name="ar_single_small" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg small_marker_size_cm)" type="double"/>
+        <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
+        <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
+        <param name="output_frame" value="multisense/left_camera_optical_frame"/>
+        <remap from="camera_image" to="/multisense/left/image_color"/>
+        <remap from="camera_info" to="/multisense/left/image_color/camera_info"/>
+        <remap from="ar_pose_marker" to="ar_pose_marker/single"/>
+    </node>
+
+    <!-- Launch a node to forward transforms from ar_track_alvar to /tf -->
+    <node name="marker_listener" pkg="spot_skills" type="marker_listener.py" output="screen" required="true">
+        <param name="apriltags_yaml_path" value="$(arg apriltags_yaml_path)"/>
+        <param name="object_world_yaml_path" value="$(arg object_world_yaml_path)"/>
+    </node>
+
+</launch>
