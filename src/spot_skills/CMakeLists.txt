@@ -177,6 +177,7 @@ catkin_install_python(PROGRAMS
   scripts/dummy_estimate_pose_server.py
   scripts/marker_listener.py
   scripts/joint_state_mux_node.py
+  scripts/spot_cabinet_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

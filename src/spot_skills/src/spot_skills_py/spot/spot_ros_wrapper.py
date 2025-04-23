@@ -1,6 +1,7 @@
 """Define a class providing a ROS 1 interface to the Spot robot."""
 
 from copy import deepcopy
+from pathlib import Path
 
 import rospy
 from actionlib import SimpleActionServer
@@ -54,20 +55,16 @@ class SpotROS1Wrapper:
 
         self._door_opener = SpotDoorOpener(self._manager)
 
-        # Only take immediate control of Spot if requested via rosparam
-        immediate_control: bool = rospy.get_param("/spot/immediate_control", default=False)
-
-        if immediate_control:
-            self._manager.take_control()
-
         # Initialize all ROS services provided by the class
         self._stand_service = rospy.Service("spot/stand", Trigger, self.handle_stand)
         self._sit_service = rospy.Service("spot/sit", Trigger, self.handle_sit)
         self._shutdown_service = rospy.Service("spot/shutdown", Trigger, self.handle_shutdown)
         self._unlock_arm_service = rospy.Service("spot/unlock_arm", Trigger, self.handle_unlock_arm)
         self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
+        self._deploy_arm_service = rospy.Service("spot/deploy_arm", Trigger, self.handle_deploy_arm)
         self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
         self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
+        self._control_srv = rospy.Service("spot/take_control", Trigger, self.handle_take_control)
 
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
@@ -109,6 +106,12 @@ class SpotROS1Wrapper:
             self._navigation_server = SpotNavigationServer(manager=self._manager)
         else:
             rospy.loginfo("Skipping initialization of SpotNavigationServer...")
+
+        # Only take immediate control of Spot if requested via rosparam
+        immediate_control: bool = rospy.get_param("/spot/immediate_control", default=False)
+
+        if immediate_control:
+            self._manager.take_control(force=True)
 
     def handle_stand(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to have Spot stand up.
@@ -170,16 +173,14 @@ class SpotROS1Wrapper:
 
         return TriggerResponse(has_control, message)
 
-    def handle_stow_arm(self, request_msg: TriggerRequest) -> TriggerResponse:
+    def handle_stow_arm(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to stow Spot's arm.
 
         TODO: If Spot is believed to be holding something, prevent stowing.
 
-        :param request_msg: Message representing a request to stow Spot's arm
+        :param _: Message representing a request to stow Spot's arm
         :return: Response conveying whether Spot's arm has been stowed
         """
-        del request_msg
-
         if self._arm_locked:
             message = "Spot's arm was not stowed because Spot's arm remains locked."
             return TriggerResponse(success=False, message=message)
@@ -191,7 +192,26 @@ class SpotROS1Wrapper:
         arm_stowed = self._manager.stow_arm() if has_control else False
         message = "Spot's arm has been stowed." if arm_stowed else "Could not stow Spot's arm."
 
-        return TriggerResponse(arm_stowed, message)
+        return TriggerResponse(success=arm_stowed, message=message)
+
+    def handle_deploy_arm(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to deploy Spot's arm.
+
+        :param _: Message representing a request to deploy Spot's arm
+        :return: Response conveying whether Spot's arm has been deployed
+        """
+        if self._arm_locked:
+            message = "Spot's arm was not deployed because Spot's arm remains locked."
+            return TriggerResponse(success=False, message=message)
+
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
+
+        deployed = self._manager.deploy_arm() if has_control else False
+        message = "Spot's arm has been deployed." if deployed else "Could not deploy Spot's arm."
+
+        return TriggerResponse(success=deployed, message=message)
 
     def handle_get_rgbd_pairs(self, request_msg: GetRGBDPairsRequest) -> GetRGBDPairsResponse:
         """Handle a request to capture RGBD image pairs from the specified camera(s) on Spot.
@@ -316,6 +336,23 @@ class SpotROS1Wrapper:
         message = "Erased the whiteboard." if board_erased else "Could not erase the whiteboard."
 
         return TriggerResponse(board_erased, message)
+
+    def handle_take_control(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to forcibly take control of Spot.
+
+        :param _: Message representing a request to take control of Spot
+        :return: Response conveying whether control was successfully taken
+        """
+        has_control = self._manager.check_control()
+        if not has_control:
+            has_control = self._manager.take_control(force=True)
+
+        message = (
+            "SpotManager now controls Spot."
+            if has_control
+            else "SpotManager could not obtain control of Spot."
+        )
+        return TriggerResponse(success=has_control, message=message)
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
