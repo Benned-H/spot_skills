@@ -188,6 +188,14 @@ class JointTrajectory:
         velocities = [point.velocities_radps for point in self.points]
         times = [point.time_from_start_s for point in self.points]
 
+        # Ensure that time monotonically increases along the trajectory
+        for idx in range(1, len(times)):
+            time = times[idx]
+            prev_time = times[idx - 1]
+
+            if time <= prev_time:
+                times[idx] = prev_time + 0.01
+
         timestamp_proto = self.reference_timestamp.to_proto()
 
         # Segment the trajectory as described in this method's docstring

@@ -9,7 +9,8 @@
   known_landmarks:
     {
       cabinet: { frame: map, x_y_yaw: [5.44, 1.76, 0] },
-      door_to_lab: { frame: map, x_y_yaw: [5, 6, 0] },
+      door_to_lab:
+        { frame: map, x_y_yaw: [5.3320508956530475, 5.242189826872846, 0] },
       pose_a:
         {
           frame: map,
