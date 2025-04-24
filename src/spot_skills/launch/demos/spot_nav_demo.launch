@@ -8,7 +8,7 @@
     <arg name="real_robot" value="true" />
 
     <!-- Launch the navigation system using its bringup file -->
-    <include file="$(find spot_skills)/launch/spot_nav_bringup.launch" />
+    <include file="$(find spot_skills)/launch/bringup_spot_nav.launch" />
 
     <!-- Allow users to specify the import path of the pre-constructed pointcloud map -->
     <arg name="rtabmap_database_path" default="~/.ros/rtabmap.db" />

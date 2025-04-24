@@ -9,7 +9,7 @@
     <arg name="rtabmap_database_path" default="/docker/spot_skills/maps/rtabmap.db" />
 
     <!-- Launch nodes for AR tag tracking using ar_track_alvar -->
-    <include file="$(find spot_skills)/launch/spot_alvar_bringup.launch">
+    <include file="$(find spot_skills)/launch/bringup_alvar.launch">
         <arg name="apriltags_yaml_path" value="/docker/spot_skills/src/spot_skills/config/experiments/erase_board/apriltags.yaml" />
         <arg name="yaml_output_path" value="/docker/spot_skills/src/spot_skills/config/experiments/erase_board/output-poses.yaml" />
 
@@ -31,7 +31,7 @@
     </include>
 
     <!-- Launch the navigation system using its bringup file -->
-    <include file="$(find spot_skills)/launch/spot_nav_bringup.launch" />
+    <include file="$(find spot_skills)/launch/bringup_spot_nav.launch" />
 
     <!-- Launch RViz with the config for SLAM -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_nav_demo.rviz" />

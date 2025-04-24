@@ -7,7 +7,7 @@
     <arg name="apriltags_yaml_path"/>
 
     <!-- Require a path specifying where estimated object poses are output -->
-    <arg name="yaml_output_path"/>
+    <arg name="yaml_output_path" default="/docker/spot_skills/src/spot_skills/config/object_poses.yaml"/>
 
     <!-- Marker sizes (cm) -->
     <arg name="small_marker_size_cm" default="4.0"/>
