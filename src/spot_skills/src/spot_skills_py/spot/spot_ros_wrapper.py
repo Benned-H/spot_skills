@@ -245,14 +245,8 @@ class SpotROS1Wrapper:
             rgbd_pair_msg = RGBDPair()
             rgbd_pair_msg.camera_name = camera_name
             rgbd_pair_msg.camera_info = rgb_camera_info
-            rgbd_pair_msg.rgb = self._manager.image_client.extract_image_msg(
-                rgb_response.shot,
-                rgb_ros_time,
-            )
-            rgbd_pair_msg.depth = self._manager.image_client.extract_image_msg(
-                depth_response.shot,
-                depth_ros_time,
-            )
+            rgbd_pair_msg.rgb = self._manager.image_client.proto_to_image_msg(rgb_response)
+            rgbd_pair_msg.depth = self._manager.image_client.proto_to_image_msg(depth_response)
             response_msg.rgbd_pairs.append(rgbd_pair_msg)
 
         return response_msg

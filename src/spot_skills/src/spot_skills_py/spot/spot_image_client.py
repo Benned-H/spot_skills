@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import datetime
 import threading
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -65,6 +65,12 @@ class ImageFormat(Enum):
             ImageFormat.GREYSCALE: Image.PIXEL_FORMAT_GREYSCALE_U8,  # One byte per pixel
             ImageFormat.DEPTH: Image.PIXEL_FORMAT_DEPTH_U16,  # z-distance from camera (mm)
         }[self]
+
+
+CAMERA_TO_OPERATING_RANGE_MM = {
+    "body": (300, 4000),  # 0.3 m up to 2-4 meters
+    "hand": (400, 6000),  # 0.4 m up to at least 6 meters
+}
 
 
 class SpotImageClient:
@@ -170,15 +176,15 @@ class SpotImageClient:
         self,
         image: ImageResponse | ImageMsg | np.ndarray,
         output_path: str | Path,
+        depth_range_mm: tuple[int, int],
         colormap: int | None = cv2.COLORMAP_MAGMA,
-        depth_range_mm: tuple[int, int] = (0, 9999999),  # TODO
     ) -> None:
         """Save the given image (response, message, or data) to the file system.
 
         :param image: Image response/message/data to be exported to file
         :param output_path: Output path for the image (.png is appended if missing)
-        :param colormap: Colormap used to visualize depth frames (None means no colorization)
         :param depth_range_mm: Range of depths (in mm) output from Spot's depth cameras
+        :param colormap: Colormap used to visualize depth frames (None means no colorization)
         """
         outfile = Path(output_path).with_suffix(".png")
         outfile.parent.mkdir(parents=True, exist_ok=True)
@@ -198,17 +204,18 @@ class SpotImageClient:
 
         # Colorize depth images, if requested
         if colormap is not None and is_depth:
+            np_data = np.squeeze(np_data)  # Ensure 2D before masking
+
             valid = np_data > 0  # Ignore invalid pixels when scaling
             if np.any(valid):
                 near_mm, far_mm = depth_range_mm
                 image8 = np.zeros_like(np_data, dtype=np.uint8)
-                image8[valid] = cv2.normalize(
-                    np.clip(np_data[valid], near_mm, far_mm),
-                    None,
-                    0,
-                    255,
-                    cv2.NORM_MINMAX,
-                ).astype(np.uint8)
+
+                clipped = np.clip(np_data[valid], near_mm, far_mm)
+                scaled = cv2.normalize(clipped, None, 0, 255, cv2.NORM_MINMAX)
+                scaled_flat = scaled.astype(np.uint8).ravel()
+
+                image8[valid] = scaled_flat
                 np_data = cv2.applyColorMap(image8, colormap)
 
         # Write the image to file
@@ -261,8 +268,9 @@ class SpotImageClient:
         saved_pairs: set[tuple[str, str]] = set()  # Remember which PNGs we're written
 
         while not rospy.is_shutdown() and (rospy.Time.now() - start).to_sec() < duration_s:
-            try:
-                for response, (source, fmt) in zip(self.get_images(requests), labels):
+            for request, (source, fmt) in zip(requests, labels):
+                try:
+                    response = self.get_images([request])[0]
                     image_msg = self.proto_to_image_msg(response)
                     pubs[(source, fmt)].publish(image_msg)
 
@@ -277,13 +285,21 @@ class SpotImageClient:
                     # Save the first PNG for each (source, format) pair
                     key = (source, fmt)
                     if key not in saved_pairs:
-                        time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        outfile = out_dir / f"{source}_{fmt}_{time_str}.png"
-                        self.save_image_to_file(response, outfile)
+                        now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        outfile = out_dir / f"{source}_{fmt}_{now_str}.png"
+
+                        if "hand" in source:
+                            depth_range_mm = CAMERA_TO_OPERATING_RANGE_MM["hand"]
+                        else:
+                            depth_range_mm = CAMERA_TO_OPERATING_RANGE_MM["body"]
+
+                        self.save_image_to_file(response, outfile, depth_range_mm)
                         saved_pairs.add(key)
 
-            except Exception as exc:
-                log_error(f"[SpotImageClient] Diagnostics loop hit exception: {exc}")
+                except Exception as exc:
+                    log_error(
+                        f"[SpotImageClient] Exception for format {fmt} from {source}: \n\t{exc}",
+                    )
 
             rate_hz.sleep()
 
@@ -297,17 +313,22 @@ class SpotImageClient:
         :return: NumPy array containing converted image data
         """
         image = response.shot.image
+        rows, cols = image.rows, image.cols
         spec = PIXEL_FORMAT_SPECS.get(image.pixel_format, DEFAULT_PIXEL_SPEC)
-        np_data = np.frombuffer(image.data, dtype=spec.dtype)
+        buffer = np.frombuffer(image.data, dtype=spec.dtype)
 
         if image.format == Image.FORMAT_RAW:
             try:
-                return np_data.reshape((image.rows, image.cols, spec.channels))
+                shape = (rows, cols) if spec.channels == 1 else (rows, cols, spec.channels)
+                arr = buffer.reshape(shape)
             except ValueError:
                 # Typically caused by JPEG data being sent as RAW - let OpenCV handle it
                 log_error("Raw reshape failed - falling back to cv2.imdecode")
+                arr = cv2.imdecode(buffer, cv2.IMREAD_UNCHANGED)
+        else:
+            arr = cv2.imdecode(buffer, cv2.IMREAD_UNCHANGED)
 
-        return cv2.imdecode(np_data, cv2.IMREAD_UNCHANGED)
+        return np.squeeze(arr)
 
     @staticmethod
     def extract_camera_info_msg(response: ImageResponse, capture_time: rospy.Time) -> CameraInfo:
@@ -371,12 +392,12 @@ class SpotImageClient:
             assert len(requests) == len(responses) == len(self.publish_loop_cameras)
 
             for camera_name, response in zip(self.publish_loop_cameras, responses):
+                image_msg = self.proto_to_image_msg(response)
+                self._image_pubs[camera_name].publish(image_msg)
+
                 time_proto = response.shot.acquisition_time
                 timestamp = self._time_sync.local_timestamp_from_proto(time_proto)
                 ros_time = rospy.Time.from_sec(timestamp.to_time_s())
-
-                image_msg = self.extract_image_msg(response.shot, ros_time)
-                self._image_pubs[camera_name].publish(image_msg)
 
                 info_msg = self.extract_camera_info_msg(response, ros_time)
                 self._info_pubs[camera_name].publish(info_msg)
