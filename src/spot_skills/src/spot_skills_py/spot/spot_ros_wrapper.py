@@ -66,6 +66,11 @@ class SpotROS1Wrapper:
         self._unlock_arm_service = rospy.Service("spot/unlock_arm", Trigger, self.handle_unlock_arm)
         self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
         self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
+        self._image_debug_srv = rospy.Service(
+            "spot/debug_images",
+            Trigger,
+            self.handle_debug_images,
+        )
 
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
@@ -290,6 +295,15 @@ class SpotROS1Wrapper:
         message = "Spot opened the door." if door_opened else "Could not open the door."
 
         return TriggerResponse(door_opened, message)
+
+    def handle_debug_images(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a request to run debugging diagnostics on Spot's image client.
+
+        :param _: ROS message representing a request to run image client diagnostics
+        :return: Response conveying if diagnostics successfully ran
+        """
+        self._manager.image_client.run_diagnostics()
+        return TriggerResponse(success=True, message="Successfully ran image diagnostics.")
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
