@@ -30,7 +30,7 @@
     <arg name="localization_mode" default="true" />
     <arg name="start_new_map" default="false" />
 
-    <!-- Activate object detection so that the OpenDoor skill can identify the door handle -->
+    <!-- Activate object detection so that Spot can identify the door handle -->
     <param name="/spot/object_detection/active" value="true"/>
 
     <!-- Launch all nodes to control Spot, simulated or real, using MoveIt -->

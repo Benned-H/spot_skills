@@ -62,6 +62,7 @@ add_service_files(
   NavigateToPose.srv
   StringRequestService.srv
   SetJointStateMode.srv
+  SwapCabinetMesh.srv
 )
 
 ## Generate actions in the 'action' folder
