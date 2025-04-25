@@ -19,7 +19,7 @@ from bosdyn.client.frame_helpers import (
     ODOM_FRAME_NAME,
     get_a_tform_b,
 )
-from bosdyn.client.robot_command import RobotCommandBuilder
+from bosdyn.client.robot_command import RobotCommandBuilder, block_until_arm_arrives
 from bosdyn.util import seconds_to_duration
 from transform_utils.kinematics import Point3D
 
@@ -166,7 +166,9 @@ def erase_board(manager: SpotManager) -> None:
 
         # Send the request
         command_id = manager.send_robot_command(robot_command)
-        manager.block_until_arm_arrives(command_id)
+
+        # manager.block_until_arm_arrives(command_id)
+        block_until_arm_arrives(manager.command_client, command_id, 5.0)
 
     time.sleep(2)  # Chill after erasing for a bit
 
