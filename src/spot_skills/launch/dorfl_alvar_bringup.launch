@@ -29,35 +29,18 @@
 
     <!-- =========  CAMERA  ========= -->
     <node if="$(arg enable_bundle_medium)" name="ar_bundle_medium" pkg="ar_track_alvar" type="findMarkerBundlesNoKinect" respawn="true" output="screen">
-        <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
-        <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
-        <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
-        <param name="output_frame" value="multisense/left_camera_optical_frame"/>
-        <param name="bundle_files" value="$arg med_bundle_xml_path"/>
-        <remap from="camera_image" to="/multisense/left/image_color"/>
-        <remap from="camera_info" to="/multisense/left/image_color/camera_info"/>
+        args="$(arg medium_marker_size_cm) $(arg max_new_marker_error) $(arg max_track_error) multisense/left/image_color multisense/left/image_color/camera_info multisense/left_camera_optical_frame $(arg med_bundle_xml_path)">
         <remap from="ar_pose_marker" to="ar_pose_marker/bundle"/>
     </node>
 
     <node if="$(arg enable_bundle_small)" name="ar_bundle_small" pkg="ar_track_alvar" type="findMarkerBundlesNoKinect" respawn="true" output="screen">
-        <param name="marker_size" value="$(arg small_marker_size_cm)" type="double"/>
-        <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
-        <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
-        <param name="output_frame" value="multisense/left_camera_optical_frame"/>
-        <param name="bundle_files" value="$arg small_bundle_xml_path"/>
-        <remap from="camera_image" to="/multisense/left/image_color"/>
-        <remap from="camera_info" to="/multisense/left/image_color/camera_info"/>
+        args="$(arg small_marker_size_cm) $(arg max_new_marker_error) $(arg max_track_error) multisense/left/image_color multisense/left/image_color/camera_info multisense/left_camera_optical_frame $(arg small_bundle_xml_path)">
         <remap from="ar_pose_marker" to="ar_pose_marker/bundle"/>
     </node>
 
 
     <node if="$(arg enable_single_small)" name="ar_single_small" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
-        <param name="marker_size" value="$(arg small_marker_size_cm)" type="double"/>
-        <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
-        <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
-        <param name="output_frame" value="multisense/left_camera_optical_frame"/>
-        <remap from="camera_image" to="/multisense/left/image_color"/>
-        <remap from="camera_info" to="/multisense/left/image_color/camera_info"/>
+        args="$(arg small_marker_size_cm) $(arg max_new_marker_error) $(arg max_track_error) multisense/left/image_color multisense/left/image_color/camera_info multisense/left_camera_optical_frame">
         <remap from="ar_pose_marker" to="ar_pose_marker/single"/>
     </node>
 
