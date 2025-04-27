@@ -26,6 +26,7 @@ from bosdyn.client.robot_command import (
 )
 from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_command
 from bosdyn.client.robot_state import RobotStateClient
+from bosdyn.client.time_sync import TimeSyncClient
 from bosdyn.client.util import setup_logging
 from bosdyn.geometry import EulerZXY
 from rospy import loginfo as ros_loginfo
@@ -36,7 +37,7 @@ from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
 from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
 from spot_skills_py.spot.spot_image_client import SpotImageClient
 from spot_skills_py.spot.spot_navigation import GoalReachedThresholds, check_reached_goal
-from spot_skills_py.spot.spot_sync import SpotTimeSync
+from spot_skills_py.spot.spot_time_sync import SpotTimeSync
 
 
 class SpotManager:
@@ -74,7 +75,8 @@ class SpotManager:
         self._robot.authenticate(username=username, password=password)
 
         # Establish a time-sync with Spot, which enables local-robot time conversion
-        self.time_sync = SpotTimeSync(self._robot)
+        time_sync_client = self._robot.ensure_client(TimeSyncClient.default_service_name)
+        self.time_sync = SpotTimeSync(time_sync_client)
 
         self.log_info("Time sync has been established with Spot.")
         self.resync_and_log()
@@ -202,24 +204,21 @@ class SpotManager:
         """Resync with Spot and log information describing the resulting time sync."""
         self.time_sync.resync()
 
-        round_trip_s = self.time_sync.get_round_trip_s()
+        round_trip_s = self.time_sync.latest_sync_result.round_trip_time_s
         self.log_info(f"Current round trip time: {round_trip_s} seconds.")
 
         max_round_trip_s = self.time_sync.max_round_trip_s
         self.log_info(f"Maximum observed round trip time: {max_round_trip_s} seconds.")
 
-        clock_skew_s = self.time_sync.robot_clock_skew_s
+        clock_skew_s = self.time_sync.latest_sync_result.robot_clock_skew_s
         self.log_info(f"Current robot clock skew from local: {clock_skew_s} seconds.")
 
-        max_sync_time_s = self.time_sync.max_sync_time_s
-        self.log_info(
-            f"Maximum duration any time-sync has taken: {max_sync_time_s} seconds.",
-        )
+        max_sync_time_s = self.time_sync.max_sync_duration_s
+        self.log_info(f"Maximum duration any time-sync has taken: {max_sync_time_s} seconds.")
 
-        avg_sync_time_s = self.time_sync.get_avg_sync_time_s()
-        self.log_info(
-            f"Average duration per resync with Spot: {avg_sync_time_s} seconds.",
-        )
+        avg_sync_time_s = self.time_sync.average_sync_duration_s
+        if avg_sync_time_s is not None:
+            self.log_info(f"Average duration per resync with Spot: {avg_sync_time_s} seconds.")
 
     def has_arm(self) -> bool:
         """Check whether the Spot robot has an arm connected."""
@@ -269,12 +268,12 @@ class SpotManager:
             return None
 
         ### DEBUG ###
-        all_leases = self._lease_client.list_leases(include_full_lease_info=True)
-        for lr in all_leases:
-            lp = lr.lease
-            self.log_info(
-                f"[DEBUG] wallet has lease: resource={lr.resource} seq={lp.sequence}, epoch={lp.epoch}",
-            )
+        # all_leases = self._lease_client.list_leases(include_full_lease_info=True)
+        # for lr in all_leases:
+        #     lp = lr.lease
+        #     self.log_info(
+        #         f"[DEBUG] wallet has lease: resource={lr.resource} seq={lp.sequence}, epoch={lp.epoch}",
+        #     )
 
         # Issue a command to the robot synchronously (blocks until done sending)
         try:
@@ -285,7 +284,7 @@ class SpotManager:
                 )
             else:  # Cut off the command after the given duration
                 if self.time_sync.robot_clock_skew_s is None:
-                    self.log_info("Cannot send robot command because the robot is not time-synced.")
+                    self.log_info("Cannot send robot command because Spot is not time-synced.")
                     return None
 
                 command_id: int = self.command_client.robot_command(

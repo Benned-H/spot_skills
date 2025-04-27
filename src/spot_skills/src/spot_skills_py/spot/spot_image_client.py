@@ -14,8 +14,7 @@ from bosdyn.client.image import ImageClient, build_image_request
 from cv_bridge import CvBridge
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image as ImageMsg
-
-from spot_skills_py.spot.spot_sync import SpotTimeSync
+from transform_utils.time_sync import Timestamp, TimeSync
 
 if TYPE_CHECKING:
     from bosdyn.client.robot import Robot
@@ -48,7 +47,7 @@ class ImageFormat(Enum):
 class SpotImageClient:
     """A wrapper for functions related to Spot's image client."""
 
-    def __init__(self, robot: Robot, time_sync: SpotTimeSync, debug_mode: bool) -> None:
+    def __init__(self, robot: Robot, time_sync: TimeSync, debug_mode: bool) -> None:
         """Initialize an image client using the given robot.
 
         :param robot: Point of access for Spot's RPC clients
@@ -282,10 +281,10 @@ class SpotImageClient:
 
                 for camera_name, rgb_response in zip(self.publish_loop_cameras, response_protos):
                     time_proto = rgb_response.shot.acquisition_time
-                    timestamp = self._time_sync.local_timestamp_from_proto(time_proto)
-                    ros_time = rospy.Time.from_sec(timestamp.to_time_s())
+                    photo_taken_ts = Timestamp.from_proto(time_proto)
+                    taken_ros_time = self._time_sync.convert_to_ros_time(photo_taken_ts)
 
-                    image_msg = self.extract_image_msg(rgb_response.shot, ros_time)
+                    image_msg = self.extract_image_msg(rgb_response.shot, taken_ros_time)
 
                     if self.debug_mode:
                         rospy.loginfo(
@@ -296,7 +295,7 @@ class SpotImageClient:
 
                     self._image_pubs[camera_name].publish(image_msg)
 
-                    camera_info_msg = self.extract_camera_info_msg(rgb_response, ros_time)
+                    camera_info_msg = self.extract_camera_info_msg(rgb_response, taken_ros_time)
                     self._info_pubs[camera_name].publish(camera_info_msg)
 
                 rate_hz.sleep()

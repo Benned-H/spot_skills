@@ -57,7 +57,4 @@
         <arg name="enable_frontright_single_large" value="true" />
     </include>
 
-    <!-- Launch RViz configured for navigation -->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_nav_demo.rviz" />
-
 </launch>

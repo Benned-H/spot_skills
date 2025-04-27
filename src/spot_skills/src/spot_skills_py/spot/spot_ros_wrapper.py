@@ -239,14 +239,12 @@ class SpotROS1Wrapper:
 
             # Find ROS timestamps of the image responses
             rgb_time_proto = rgb_response.shot.acquisition_time
-            rgb_timestamp = self._manager.time_sync.local_timestamp_from_proto(rgb_time_proto)
-            rgb_time_s = rgb_timestamp.to_time_s()
-            rgb_ros_time = rospy.Time.from_sec(rgb_time_s)
+            rgb_ros_time = self._manager.time_sync.convert_to_ros_time(rgb_time_proto)
+            rgb_time_s = rgb_ros_time.to_sec()
 
             depth_time_proto = depth_response.shot.acquisition_time
-            depth_timestamp = self._manager.time_sync.local_timestamp_from_proto(depth_time_proto)
-            depth_time_s = depth_timestamp.to_time_s()
-            depth_ros_time = rospy.Time.from_sec(depth_time_s)
+            depth_ros_time = self._manager.time_sync.convert_to_ros_time(depth_time_proto)
+            depth_time_s = depth_ros_time.to_sec()
 
             diff_s = rgb_time_s - depth_time_s
             assert diff_s <= 0.1, f"Synchronized RGB and depth images differed by {diff_s} seconds!"
@@ -401,10 +399,7 @@ class SpotROS1Wrapper:
             return
 
         # Attempt to send the trajectory using the SpotArmController
-        outcome = self._arm_controller.command_trajectory(
-            trajectory,
-            self._arm_action_server,
-        )
+        outcome = self._arm_controller.command_trajectory(trajectory, self._arm_action_server)
 
         # Update the ROS action server based on the outcome of the trajectory
         if outcome == ArmCommandOutcome.SUCCESS:

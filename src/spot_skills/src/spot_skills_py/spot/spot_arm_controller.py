@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING
 
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
+from transform_utils.time_sync import SystemClock, Timestamp
 
 from spot_skills_py.spot.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
-from spot_skills_py.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
     from actionlib import SimpleActionServer
@@ -60,7 +60,6 @@ class SpotArmController:
         self.angle_proximity_rad = 0.005
 
         # Duration (seconds) into the future by which each trajectory's start is offset
-        self._future_proof_s = 1.0
 
         # Begin with the arm controller unable to affect Spot's arm
         self._locked = True
@@ -72,7 +71,7 @@ class SpotArmController:
     def send_segment_command(self, command: RobotCommand) -> None:
         """Command Spot to execute a trajectory segment, given as a robot command.
 
-        :param      command     Robot command containing a short trajectory segment
+        :param command: Robot command containing a short trajectory segment
         """
         if self._locked:
             return
@@ -90,21 +89,24 @@ class SpotArmController:
 
         self._manager.log_info(f"Sending trajectory segment of length {len_points}...")
 
-        # Find the reference time (seconds) for the trajectory
-        ref_timestamp = TimeStamp.from_proto(trajectory_proto.reference_time)
+        # Find the reference time (seconds) for the trajectory. Treat it as if it's in local time
+        ref_timestamp = Timestamp.from_proto(trajectory_proto.reference_time)
+        ref_time_robot_s, clock = ref_timestamp.to_time_s()
+        if clock == SystemClock.ROBOT:
+            self._manager.log_info(
+                f"Trajectory reference time in robot clock: {ref_time_robot_s:.2f} seconds.",
+            )
 
-        ref_time_s = ref_timestamp.to_time_s()
-        self._manager.log_info(f"Segment reference time: {ref_time_s:.2f} seconds.")
+        local_ref = self._manager.time_sync.change_relative_clock(ref_timestamp, SystemClock.LOCAL)
+        local_ref_time_s, _ = local_ref.to_time_s()
+
+        self._manager.log_info(f"Segment local reference time: {local_ref_time_s:.2f} seconds.")
 
         first_rel_time_s = duration_to_seconds(points_proto[0].time_since_reference)
         last_rel_time_s = duration_to_seconds(points_proto[-1].time_since_reference)
 
-        self._manager.log_info(
-            f"First relative time in segment: {first_rel_time_s:.2f} seconds.",
-        )
-        self._manager.log_info(
-            f"Last relative time in segment: {last_rel_time_s:.2f} seconds.",
-        )
+        self._manager.log_info(f"First relative time in segment: {first_rel_time_s:.2f} seconds.")
+        self._manager.log_info(f"Last relative time in segment: {last_rel_time_s:.2f} seconds.")
 
         duration_s = last_rel_time_s - first_rel_time_s
         self._manager.log_info(f"Total segment duration: {duration_s:.2f} seconds.")
@@ -112,20 +114,16 @@ class SpotArmController:
         self._manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
 
         # Wait to send the segment until close to when it starts
-        send_early_s = 5 * self._manager.time_sync.max_round_trip_s + 0.5
+        send_early_s = 2 * self._manager.time_sync.max_round_trip_s + 0.2
 
-        self._manager.log_info(
-            f"Want to send the segment {send_early_s:.4f} seconds early...",
-        )
+        self._manager.log_info(f"Want to send the segment {send_early_s:.4f} seconds early...")
 
-        segment_start_time_s = ref_time_s + first_rel_time_s
-        self._manager.log_info(
-            f"Segment start time: {segment_start_time_s:.2f} seconds.",
-        )
+        segment_local_start_s = local_ref_time_s + first_rel_time_s
+        self._manager.log_info(f"Segment local start time: {segment_local_start_s:.2f} seconds.")
 
         self._manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
 
-        segment_starts_in_s = segment_start_time_s - time.time()
+        segment_starts_in_s = segment_local_start_s - time.time()
         self._manager.log_info(f"Segment starts in: {segment_starts_in_s:.2f} seconds.")
 
         if segment_starts_in_s > send_early_s:
@@ -133,18 +131,16 @@ class SpotArmController:
             self._manager.log_info(f"We have {spare_time_s:.4f} spare seconds...")
 
             # Re-sync with Spot, if there's time to spare
-            if spare_time_s > 2 * self._manager.time_sync.max_sync_time_s:
+            if spare_time_s > 3.0 * self._manager.time_sync.max_sync_duration_s:
                 self._manager.log_info("Re-time-syncing with Spot...")
-                self._manager.resync_and_log()
+                self._manager.time_sync.resync()
 
             # Sleep for any remaining time, if necessary
             self._manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
 
-            segment_starts_in_s = segment_start_time_s - time.time()
+            segment_starts_in_s = segment_local_start_s - time.time()
 
-            self._manager.log_info(
-                f"Segment starts in: {segment_starts_in_s:.2f} seconds.",
-            )
+            self._manager.log_info(f"Segment starts in: {segment_starts_in_s:.2f} seconds.")
 
             if segment_starts_in_s > send_early_s:
                 spare_time_s = segment_starts_in_s - send_early_s
@@ -204,10 +200,10 @@ class SpotArmController:
                 )
                 return ArmCommandOutcome.INVALID_START
 
-        new_start_timestamp = TimeStamp.from_time_s(time.time() + self._future_proof_s)
-        trajectory.reference_timestamp = new_start_timestamp
-
-        robot_commands = trajectory.segment_to_robot_commands(self.max_segment_len)
+        robot_commands = trajectory.segment_to_robot_commands(
+            self.max_segment_len,
+            self._manager.time_sync,
+        )
 
         preempted = False
         if action_server is None:  # Simpler case, where ROS can't preempt the command

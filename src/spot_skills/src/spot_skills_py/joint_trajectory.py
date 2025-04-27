@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING
 
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
+from transform_utils.time_sync import SystemClock, Timestamp, TimeSync
 
 from spot_skills_py.spot.spot_configuration import (
     MAP_JOINT_NAMES_URDF_TO_SPOT_SDK,
     SPOT_SDK_ARM_JOINT_NAMES,
     SPOT_URDF_ARM_JOINT_NAMES,
 )
-from spot_skills_py.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
     import trajectory_msgs.msg
@@ -97,7 +97,7 @@ class JointTrajectory:
     treated as state variables. Accelerations can be treated similarly.
     """
 
-    reference_timestamp: TimeStamp  # Relative timestamp for trajectory point times
+    reference_timestamp: Timestamp  # Relative timestamp for trajectory point times
     points: list[JointsPoint]  # Points in the trajectory
     joint_names: list[str]
 
@@ -109,7 +109,7 @@ class JointTrajectory:
 
         :returns    JointTrajectory constructed based on the given Protobuf trajectory
         """
-        timestamp = TimeStamp.from_proto(trajectory_proto.reference_time)
+        timestamp = Timestamp.from_proto(trajectory_proto.reference_time)
 
         points = [JointsPoint.from_proto(p) for p in trajectory_proto.points]
 
@@ -123,12 +123,13 @@ class JointTrajectory:
     def from_ros_msg(cls, trajectory_msg: trajectory_msgs.msg.JointTrajectory) -> JointTrajectory:
         """Construct a JointTrajectory from an equivalent ROS message.
 
-        :param      trajectory_msg    Trajectory of joint points as a ROS message
+        Note: Assumes that the ROS message timestamp is relative to the local clock.
 
+        :param      trajectory_msg    Trajectory of joint points as a ROS message
         :returns    JointTrajectory constructed based on the given ROS message
         """
         stamp_msg = trajectory_msg.header.stamp
-        timestamp = TimeStamp(stamp_msg.secs, stamp_msg.nsecs)
+        timestamp = Timestamp(stamp_msg.secs, stamp_msg.nsecs, SystemClock.LOCAL)
 
         points = [JointsPoint.from_ros_msg(p) for p in trajectory_msg.points]
 
@@ -168,7 +169,11 @@ class JointTrajectory:
             ]
             reorder_joint_values(self.points, sdk_indices)
 
-    def segment_to_robot_commands(self, max_segment_len: int) -> list[RobotCommand]:
+    def segment_to_robot_commands(
+        self,
+        max_segment_len: int,
+        time_sync: TimeSync,
+    ) -> list[RobotCommand]:
         """Convert this JointTrajectory into a list of robot commands for Spot.
 
         Each command will contain a single "segment" of the overall trajectory, obeying
@@ -178,9 +183,9 @@ class JointTrajectory:
 
         TODO: Could raise or lower the output commands' velocity/acceleration limits
 
-        :param      max_segment_len     Maximum allowed segment length (# points)
-
-        :return     List of RobotCommand objects ready to be sent to Spot
+        :param max_segment_len: Maximum allowed length of a single segment (# points)
+        :param time_sync: Used for converting between local and robot clock timestamps
+        :return: List of RobotCommand objects ready to be sent to Spot
         """
         self.convert_to_spot_sdk()
 
@@ -196,7 +201,9 @@ class JointTrajectory:
             if time <= prev_time:
                 times[idx] = prev_time + 0.01
 
-        timestamp_proto = self.reference_timestamp.to_proto()
+        # Create a future-proof timestamp relative to the robot clock
+        time_sync.resync()
+        ref_time_proto = time_sync.get_future_ref_time_proto()
 
         # Segment the trajectory as described in this method's docstring
 
@@ -213,7 +220,7 @@ class JointTrajectory:
                 joint_positions=segment_positions,
                 times=segment_times,
                 joint_velocities=segment_velocities,
-                ref_time=timestamp_proto,
+                ref_time=ref_time_proto,
             )
 
             robot_commands.append(robot_command)
