@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bosdyn.client.robot import Robot
 from bosdyn.client.time_sync import TimeSyncClient, TimeSyncEndpoint
 from bosdyn.util import duration_to_seconds
 from transform_utils.logging import log_error
@@ -11,22 +12,26 @@ from transform_utils.time_sync import SyncResult, TimeSync
 class SpotTimeSync(TimeSync):
     """A wrapper to manage converting between the local clock and Spot's clock."""
 
-    def __init__(self, client: TimeSyncClient) -> None:
-        """Initialize the parent TimeSync class after storing the time-sync client.
+    def __init__(self, robot: Robot) -> None:
+        """Initialize the parent TimeSync class after time-syncing with the robot.
 
-        :param client: A client for establishing time-sync with Spot
+        :param robot: A point-of-access for all client functionalities of a Spot robot
         """
-        self._time_sync_client = client
-        self._time_sync_endpoint = TimeSyncEndpoint(client)
-
         super().__init__()
 
+        robot.time_sync.wait_for_sync()
+
+        self._time_sync_client = robot.ensure_client(TimeSyncClient.default_service_name)
+        self._time_sync_endpoint = TimeSyncEndpoint(self._time_sync_client)
+
+        self.resync()  # Perform an explicit re-sync with Spot
+
     def _sync(self) -> SyncResult | None:
-        """Synchronize with Spot's clock.
+        """Synchronize with Spot's clock and return a fresh SyncResult.
 
         :return: Latest data from robot time-sync (None if synchronization fails)
         """
-        synced = self._time_sync_endpoint.get_new_estimate()  # True if time-sync established
+        synced: bool = self._time_sync_endpoint.get_new_estimate()  # True if time-sync established
 
         if not synced:
             # Don't break once synced so that subsequent synchronizations last similarly as long

@@ -17,6 +17,7 @@ from bosdyn.client.estop import EstopClient
 from bosdyn.client.exceptions import LeaseUseError
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
+from bosdyn.client.robot import Robot
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
     RobotCommandClient,
@@ -69,14 +70,13 @@ class SpotManager:
 
         # Create one robot object, although the SDK client can manage more than one
         self._sdk = create_standard_sdk(client_name)
-        self._robot = self._sdk.create_robot(hostname)
+        self._robot: Robot = self._sdk.create_robot(hostname)
 
         # We need to authenticate with Spot before using it
         self._robot.authenticate(username=username, password=password)
 
         # Establish a time-sync with Spot, which enables local-robot time conversion
-        time_sync_client = self._robot.ensure_client(TimeSyncClient.default_service_name)
-        self.time_sync = SpotTimeSync(time_sync_client)
+        self.time_sync = SpotTimeSync(self._robot)
 
         self.log_info("Time sync has been established with Spot.")
         self.resync_and_log()
@@ -203,22 +203,7 @@ class SpotManager:
     def resync_and_log(self) -> None:
         """Resync with Spot and log information describing the resulting time sync."""
         self.time_sync.resync()
-
-        round_trip_s = self.time_sync.latest_sync_result.round_trip_time_s
-        self.log_info(f"Current round trip time: {round_trip_s} seconds.")
-
-        max_round_trip_s = self.time_sync.max_round_trip_s
-        self.log_info(f"Maximum observed round trip time: {max_round_trip_s} seconds.")
-
-        clock_skew_s = self.time_sync.latest_sync_result.robot_clock_skew_s
-        self.log_info(f"Current robot clock skew from local: {clock_skew_s} seconds.")
-
-        max_sync_time_s = self.time_sync.max_sync_duration_s
-        self.log_info(f"Maximum duration any time-sync has taken: {max_sync_time_s} seconds.")
-
-        avg_sync_time_s = self.time_sync.average_sync_duration_s
-        if avg_sync_time_s is not None:
-            self.log_info(f"Average duration per resync with Spot: {avg_sync_time_s} seconds.")
+        self.time_sync.log_sync_state()
 
     def has_arm(self) -> bool:
         """Check whether the Spot robot has an arm connected."""

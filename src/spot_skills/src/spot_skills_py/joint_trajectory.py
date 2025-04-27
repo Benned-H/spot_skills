@@ -202,28 +202,47 @@ class JointTrajectory:
                 times[idx] = prev_time + 0.01
 
         # Create a future-proof timestamp relative to the robot clock
-        time_sync.resync()
-        ref_time_proto = time_sync.get_future_ref_time_proto()
+        future_margin_s = time_sync.get_future_margin_s()
+        if future_margin_s is None:
+            time_sync.resync()
+            future_margin_s = time_sync.get_future_margin_s()
+
+            if future_margin_s is None:
+                error_msg = "Time-sync unavailable; cannot segment trajectory."
+                raise RuntimeError(error_msg)
+
+        # Leave protos relative to local clock; RobotCommandClient will convert them at send-time
+        ref_local_ts = Timestamp.now().add_offset_s(future_margin_s)
+        ref_local_ts.clock = SystemClock.ROBOT  # Trick our code to skip converting local-to-robot
+        ref_robot_proto = time_sync.convert_to_robot_proto(ref_local_ts)
+        if ref_robot_proto is None:
+            error_msg = "Time-sync unavailable; cannot build reference timestamp."
+            raise RuntimeError(error_msg)
 
         # Segment the trajectory as described in this method's docstring
+        commands: list[RobotCommand] = []
 
         start_idx = 0  # Both indices are inclusive
         end_idx = min(start_idx + max_segment_len, len(self.points)) - 1
 
-        robot_commands: list[RobotCommand] = []
         while True:
             segment_positions = positions[start_idx : end_idx + 1]
             segment_velocities = velocities[start_idx : end_idx + 1]
             segment_times = times[start_idx : end_idx + 1]
 
+            # Adjust times within the segment to be relative to an updated reference time
+            segment_offset_s = times[start_idx]
+            rel_times = [t - segment_offset_s for t in segment_times]
+            new_ref_robot_proto = time_sync.add_proto_offset_s(ref_robot_proto, segment_offset_s)
+
             robot_command = RobotCommandBuilder.arm_joint_move_helper(
                 joint_positions=segment_positions,
-                times=segment_times,
+                times=rel_times,
                 joint_velocities=segment_velocities,
-                ref_time=ref_time_proto,
+                ref_time=new_ref_robot_proto,
             )
 
-            robot_commands.append(robot_command)
+            commands.append(robot_command)
 
             # Exit once we've created a segment containing the trajectory's end
             if end_idx == len(self.points) - 1:
@@ -233,4 +252,4 @@ class JointTrajectory:
             start_idx = end_idx  # Recall: both are inclusive
             end_idx = min(start_idx + max_segment_len, len(self.points)) - 1
 
-        return robot_commands
+        return commands
