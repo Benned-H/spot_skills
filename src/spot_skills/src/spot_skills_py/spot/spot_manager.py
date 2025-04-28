@@ -249,16 +249,11 @@ class SpotManager:
         :param duration_s: Duration (seconds) after which to end the command
         :return: ID (integer) of the issued robot command, or None if manager doesn't control Spot
         """
+        t4 = time.time()
+        self.log_info(f"[DEBUG] In RPC stub local_now: {t4:.6f} s.")
+
         if not self.check_control():
             return None
-
-        ### DEBUG ###
-        # all_leases = self._lease_client.list_leases(include_full_lease_info=True)
-        # for lr in all_leases:
-        #     lp = lr.lease
-        #     self.log_info(
-        #         f"[DEBUG] wallet has lease: resource={lr.resource} seq={lp.sequence}, epoch={lp.epoch}",
-        #     )
 
         # Issue a command to the robot synchronously (blocks until done sending)
         try:
@@ -360,7 +355,6 @@ class SpotManager:
         """
         self.log_info("Blocking until arm arrives...")
         bd_block_arm_command(self.command_client, command_id)
-        time.sleep(0.5)
         self.log_info("Done blocking.\n")
 
     def block_during_gripper_command(

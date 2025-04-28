@@ -6,8 +6,12 @@ import time
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
-from bosdyn.client.robot_command import RobotCommandBuilder
+from bosdyn.api.arm_command_pb2 import ArmJointTrajectory
+from bosdyn.client.exceptions import InvalidRequestError
+from bosdyn.client.robot_command import RobotCommandBuilder, blocking_command
 from bosdyn.util import duration_to_seconds
+
+# from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 from transform_utils.time_sync import SystemClock, Timestamp
 
 from spot_skills_py.spot.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
@@ -68,8 +72,51 @@ class SpotArmController:
         """Explicitly unlock Spot's arm, allowing the ArmController to control it."""
         self._locked = False
 
+    def refresh_ref_time(self, traj_proto: ArmJointTrajectory) -> None:
+        """Refresh the timestamp of the given Protobuf message.
+
+        :param traj_proto: Protobuf message whose reference time is updated
+        """
+        future_margin_s = self._manager.time_sync.get_future_margin_s()
+        if future_margin_s is None:
+            self._manager.time_sync.resync()
+            future_margin_s = self._manager.time_sync.get_future_margin_s()
+
+            if future_margin_s is None:
+                error_msg = "Time-sync unavailable; cannot refresh trajectory reference time."
+                raise RuntimeError(error_msg)
+
+        # Leave protos relative to local clock; RobotCommandClient will convert them at send-time
+        ref_local_ts = Timestamp.now().add_offset_s(future_margin_s)
+        ref_local_ts.clock = SystemClock.ROBOT  # Trick our code to skip converting local-to-robot
+        ref_robot_proto = self._manager.time_sync.convert_to_robot_proto(ref_local_ts)
+        if ref_robot_proto is None:
+            error_msg = "Time-sync unavailable; cannot update reference timestamp."
+            raise RuntimeError(error_msg)
+
+        traj_proto.reference_time.CopyFrom(ref_robot_proto)
+
+    # @retry(
+    #     stop=stop_after_attempt(5),
+    #     wait=wait_fixed(0.1),
+    #     retry=retry_if_exception_type(InvalidRequestError),
+    #     before_sleep=lambda retry_state: retry_state.args[0]._refresh_traj_ref(
+    #         retry_state.args[1],
+    #     ),
+    # )
+    # def _send_with_retry(self, command: RobotCommand) -> int:
+    #     """Send the given robot command to Spot, retrying on InvalidRequestError.
+
+    #     :param command: Robot command containing a short trajectory segment
+    #     :return: Command ID of the successfully sent command
+    #     """
+    #     return self._manager.send_robot_command(command)
+
     def send_segment_command(self, command: RobotCommand) -> None:
-        """Command Spot to execute a trajectory segment, given as a robot command.
+        """Command Spot to execute a trajectory segment, retrying on InvalidRequestError.
+
+        Due to resource constraints, RTAB-Map may take up the CPU at any time,
+            so we retry a few times if a command throws an exception.
 
         :param command: Robot command containing a short trajectory segment
         """
@@ -93,39 +140,39 @@ class SpotArmController:
         self._manager.log_info(f"Last relative time in segment: {last_rel_time_s:.2f} s.")
         self._manager.log_info(f"Total segment duration: {segment_duration_s:.2f} s.")
 
-        # Wait to send the segment until close to when it starts
-        time_sync = self._manager.time_sync
-
         # This Proto is in local time because the RobotCommandClient will convert upon sending
         ref_local_ts = Timestamp.from_proto(traj_proto.reference_time)
         ref_local_ts.clock = SystemClock.LOCAL
         ref_local_time_s = ref_local_ts.to_time_s()
 
-        self._manager.log_info(f"Trajectory reference (local clock): {ref_local_time_s:.2f} s.")
+        # self._manager.log_info(f"Trajectory reference (local clock): {ref_local_time_s:.2f} s.")
 
-        # Debug printouts to output values before SDK converts Timestamp protos
-        if time_sync.latest_sync_result is None:
-            self._manager.log_info("TimeSync latest result is currently None.")
-        else:
-            skew_s = time_sync.latest_sync_result.robot_clock_skew_s
-            rtt_s = time_sync.latest_sync_result.round_trip_time_s
-            self._manager.log_info(f"[DEBUG] Skew: {skew_s:.3f} s    RTT: {rtt_s:.3f} s")
+        # # Debug printouts to output values before SDK converts Timestamp protos
+        # if time_sync.latest_sync_result is None:
+        #     self._manager.log_info("TimeSync latest result is currently None.")
+        # else:
+        #     skew_s = time_sync.latest_sync_result.robot_clock_skew_s
+        #     rtt_s = time_sync.latest_sync_result.round_trip_time_s
+        #     self._manager.log_info(f"[DEBUG] Skew: {skew_s:.3f} s    RTT: {rtt_s:.3f} s")
 
-            local_now_ts = Timestamp.now()
-            robot_now_ts = time_sync.change_relative_clock(local_now_ts, SystemClock.ROBOT)
-            local_now_s = local_now_ts.to_time_s()
-            robot_now_s = robot_now_ts.to_time_s()
+        #     local_now_ts = Timestamp.now()
+        #     robot_now_ts = time_sync.change_relative_clock(local_now_ts, SystemClock.ROBOT)
+        #     local_now_s = local_now_ts.to_time_s()
+        #     robot_now_s = robot_now_ts.to_time_s()
 
-            self._manager.log_info(f"[DEBUG] local_now: {local_now_s:.6f}")
-            self._manager.log_info(f"[DEBUG] robot_now: {robot_now_s:.6f}")
+        #     self._manager.log_info(f"[DEBUG] local_now: {local_now_s:.6f}")
+        #     self._manager.log_info(f"[DEBUG] robot_now: {robot_now_s:.6f}")
 
-        send_early_s = 2.0 * time_sync.max_round_trip_s + 0.2
-        self._manager.log_info(f"Want to send the segment {send_early_s:.4f} seconds early...")
+        time_sync = self._manager.time_sync
 
-        if time_sync.latest_sync_result is None:
+        if time_sync.latest_sync_result is None or time_sync.max_round_trip_s is None:
             error_msg = "Time-sync is unknown; cannot send trajectory segment!"
             self._manager.log_info(error_msg)
             raise ValueError(error_msg)
+
+        # Wait to send the segment until close to when it starts
+        send_early_s = 2.0 * time_sync.max_round_trip_s + 0.2
+        self._manager.log_info(f"Want to send the segment {send_early_s:.4f} seconds early...")
 
         now_s = time.time()
         starts_in_s = (ref_local_time_s + first_rel_time_s) - now_s
@@ -137,26 +184,68 @@ class SpotArmController:
         if starts_in_s > send_early_s:
             spare_time_s = starts_in_s - send_early_s
             self._manager.log_info(f"We have {spare_time_s:.4f} spare seconds; sleeping...")
+
+            # Before sleep
+            t1 = time.time()
+            self._manager.log_info(f"[DEBUG] Pre-sleep local_now: {t1:.6f} s")
+
             time.sleep(spare_time_s)
+
+            t2 = time.time()
+            self._manager.log_info(f"[DEBUG] Post-sleep local_now: {t2:.6f}; Δ={t2 - t1:.3f} s")
 
         starts_in_s = (ref_local_time_s + first_rel_time_s) - time.time()
         self._manager.log_info(f"Segment now starts in {starts_in_s:.2f} s.")
 
-        # Double-check for safety margin
-        SAFETY_MARGIN_S = 0.05  # 50 ms
+        t3 = time.time()
+        self._manager.log_info(f"[DEBUG] Pre-RPC local_now: {t3:.6f}")
 
-        if starts_in_s < SAFETY_MARGIN_S:
-            # Choose a fresh reference time starting after now + SAFETY_MARGIN_S
-            rtt_s = time_sync.latest_sync_result.round_trip_time_s
-            ref_local_ts = Timestamp.now().add_offset_s(SAFETY_MARGIN_S + 2.0 * rtt_s)
-            ref_local_ts.clock = SystemClock.ROBOT  # Make our code skip local-to-robot conversion
-            new_ref_proto = time_sync.convert_to_robot_proto(ref_local_ts)
-            traj_proto.reference_time.CopyFrom(new_ref_proto)
-            self._manager.log_info("Reference time refreshed to avoid stale start.")
+        max_attempts = 5
+        for attempt in range(1, max_attempts + 1):
+            self.refresh_ref_time(traj_proto)
+            try:
+                command_id = self._manager.send_robot_command(command)
+                self._command_id = command_id
 
-        self._manager.log_info("Sending trajectory segment...")
+                # Block until the segment finishes, renewing the lease while waiting
+                try:
+                    blocking_command(self._manager.command_client, command)
+                except Exception as e:
+                    self._manager.log_info(f"Error during blocking_command: {e}")
+                    raise
+                else:
+                    return
 
-        self._command_id = self._manager.send_robot_command(command)
+            except InvalidRequestError as exc:
+                self._manager.log_info(f"Attempt {attempt}/{max_attempts} failed due to: {exc}.")
+                if attempt == max_attempts:
+                    self._manager.log_info("Failed to send segment after retries.")
+                    raise
+
+        # # Retry loop on stale-timestamp errors
+        # max_attempts = 3
+        # for attempt in range(1, max_attempts + 1):
+        #     # Refresh reference before each try
+        #     self.refresh_traj_ref(traj_proto)
+        #     try:
+        #         cmd_id = self._manager.send_robot_command(command)
+        #         self._command_id = cmd_id
+        #         return
+        #     except InvalidRequestError:
+        #         self._manager.log_warn(
+        #             f"Attempt {attempt}/{max_attempts} failed due to stale timestamp; retrying.",
+        #         )
+        #         if attempt == max_attempts:
+        #             self._manager.log_error("Failed to send segment after retries.")
+        #             raise
+
+        # try:
+        #     command_id = self._send_with_retry(command)
+        # except InvalidRequestError:
+        #     self._manager.log_info("Failed to send segment after retries.")
+        #     raise
+
+        # self._command_id = command_id
 
     def command_trajectory(
         self,
@@ -204,7 +293,10 @@ class SpotArmController:
                 )
                 return ArmCommandOutcome.INVALID_START
 
-        commands = trajectory.segment_to_commands(self.max_segment_len, self._manager.time_sync)
+        commands = trajectory.segment_to_robot_commands(
+            self.max_segment_len,
+            self._manager.time_sync,
+        )
 
         preempted = False
         if action_server is None:  # Simpler case, where ROS can't preempt the command

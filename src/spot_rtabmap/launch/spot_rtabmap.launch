@@ -36,13 +36,13 @@
         </include>-->
 
         <!-- Launch an RGB-D image publisher for four (rtabmap's limit) of Spot's cameras -->
-        <node name="rgbd_image_publisher" pkg="spot_rtabmap" type="rgbd_image_publisher.py" output="screen">
+        <node name="rgbd_image_publisher" pkg="spot_rtabmap" type="rgbd_image_publisher.py" output="screen" launch-prefix="taskset -c 0-5">
             <param name="rgbd_camera_names" type="string" value="frontleft,frontright,left,right" />
             <param name="pub_frequency" type="double" value="5.0" />
         </node>
 
         <!-- args="delete_db_on_start" if you want to start a new map -->
-        <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen" args="$(arg rtabmap_args)">
+        <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen" args="$(arg rtabmap_args)" launch-prefix="nice -n 10 taskset -c 0-5">
             <param name="frame_id" type="string" value="body" />
 
             <param name="database_path" type="string" value="$(arg rtabmap_database_path)" />

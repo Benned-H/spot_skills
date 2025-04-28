@@ -13,7 +13,7 @@ readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">= 3.8"
 
-dependencies = ["numpy", "trimesh", "scipy", "pycollada", "pyglet<2", "scipy>=1.5", "rosnumpy"]
+dependencies = ["numpy", "trimesh", "scipy", "pycollada", "pyglet<2", "scipy>=1.5", "rosnumpy", "tenacity"]
 
 [project.optional-dependencies]
 dev = ["ruff", "mypy"]
