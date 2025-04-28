@@ -268,7 +268,7 @@ class SpotManager:
                     timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
                 )
             else:  # Cut off the command after the given duration
-                if self.time_sync.robot_clock_skew_s is None:
+                if self.time_sync.latest_sync_result is None:
                     self.log_info("Cannot send robot command because Spot is not time-synced.")
                     return None
 

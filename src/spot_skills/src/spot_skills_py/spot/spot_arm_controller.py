@@ -101,10 +101,26 @@ class SpotArmController:
         ref_local_ts.clock = SystemClock.LOCAL
         ref_local_time_s = ref_local_ts.to_time_s()
 
+        self._manager.log_info(f"Trajectory reference (local clock): {ref_local_time_s:.2f} s.")
+
+        # Debug printouts to output values before SDK converts Timestamp protos
+        if time_sync.latest_sync_result is None:
+            self._manager.log_info("TimeSync latest result is currently None.")
+        else:
+            skew_s = time_sync.latest_sync_result.robot_clock_skew_s
+            rtt_s = time_sync.latest_sync_result.round_trip_time_s
+            self._manager.log_info(f"[DEBUG] Skew: {skew_s:.3f} s    RTT: {rtt_s:.3f} s")
+
+            local_now_ts = Timestamp.now()
+            robot_now_ts = time_sync.change_relative_clock(local_now_ts, SystemClock.ROBOT)
+            local_now_s = local_now_ts.to_time_s()
+            robot_now_s = robot_now_ts.to_time_s()
+
+            self._manager.log_info(f"[DEBUG] local_now: {local_now_s:.6f}")
+            self._manager.log_info(f"[DEBUG] robot_now: {robot_now_s:.6f}")
+
         send_early_s = 2.0 * time_sync.max_round_trip_s + 0.2
         self._manager.log_info(f"Want to send the segment {send_early_s:.4f} seconds early...")
-
-        self._manager.log_info(f"Trajectory reference (local clock): {ref_local_time_s:.2f} s.")
 
         if time_sync.latest_sync_result is None:
             error_msg = "Time-sync is unknown; cannot send trajectory segment!"
@@ -122,6 +138,21 @@ class SpotArmController:
             spare_time_s = starts_in_s - send_early_s
             self._manager.log_info(f"We have {spare_time_s:.4f} spare seconds; sleeping...")
             time.sleep(spare_time_s)
+
+        starts_in_s = (ref_local_time_s + first_rel_time_s) - time.time()
+        self._manager.log_info(f"Segment now starts in {starts_in_s:.2f} s.")
+
+        # Double-check for safety margin
+        SAFETY_MARGIN_S = 0.05  # 50 ms
+
+        if starts_in_s < SAFETY_MARGIN_S:
+            # Choose a fresh reference time starting after now + SAFETY_MARGIN_S
+            rtt_s = time_sync.latest_sync_result.round_trip_time_s
+            ref_local_ts = Timestamp.now().add_offset_s(SAFETY_MARGIN_S + 2.0 * rtt_s)
+            ref_local_ts.clock = SystemClock.ROBOT  # Make our code skip local-to-robot conversion
+            new_ref_proto = time_sync.convert_to_robot_proto(ref_local_ts)
+            traj_proto.reference_time.CopyFrom(new_ref_proto)
+            self._manager.log_info("Reference time refreshed to avoid stale start.")
 
         self._manager.log_info("Sending trajectory segment...")
 
@@ -173,17 +204,14 @@ class SpotArmController:
                 )
                 return ArmCommandOutcome.INVALID_START
 
-        robot_commands = trajectory.segment_to_robot_commands(
-            self.max_segment_len,
-            self._manager.time_sync,
-        )
+        commands = trajectory.segment_to_commands(self.max_segment_len, self._manager.time_sync)
 
         preempted = False
         if action_server is None:  # Simpler case, where ROS can't preempt the command
-            for segment_command in robot_commands:
+            for segment_command in commands:
                 self.send_segment_command(segment_command)
         else:  # Use the action server to check that the trajectory is not canceled
-            for segment_command in robot_commands:
+            for segment_command in commands:
                 if action_server.is_preempt_requested():  # Trajectory canceled!
                     self._manager.log_info("Action has been preempted.")
                     preempted = True
