@@ -4,13 +4,18 @@
     <!-- For safety reasons, do not assume which Spot is being used -->
     <arg name="spot_name" />
 
+    <arg name="apriltags_yaml_path" />
+
     <!-- We can only run AR marker detection on the real robot -->
     <arg name="real_robot" value="true" />
 
+    <!-- Allow overriding the path to the saved pointcloud map -->
+    <arg name="rtabmap_database_path" default="/docker/spot_skills/maps/rtabmap.db" />
+
     <!-- Launch nodes for AR tag tracking using ar_track_alvar -->
     <include file="$(find spot_skills)/launch/bringup_alvar.launch">
-        <arg name="apriltags_yaml_path" value="/docker/spot_skills/src/spot_skills/config/apriltags.yaml" />
-        <arg name="yaml_output_path" valie="/docker/spot_skills/src/spot_skills/config/output-poses.yaml" />
+        <arg name="apriltags_yaml_path" value="$(arg apriltags_yaml_path)" />
+        <arg name="yaml_output_path" value="/docker/spot_skills/src/spot_skills/config/output-poses.yaml" />
     </include>
 
     <!-- Launch all nodes to control Spot, simulated or real, using MoveIt -->
@@ -20,7 +25,7 @@
     <include file="$(find spot_rtabmap)/launch/spot_rtabmap.launch">
         <arg name="localization_mode" value="true" />
         <arg name="start_new_map" value="false" />
-        <arg name="rtabmap_database_path" value="/docker/spot_skills/maps/rtabmap.db" />
+        <arg name="rtabmap_database_path" value="$(arg rtabmap_database_path)" />
     </include>
 
     <!-- Launch RViz with the config for SLAM -->

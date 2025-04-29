@@ -19,7 +19,10 @@
     <arg name="rtabmap_database_path" default="/docker/spot_skills/maps/rtabmap.db" />
 
     <!-- Allow the user to specify a config YAML for the AR marker detection system -->
-    <arg name="apriltags_yaml_path" default="/docker/spot_skills/src/spot_skills/config/apriltags.yaml" />
+    <arg name="apriltags_yaml_path" default="/docker/spot_skills/src/spot_skills/config/experiments/corl_a/corl_a_apriltags.yaml" />
+
+    <!-- Allow the user to specify the YAML file for known landmarks -->
+    <arg name="known_landmarks_yaml" default="/docker/spot_skills/src/tmp3/test_domains/SpotPickAndPlace/Environments/CoRL-Experiment-A/environment.yaml"/>
 
     <!-- We can only run the full system on the real robot -->
     <arg name="real_robot" value="true" />
@@ -46,7 +49,9 @@
         <arg name="rtabmap_database_path" value="$(arg rtabmap_database_path)" />
     </include>
 
-    <include file="$(find spot_skills)/launch/bringup_spot_nav.launch"/>
+    <include file="$(find spot_skills)/launch/bringup_spot_nav.launch">
+        <arg name="known_landmarks_yaml" value="$(arg known_landmarks_yaml)" />
+    </include>
     <include file="$(find spot_skills)/launch/bringup_cabinet.launch"/>
 
     <!-- Launch nodes for AR tag tracking using ar_track_alvar -->

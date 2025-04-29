@@ -1,7 +1,6 @@
 """Define a class providing a ROS 1 interface to the Spot robot."""
 
 from copy import deepcopy
-from pathlib import Path
 
 import rospy
 from actionlib import SimpleActionServer
@@ -15,7 +14,8 @@ from control_msgs.msg import (
 )
 from ros_numpy import msgify
 from sensor_msgs.msg import Image as ImageMsg
-from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
+from std_srvs.srv import Empty, EmptyRequest, Trigger, TriggerRequest, TriggerResponse
+from transform_utils.ros.services import ServiceCaller
 
 from spot_skills.msg import RGBDPair
 from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
@@ -106,6 +106,16 @@ class SpotROS1Wrapper:
             self._navigation_server = SpotNavigationServer(manager=self._manager)
         else:
             rospy.loginfo("Skipping initialization of SpotNavigationServer...")
+
+        # Create service callers for pausing/resuming RTAB-Map, if it's live
+        self.rtabmap_live = True
+        try:
+            self._rtabmap_pauser = ServiceCaller("rtabmap/pause", Empty, timeout_s=10)
+            self._rtabmap_resumer = ServiceCaller("rtabmap/resume", Empty, timeout_s=10)
+            rospy.loginfo("Service callers have been created to pause and resume RTAB-Map.")
+        except rospy.ROSException as exc:
+            rospy.loginfo(f"Exception when checking for RTAB-Map services: {exc}")
+            self.rtabmap_live = False
 
         # Only take immediate control of Spot if requested via rosparam
         immediate_control: bool = rospy.get_param("/spot/immediate_control", default=False)
@@ -326,7 +336,13 @@ class SpotROS1Wrapper:
             has_control = self._manager.take_control()
 
         if has_control:
+            if self.rtabmap_live:
+                self._rtabmap_pauser(EmptyRequest())
+                rospy.sleep(3.0)
             erase_board(self._manager)
+            if self.rtabmap_live:
+                self._rtabmap_resumer(EmptyRequest())
+                rospy.sleep(1.0)
             board_erased = True
         else:
             board_erased = False
@@ -399,7 +415,13 @@ class SpotROS1Wrapper:
             return
 
         # Attempt to send the trajectory using the SpotArmController
+        if self.rtabmap_live:
+            self._rtabmap_pauser(EmptyRequest())
+            rospy.sleep(3.0)
         outcome = self._arm_controller.command_trajectory(trajectory, self._arm_action_server)
+        if self.rtabmap_live:
+            self._rtabmap_resumer(EmptyRequest())
+            rospy.sleep(1.0)
 
         # Update the ROS action server based on the outcome of the trajectory
         if outcome == ArmCommandOutcome.SUCCESS:
@@ -452,7 +474,14 @@ class SpotROS1Wrapper:
 
         outcome = GripperCommandOutcome.FAILURE
         if has_control:
+            if self.rtabmap_live:
+                self._rtabmap_pauser(EmptyRequest())
+                rospy.sleep(3.0)
             outcome = self._arm_controller.command_gripper(goal_position_rad)
+            if self.rtabmap_live:
+                self._rtabmap_resumer(EmptyRequest())
+                rospy.sleep(1.0)
+
             rospy.sleep(delay_s)
 
         if outcome == GripperCommandOutcome.FAILURE:

@@ -1,11 +1,14 @@
 <!-- Launch the nodes and populate the ROS params needed for Spot to navigate -->
 <launch>
 
+    <!-- Require users to manually specify where the list of known landmarks-->
+    <arg name="known_landmarks_yaml" />
+
     <!-- Indicate that the navigation system is active -->
     <param name="/spot/navigation/active" value="true" />
 
     <!-- YAML file specifying the 2D poses of named landmarks -->
-    <param name="/spot/navigation/known_landmarks_yaml" value="$(find spot_skills)/config/known_landmarks.yaml" />
+    <param name="/spot/navigation/known_landmarks_yaml" value="$(arg known_landmarks_yaml)" />
 
     <!-- Distance (meters) within which Spot is considered to have reached its goal pose -->
     <param name="/spot/navigation/reached_goal_m" value="0.3" />

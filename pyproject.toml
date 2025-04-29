@@ -36,6 +36,7 @@ select = ["ALL"] # Default to all Ruff rules, add ignores as needed
 ignore = [
     "D203", # Don't place a blank line before a class docstring
     "D213", # Don't begin a docstring on its second line
+    "EM101" # Don't care about duplicate error messages in tracebacks
 ]
 unfixable = ["F401"] # Disable 'fix' for unused imports
 

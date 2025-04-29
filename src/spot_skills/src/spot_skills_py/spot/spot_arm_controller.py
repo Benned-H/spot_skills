@@ -8,7 +8,10 @@ from typing import TYPE_CHECKING
 
 from bosdyn.api.arm_command_pb2 import ArmJointTrajectory
 from bosdyn.client.exceptions import InvalidRequestError
-from bosdyn.client.robot_command import RobotCommandBuilder, blocking_command
+from bosdyn.client.robot_command import (
+    RobotCommandBuilder,
+    block_until_arm_arrives,
+)
 from bosdyn.util import duration_to_seconds
 
 # from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
@@ -200,6 +203,9 @@ class SpotArmController:
         t3 = time.time()
         self._manager.log_info(f"[DEBUG] Pre-RPC local_now: {t3:.6f}")
 
+        # self._command_id = self._manager.send_robot_command(command)
+        # block_until_arm_arrives(self._manager.command_client, self._command_id)
+
         max_attempts = 5
         for attempt in range(1, max_attempts + 1):
             self.refresh_ref_time(traj_proto)
@@ -207,9 +213,15 @@ class SpotArmController:
                 command_id = self._manager.send_robot_command(command)
                 self._command_id = command_id
 
+                # def _arm_done(response: RobotCommandResponse) -> bool:
+                # return (
+                #     response.feedback.synchronized_feedback.arm_command_feedback.status
+                #     == RobotCommandResponse.STATUS_TRAJECTORY_COMPLETE
+                # )
+
                 # Block until the segment finishes, renewing the lease while waiting
                 try:
-                    blocking_command(self._manager.command_client, command)
+                    block_until_arm_arrives(self._manager.command_client, command_id)
                 except Exception as e:
                     self._manager.log_info(f"Error during blocking_command: {e}")
                     raise
