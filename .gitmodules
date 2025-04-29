@@ -13,6 +13,3 @@
 [submodule "src/pose_estimation_msgs"]
 	path = src/pose_estimation_msgs
 	url = git@github.com:h2r/pose_estimation_msgs.git
-[submodule "src/ar_track_alvar"]
-	path = src/ar_track_alvar
-	url = git@github.com:ros-perception/ar_track_alvar.git
