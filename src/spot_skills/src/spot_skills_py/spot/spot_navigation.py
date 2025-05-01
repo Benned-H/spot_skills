@@ -21,12 +21,6 @@ from transform_utils.transform_manager import TransformManager
 from transform_utils.world_model.known_landmarks import KnownLandmarks2D
 
 from spot_skills.srv import (
-    NavigateToLandmark,
-    NavigateToLandmarkRequest,
-    NavigateToLandmarkResponse,
-    NavigateToPose,
-    NavigateToPoseRequest,
-    NavigateToPoseResponse,
     StringRequestService,
     StringRequestServiceRequest,
     StringRequestServiceResponse,
@@ -91,18 +85,6 @@ class SpotNavigationServer:
         """
         self._manager = manager
 
-        self._nav_to_pose_srv = rospy.Service(
-            "/spot/navigation/to_pose",
-            NavigateToPose,
-            self.handle_pose,
-        )
-
-        self._nav_to_landmark_srv = rospy.Service(
-            "/spot/navigation/to_landmark",
-            NavigateToLandmark,
-            self.handle_landmark,
-        )
-
         # Provide a service to create new landmarks at Spot's current base pose
         self._new_landmark_srv = rospy.Service(
             "/spot/navigation/create_landmark",
@@ -135,10 +117,7 @@ class SpotNavigationServer:
         self.timeout_s = rospy.get_param("/spot/navigation/timeout_s")
         self.adjustment_timeout_s = rospy.get_param("/spot/navigation/adjustment_timeout_s")
 
-        # Subscribe to a topic providing body-frame velocity commands
-        self._cmd_vel_sub = rospy.Subscriber("cmd_vel", Twist, self.handle_cmd_vel, queue_size=1)
-
-        self._CMD_VEL_DURATION_S = 1.0  # Duration (seconds) to execute each velocity command
+        self.CMD_VEL_DURATION_S = 1.0  # Duration (seconds) to execute each velocity command
 
         self._tf_publisher_thread = threading.Thread(target=self._publish_landmarks_tf_loop)
         self._tf_publisher_thread.daemon = True  # Thread exits when main process does
@@ -169,30 +148,6 @@ class SpotNavigationServer:
             message = f"Failed to add landmark named '{new_name}' at {curr_2d_pose}."
 
         return StringRequestServiceResponse(success=success, message=message)
-
-    def handle_pose(self, request: NavigateToPoseRequest) -> NavigateToPoseResponse:
-        """Handle a ROS service request for Spot to navigate to a given pose.
-
-        :param request: Request specifying a pose to navigate to
-        :return: Response specifying whether the navigation succeeded
-        """
-        success, message = self.navigate_to_pose(request.target_base_pose)
-        return NavigateToPoseResponse(success, message)
-
-    def handle_landmark(self, request: NavigateToLandmarkRequest) -> NavigateToLandmarkResponse:
-        """Handle a ROS service request for Spot to navigate to a known landmark.
-
-        :param request: Request specifying a landmark to navigate to
-        :return: Response specifying whether the navigation succeeded
-        """
-        if request.landmark_name not in self.known_landmarks.landmarks:
-            message = f"Cannot navigate to unknown landmark '{request.landmark_name}'."
-            return NavigateToLandmarkResponse(success=False, message=message)
-
-        target_pose = self.known_landmarks.landmarks[request.landmark_name]
-        pose_stamped_msg = pose_to_stamped_msg(target_pose)
-        success, message = self.navigate_to_pose(pose_stamped_msg)
-        return NavigateToLandmarkResponse(success, message)
 
     def handle_output_to_yaml(
         self,
@@ -257,18 +212,6 @@ class SpotNavigationServer:
         message = "Navigation was successful." if success else "Navigation failed."
 
         return success, message
-
-    def handle_cmd_vel(self, msg: Twist) -> None:
-        """Handle a body-frame velocity command.
-
-        :param msg: Twist message specifying the commanded velocity
-        """
-        self._manager.send_velocity_command(
-            linear_x_mps=msg.linear.x,
-            linear_y_mps=msg.linear.y,
-            angular_z_radps=msg.angular.z,
-            duration_s=self._CMD_VEL_DURATION_S,
-        )
 
     def _publish_landmarks_tf_loop(self) -> None:
         """Publish the known landmarks' poses in a loop."""

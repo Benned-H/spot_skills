@@ -1,0 +1,19 @@
+{
+  known_landmarks:
+    {
+      aligned:
+        {
+          frame: map,
+          x_y_yaw:
+            [5.785898226476141, 1.8952990773739673, 0.015645170160132057],
+        },
+      closest_sdk_goes:
+        {
+          frame: map,
+          x_y_yaw: [5.996162224004615, 1.7017335152847002, 0.11211242997518714],
+        },
+      door_to_lab: { frame: map, x_y_yaw: [5.4108, 5.3007, 0] },
+
+      whiteboard: { frame: map, x_y_yaw: [9.4417, -0.82, -1.5499] },
+    },
+}

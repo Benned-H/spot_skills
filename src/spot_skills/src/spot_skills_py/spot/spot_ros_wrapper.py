@@ -1,6 +1,7 @@
 """Define a class providing a ROS 1 interface to the Spot robot."""
 
 from copy import deepcopy
+from enum import Enum
 
 import rospy
 from actionlib import SimpleActionServer
@@ -12,13 +13,26 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
+from geometry_msgs.msg import Twist
 from ros_numpy import msgify
 from sensor_msgs.msg import Image as ImageMsg
 from std_srvs.srv import Empty, EmptyRequest, Trigger, TriggerRequest, TriggerResponse
+from transform_utils.kinematics import Pose2D
+from transform_utils.kinematics_ros import pose_to_stamped_msg
 from transform_utils.ros.services import ServiceCaller
 
 from spot_skills.msg import RGBDPair
-from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
+from spot_skills.srv import (
+    GetRGBDPairs,
+    GetRGBDPairsRequest,
+    GetRGBDPairsResponse,
+    NavigateToLandmark,
+    NavigateToLandmarkRequest,
+    NavigateToLandmarkResponse,
+    NavigateToPose,
+    NavigateToPoseRequest,
+    NavigateToPoseResponse,
+)
 from spot_skills_py.joint_trajectory import JointTrajectory
 from spot_skills_py.perception.object_detection_client import DetectObjectClient
 from spot_skills_py.spot.spot_arm_controller import (
@@ -31,6 +45,18 @@ from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient
 from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.spot.spot_navigation import SpotNavigationServer
 from spot_skills_py.spot.spot_open_door import SpotDoorOpener
+
+
+class RTABMapState(Enum):
+    """State of RTAB-Map is either not running, paused, or live."""
+
+    NOT_RUNNING = 0
+    PAUSED = 1
+    LIVE = 2
+
+
+RTABMAP_PAUSE_WAIT_S = 3  # Duration (seconds) to wait after pausing RTAB-Map
+RTABMAP_RESUME_WAIT_S = 1  # Duration (seconds) to wait after resuming RTAB-Map
 
 
 class SpotROS1Wrapper:
@@ -96,6 +122,7 @@ class SpotROS1Wrapper:
         # If needed, create a client to request object detections
         object_detection_active = rospy.get_param("/spot/object_detection/active", default=False)
         if object_detection_active:
+            rospy.loginfo("Now initializing the DetectObjectClient...")
             self.detect_object_client = DetectObjectClient(["door handle"])
         else:
             rospy.loginfo("Skipping initialization of DetectObjectClient...")
@@ -104,24 +131,76 @@ class SpotROS1Wrapper:
         if navigation_active:
             rospy.loginfo("Now initializing the SpotNavigationServer...")
             self._navigation_server = SpotNavigationServer(manager=self._manager)
+
+            # Create services for navigation
+            self._nav_to_pose_srv = rospy.Service(
+                "/spot/navigation/to_pose",
+                NavigateToPose,
+                self.handle_pose,
+            )
+
+            self._nav_to_landmark_srv = rospy.Service(
+                "/spot/navigation/to_landmark",
+                NavigateToLandmark,
+                self.handle_landmark,
+            )
+
+            # Subscribe to a topic providing body-frame velocity commands
+            self._vel_sub = rospy.Subscriber("cmd_vel", Twist, self.handle_cmd_vel, queue_size=1)
         else:
             rospy.loginfo("Skipping initialization of SpotNavigationServer...")
 
-        # Create service callers for pausing/resuming RTAB-Map, if it's live
-        self.rtabmap_live = True
+        # Track whether RTAB-Map exists, and if so, whether it's paused or running
+        self.rtabmap_state: RTABMapState = RTABMapState.NOT_RUNNING
         try:
-            self._rtabmap_pauser = ServiceCaller("rtabmap/pause", Empty, timeout_s=10)
-            self._rtabmap_resumer = ServiceCaller("rtabmap/resume", Empty, timeout_s=10)
+            self._rtabmap_pauser = ServiceCaller("rtabmap/pause", Empty, timeout_s=30)
+            self._rtabmap_resumer = ServiceCaller("rtabmap/resume", Empty, timeout_s=30)
             rospy.loginfo("Service callers have been created to pause and resume RTAB-Map.")
+
+            self._rtabmap_resumer(EmptyRequest())  # Ensure that RTAB-Map is not paused by default
+            self.rtabmap_state = RTABMapState.LIVE
+
         except rospy.ROSException as exc:
             rospy.loginfo(f"Exception when checking for RTAB-Map services: {exc}")
-            self.rtabmap_live = False
+            self.rtabmap_state = RTABMapState.NOT_RUNNING
 
         # Only take immediate control of Spot if requested via rosparam
         immediate_control: bool = rospy.get_param("/spot/immediate_control", default=False)
 
         if immediate_control:
             self._manager.take_control(force=True)
+
+    def pause_rtabmap(self) -> None:
+        """If RTAB-Map is running and live, pause it."""
+        rospy.loginfo(f"Entering pause_rtabmap with state: {self.rtabmap_state}")
+        if self.rtabmap_state == RTABMapState.LIVE:
+            rospy.loginfo("Pausing RTAB-Map, which is currently live...")
+            self._rtabmap_pauser(EmptyRequest())
+            self.rtabmap_state = RTABMapState.PAUSED
+            rospy.sleep(RTABMAP_PAUSE_WAIT_S)
+
+    def resume_rtabmap(self) -> None:
+        """If RTAB-Map is running and paused, resume it."""
+        rospy.loginfo(f"Entering resume_rtabmap with state: {self.rtabmap_state}")
+        if self.rtabmap_state == RTABMapState.PAUSED:
+            rospy.loginfo("Resuming RTAB-Map, which is currently paused...")
+            self._rtabmap_resumer(EmptyRequest())
+            self.rtabmap_state = RTABMapState.LIVE
+            rospy.sleep(RTABMAP_RESUME_WAIT_S)
+
+    def handle_cmd_vel(self, msg: Twist) -> None:
+        """Handle a body-frame velocity command.
+
+        :param msg: Twist message specifying the commanded velocity
+        """
+        self.resume_rtabmap()  # Ensure that RTAB-Map is live whenever Spot is navigating
+
+        self._manager.send_velocity_command(
+            linear_x_mps=msg.linear.x,
+            linear_y_mps=msg.linear.y,
+            angular_z_radps=msg.angular.z,
+            duration_s=self._navigation_server.CMD_VEL_DURATION_S,
+        )
 
     def handle_stand(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to have Spot stand up.
@@ -133,8 +212,14 @@ class SpotROS1Wrapper:
         if not has_control:
             has_control = self._manager.take_control()
 
-        stood_up = self._manager.stand_up(20) if has_control else False
+        if not has_control:
+            return TriggerResponse(success=False, message="Could not make Spot stand.")
+
+        stood_up = self._manager.stand_up(20)
         message = "Spot is now standing." if stood_up else "Could not make Spot stand."
+
+        if stood_up:
+            self.resume_rtabmap()  # Resume RTAB-Map if it was paused
 
         return TriggerResponse(stood_up, message)
 
@@ -148,7 +233,12 @@ class SpotROS1Wrapper:
         if not has_control:
             has_control = self._manager.take_control()
 
-        sit_success = self._manager.sit_down(20) if has_control else False
+        if not has_control:
+            return TriggerResponse(success=False, message="Spot could not sit.")
+
+        self.pause_rtabmap()  # Pause RTAB-Map so that SLAM isn't affected by Spot sitting
+
+        sit_success = self._manager.sit_down(20)
         message = "Spot is now sitting." if sit_success else "Spot could not sit."
 
         return TriggerResponse(sit_success, message)
@@ -159,6 +249,8 @@ class SpotROS1Wrapper:
         :param _: ROS message requesting that Spot be shut down (unused)
         :return: Response conveying that shutdown was initiated
         """
+        self.pause_rtabmap()  # Pause RTAB-Map before shutting down the robot
+
         self._manager.shutdown()
         rospy.signal_shutdown("Shutting down Spot ROS wrapper...")
 
@@ -185,8 +277,6 @@ class SpotROS1Wrapper:
 
     def handle_stow_arm(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to stow Spot's arm.
-
-        TODO: If Spot is believed to be holding something, prevent stowing.
 
         :param _: Message representing a request to stow Spot's arm
         :return: Response conveying whether Spot's arm has been stowed
@@ -300,6 +390,9 @@ class SpotROS1Wrapper:
             message = "Could not open door because SpotManager could not take control of Spot."
             return TriggerResponse(success=False, message=message)
 
+        # Before opening the door, ensure that RTAB-Map is not paused, as Spot may move
+        self.resume_rtabmap()
+
         # Call the operations needed for door-opening, step-by-step
         side_by_side_image = self._door_opener.capture_side_by_side_image()
         side_by_side_msg = msgify(ImageMsg, side_by_side_image, encoding="rgb8")
@@ -316,6 +409,24 @@ class SpotROS1Wrapper:
         rospy.loginfo("Successfully saved door handle pixel in SpotDoorOpener.")
 
         door_opened = self._door_opener.open_door(open_door_timeout_s=120)
+
+        # If we successfully opened the door, step a bit back and to the right (away from wall)
+        if door_opened:
+            target_base_pose = Pose2D(-2.5, 0, 0, ref_frame="body")
+            navigated = self._manager.navigate_to_base_pose(
+                target_base_pose,
+                self._navigation_server.goal_reached_thresholds,
+                self._navigation_server.adjustment_timeout_s,
+            )
+            door_opened = door_opened and navigated
+
+            target_base_pose = Pose2D(0, -0.3, 0, ref_frame="body")
+            navigated = self._manager.navigate_to_base_pose(
+                target_base_pose,
+                self._navigation_server.goal_reached_thresholds,
+                self._navigation_server.adjustment_timeout_s,
+            )
+            door_opened = door_opened and navigated
 
         message = "Spot opened the door." if door_opened else "Could not open the door."
 
@@ -335,21 +446,14 @@ class SpotROS1Wrapper:
         if not has_control:
             has_control = self._manager.take_control()
 
-        if has_control:
-            if self.rtabmap_live:
-                self._rtabmap_pauser(EmptyRequest())
-                rospy.sleep(3.0)
-            erase_board(self._manager)
-            if self.rtabmap_live:
-                self._rtabmap_resumer(EmptyRequest())
-                rospy.sleep(1.0)
-            board_erased = True
-        else:
-            board_erased = False
+        if not has_control:
+            return TriggerResponse(success=False, message="Could not erase the whiteboard.")
 
-        message = "Erased the whiteboard." if board_erased else "Could not erase the whiteboard."
+        self.pause_rtabmap()  # Pause RTAB-Map (if live) so that arm commands aren't interrupted
+        erase_board(self._manager)
+        self.resume_rtabmap()  # Resume RTAB-Map in case Spot moved during the erasing process
 
-        return TriggerResponse(board_erased, message)
+        return TriggerResponse(success=True, message="Erased the whiteboard.")
 
     def handle_take_control(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to forcibly take control of Spot.
@@ -367,6 +471,35 @@ class SpotROS1Wrapper:
             else "SpotManager could not obtain control of Spot."
         )
         return TriggerResponse(success=has_control, message=message)
+
+    def handle_pose(self, request: NavigateToPoseRequest) -> NavigateToPoseResponse:
+        """Handle a ROS service request for Spot to navigate to a given pose.
+
+        :param request: Request specifying a pose to navigate to
+        :return: Response specifying whether the navigation succeeded
+        """
+        self.resume_rtabmap()  # Resume RTAB-Map before navigating anywhere
+
+        success, message = self._navigation_server.navigate_to_pose(request.target_base_pose)
+
+        return NavigateToPoseResponse(success, message)
+
+    def handle_landmark(self, request: NavigateToLandmarkRequest) -> NavigateToLandmarkResponse:
+        """Handle a ROS service request for Spot to navigate to a known landmark.
+
+        :param request: Request specifying a landmark to navigate to
+        :return: Response specifying whether the navigation succeeded
+        """
+        if request.landmark_name not in self._navigation_server.known_landmarks.landmarks:
+            message = f"Cannot navigate to unknown landmark '{request.landmark_name}'."
+            return NavigateToLandmarkResponse(success=False, message=message)
+
+        self.resume_rtabmap()  # Resume RTAB-Map before navigating anywhere
+
+        target_pose = self._navigation_server.known_landmarks.landmarks[request.landmark_name]
+        pose_stamped_msg = pose_to_stamped_msg(target_pose)
+        success, message = self._navigation_server.navigate_to_pose(pose_stamped_msg)
+        return NavigateToLandmarkResponse(success, message)
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
@@ -414,14 +547,10 @@ class SpotROS1Wrapper:
             self._arm_action_server.set_aborted(result)
             return
 
+        self.pause_rtabmap()  # Pause RTAB-Map before sending commands to Spot's arm
+
         # Attempt to send the trajectory using the SpotArmController
-        if self.rtabmap_live:
-            self._rtabmap_pauser(EmptyRequest())
-            rospy.sleep(3.0)
         outcome = self._arm_controller.command_trajectory(trajectory, self._arm_action_server)
-        if self.rtabmap_live:
-            self._rtabmap_resumer(EmptyRequest())
-            rospy.sleep(1.0)
 
         # Update the ROS action server based on the outcome of the trajectory
         if outcome == ArmCommandOutcome.SUCCESS:
@@ -474,14 +603,8 @@ class SpotROS1Wrapper:
 
         outcome = GripperCommandOutcome.FAILURE
         if has_control:
-            if self.rtabmap_live:
-                self._rtabmap_pauser(EmptyRequest())
-                rospy.sleep(3.0)
+            self.pause_rtabmap()  # Pause RTAB-Map if it's live
             outcome = self._arm_controller.command_gripper(goal_position_rad)
-            if self.rtabmap_live:
-                self._rtabmap_resumer(EmptyRequest())
-                rospy.sleep(1.0)
-
             rospy.sleep(delay_s)
 
         if outcome == GripperCommandOutcome.FAILURE:

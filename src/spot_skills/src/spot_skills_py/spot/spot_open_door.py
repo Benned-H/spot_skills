@@ -19,6 +19,7 @@ from bosdyn.api.manipulation_api_pb2 import (
 )
 from bosdyn.api.spot import door_pb2
 from bosdyn.client import frame_helpers
+from transform_utils.kinematics import Pose2D
 
 if TYPE_CHECKING:
     from spot_skills_py.spot.spot_manager import SpotManager

@@ -28,6 +28,10 @@ class DetectObjectClient:
             rospy.loginfo(f"Could not access object detection service: {exc}")
             self._obj_detect_service = None
 
+        if self._obj_detect_service is None:
+            error_msg = f"DetectObjectClient requires the {service_name} service!"
+            raise RuntimeError(error_msg)
+
     def call_on_image(self, image_msg: ImageMsg) -> DetectObjectsResponse | None:
         """Call the object detection service using the given image message."""
         if self._obj_detect_service is None:

@@ -9,12 +9,14 @@ tags:
   tag_50:
     tag_size_cm: 18.5
     relative_frames:
-      cabinet: [0, -0.386, 0.141, -1.57079633, -1.57079633, 0]
+      cabinet: [0, -0.386, 0.091, -1.57079633, -1.57079633, 0] # Moved cabinet 5 cm back from Spot
+      # Was: cabinet: [0, -0.386, 0.141, -1.57079633, -1.57079633, 0]
 
-  tag_1:
+  tag_1: # Master marker of bundle on cabinet exterior
     tag_size_cm: 7.62
     relative_frames:
-      cabinet2: [0.144, -0.077, -0.1835, -1.57079633, -1.57079633, 0]
+      # Was: cabinet: [0.144, -0.077, -0.1835, -1.57079633, -1.57079633, 0]
+      cabinet: [0.204, -0.077, -0.1835, -1.57079633, -1.57079633, 0] # added 6 cm in marker's x
     bundle: True
 
 cameras:
