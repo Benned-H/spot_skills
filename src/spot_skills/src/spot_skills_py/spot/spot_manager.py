@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from typing import Any
 
 import numpy as np
 from bosdyn.api.basic_command_pb2 import StandCommand
@@ -106,6 +107,14 @@ class SpotManager:
         self._mobility_params = RobotCommandBuilder.mobility_params()
 
         assert self.wait_while_estopped()  # Wait until Spot isn't e-stopped
+
+    def get_client(self, service_name: str) -> Any:
+        """Request a client for the named service from the Spot SDK robot interface.
+
+        :param service_name: Name of a service provided by the Spot SDK
+        :return: Client for the named service
+        """
+        return self._robot.ensure_client(service_name=service_name)
 
     def wait_while_estopped(self, timeout_s: int = 30) -> bool:
         """Notify the user if Spot is e-stopped by spamming the ROS and Spot logs.

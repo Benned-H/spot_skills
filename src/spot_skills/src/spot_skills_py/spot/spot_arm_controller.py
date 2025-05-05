@@ -6,13 +6,18 @@ import time
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
+import numpy as np
 from bosdyn.api.arm_command_pb2 import ArmJointTrajectory
+from bosdyn.api.arm_surface_contact_pb2 import ArmSurfaceContact
+from bosdyn.client.arm_surface_contact import ArmSurfaceContactClient
 from bosdyn.client.exceptions import InvalidRequestError
+from bosdyn.client.math_helpers import Quat, Vec3
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
     block_until_arm_arrives,
 )
-from bosdyn.util import duration_to_seconds
+from bosdyn.util import duration_to_seconds, seconds_to_duration
+from transform_utils.kinematics import Pose3D
 
 # from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 from transform_utils.time_sync import SystemClock, Timestamp
@@ -25,6 +30,11 @@ if TYPE_CHECKING:
 
     from spot_skills_py.joint_trajectory import JointTrajectory
     from spot_skills_py.spot.spot_manager import SpotManager
+
+# Estimate Spot's force capacity based on 5 kg continuous lift capacity at 0.5 meter extension
+# Reference: https://bostondynamics.com/wp-content/uploads/2020/10/spot-arm.pdf
+GRAVITY_ACCEL_MPS2 = 9.80665
+SPOT_ARM_CONTINUOUS_FORCE_CAPACITY_N = 5.0 * GRAVITY_ACCEL_MPS2
 
 
 class ArmCommandOutcome(IntEnum):
@@ -70,6 +80,8 @@ class SpotArmController:
 
         # Begin with the arm controller unable to affect Spot's arm
         self._locked = True
+
+        self.arm_surface_contact_client: ArmSurfaceContactClient | None = None
 
     def unlock_arm(self) -> None:
         """Explicitly unlock Spot's arm, allowing the ArmController to control it."""
@@ -364,3 +376,68 @@ class SpotArmController:
             return GripperCommandOutcome.FAILURE
 
         return self._manager.block_during_gripper_command(self._command_id)
+
+    def touch_surface(
+        self,
+        target_pose: Pose3D,
+        force_axis: str,
+        force_n: float,
+        duration_s: float = 1.0,
+        max_pos_tracking_error_m: float = 0.005,
+    ) -> bool:
+        """Approach an end-effector pose, then apply a specified force along an axis until contact.
+
+        :param target_pose: Desired end-effector pose approached in a straight line
+        :param force_axis: Axis of force control (one of "x", "y", or "z")
+        :param force_n: Force (Newtons) along the specified axis (negative pushes in - direction)
+        :param duration_s: Duration (seconds) over which to execute the approach and force control
+        :param max_pos_tracking_error_m: Positional error (meters) at which arm stalls and stops
+        :return: True if contact was detected, otherwise False
+        """
+        assert force_axis in {"x", "y", "z"}, f"Unrecognized force axis: {force_axis}."
+
+        if self.arm_surface_contact_client is None:  # Lazily initialize the low-level client
+            self.arm_surface_contact_client: ArmSurfaceContactClient = self._manager.get_client(
+                ArmSurfaceContactClient.default_service_name,
+            )
+
+        # Build a request for the ArmSurfaceContactClient. Reference:
+        # https://dev.bostondynamics.com/protos/bosdyn/api/proto_reference#armsurfacecontact-request
+        request = ArmSurfaceContact.Request()
+        request.root_frame_name = target_pose.ref_frame  # TODO: What are the valid frames?
+
+        # TODO: How would we use wrist_tform_tool?
+
+        # Define a trajectory with zero displacement
+        point = request.pose_trajectory_in_task.points.add()
+        proto_position = Vec3.from_numpy(target_pose.position.to_array()).to_proto()
+        point.pose.position.CopyFrom(proto_position)
+
+        q = target_pose.orientation
+        proto_quaternion = Quat(w=q.w, x=q.x, y=q.y, z=q.z).to_proto()
+        point.pose.rotation.CopyFrom(proto_quaternion)
+
+        point.time_since_reference.CopyFrom(seconds_to_duration(duration_s))
+
+        # Convert the force (in Newtons) into Spot's native fraction of force capacity (~49 N)
+        force_capacity_fraction = force_n / SPOT_ARM_CONTINUOUS_FORCE_CAPACITY_N
+        force_capacity_fraction = np.clip(force_capacity_fraction, -1.0, 1.0)
+
+        request.press_force_percentage.CopyFrom(Vec3.from_numpy(np.zeros(3)))
+        setattr(request.press_force_percentage, force_axis, force_capacity_fraction)
+
+        # Each axis can be controlled in either position or force mode
+        axes_fields = {"x": "x_axis", "y": "y_axis", "z": "z_axis"}
+        for axis, mode_field in axes_fields.items():
+            mode = (
+                ArmSurfaceContact.Request.AxisMode.AXIS_MODE_FORCE
+                if axis == force_axis
+                else ArmSurfaceContact.Request.AxisMode.AXIS_MODE_POSITION
+            )
+            setattr(request, mode_field, mode)
+
+        # Stop the trajectory once the tracking error exceeds this value
+        request.max_pos_tracking_error.value = max_pos_tracking_error_m
+
+        response = self.arm_surface_contact_client.arm_surface_contact_command(request)
+        return response.status == ArmSurfaceContact.Response.STATUS_TRAJECTORY_STALLED
