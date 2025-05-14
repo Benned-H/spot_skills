@@ -22,7 +22,7 @@ class DetectObjectClient:
             self._obj_detect_service = ServiceCaller[DetectObjectsRequest, DetectObjectsResponse](
                 service_name,
                 DetectObjects,
-                timeout_s=30,
+                timeout_s=10,
             )
         except (rospy.ServiceException, rospy.ROSException) as exc:
             rospy.loginfo(f"Could not access object detection service: {exc}")

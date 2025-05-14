@@ -106,8 +106,7 @@ class SpotNavigationServer:
 
         # Wait for the move_base action server to become available
         self._move_base_client = SimpleActionClient("move_base", MoveBaseAction)
-        self._move_base_client.wait_for_server(timeout=rospy.Duration.from_sec(60.0))
-
+        self._move_base_client.wait_for_server(timeout=rospy.Duration.from_sec(10.0))
         # Load ROS params specifying when Spot is considered to have reached its goal
         self.goal_reached_thresholds = GoalReachedThresholds(
             distance_m=rospy.get_param("/spot/navigation/reached_goal_m"),
