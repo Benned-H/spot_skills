@@ -60,7 +60,9 @@ add_service_files(
   GetRGBDPairs.srv
   NavigateToLandmark.srv
   NavigateToPose.srv
-  ObjectNameService.srv
+  StringRequestService.srv
+  SetJointStateMode.srv
+  SwapCabinetMesh.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -174,6 +176,9 @@ catkin_install_python(PROGRAMS
   scripts/fake_gripper_action_server.py
   scripts/pose_estimation_client.py
   scripts/dummy_estimate_pose_server.py
+  scripts/marker_listener.py
+  scripts/joint_state_mux_node.py
+  scripts/spot_cabinet_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

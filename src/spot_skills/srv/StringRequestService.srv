@@ -1,0 +1,5 @@
+# Generic ROS service for string-based requests
+string data
+---
+bool success
+string message

@@ -1,4 +1,19 @@
 # 2D Costmap parameters; Most parameters
 # are defined specifically for local and global costmaps.
 # ---Vector footprint (Meters):---
-footprint: [[0.39, 0.3], [0.39, -0.3], [-0.39, -0.3], [-0.39, 0.3]]
+footprint:
+  [[0.6216774206, 0.25], [0.6216774206, -0.25], [-0.6, -0.25], [-0.6, 0.25]]
+#
+# Was: footprint: [[0.39, 0.3], [0.39, -0.3], [-0.39, -0.3], [-0.39, 0.3]]
+#
+#
+# 7.5 in long by 5.8125 wide
+#   Should be 2.125 in from center each way
+# 6 in forward and 4.625 in back
+# Used to be 0.39 * 2 m by 0.3 * 2 m
+# That's 0.78 m front-to-back and 0.6 m side-to-side
+# OG divided by image scale: 4.09448819 or 4.06400813
+#   Averaged scale: 4.07924816
+#
+# Should be 0.220177419436 m to the sides
+# 0.6216774206 m forward and 0.47920967658 back

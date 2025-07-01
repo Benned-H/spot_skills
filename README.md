@@ -268,12 +268,37 @@ using for SLAM) will save the map to file before it exits. The default output pa
 `~/.ros/rtabmap.db` and **any output path will be overwritten if you use it multiple times**. To
 prevent this, save the file elsewhere or change its name (and/or the argument-specified name).
 
-<!-- ### Using `spot_move_base`
+### Phase 2 - Pose Estimation and Landmark Creation
 
-The Docker container will have handled the installation of any additional dependencies.
+Now that we have a map of the environment, we collect object pose estimates relative to that map. We
+also specify the location of any named landmarks needed during the experiment.
 
-To demonstrate Spot's navigation system, run the following command, with the name of the Spot you're using filled in:
+1. Use the tablet to undock Spot and navigate to an area of interest for the experiment. _Do not_ release tablet control of Spot.
+
+   - **Leave Spot standing**, controlled by the tablet, during the following steps.
+
+2. Within the `spot_skills` Docker, run `source devel/setup.bash` and then run the command:
 
 ```bash
-roslaunch spot_skills spot_nav_demo.launch spot_name:=NAME
-``` -->
+roslaunch spot_skills 2_collect_poses.launch spot_name:=NAME_HERE
+```
+
+3. Use the tablet to maneuver Spot until the robot has localization with the map (see RViz).
+
+4. Once Spot is localized, navigate around the environment and observe the necessary
+   AprilTags for the intended experiment. Each marker will show up in RViz once Spot has seen it.
+
+   - When Spot has observed all necessary tags, run this command to output their poses to YAML:
+
+   ```bash
+   rosservice call /marker_listener/output_to_yaml "{}"
+   ```
+
+5. Now, navigate Spot to stand at each navigation landmark needed for the experiment. Create a landmark
+   at Spot's current pose using the `/spot/navigation/create_landmark` service. For example:
+
+   ```bash
+   rosservice call /spot/navigation/create_landmark "object_name: 'door_to_lab'"
+   ```
+
+   The map-frame coordinates of each landmark will be printed in the terminal. Record these values.

@@ -1,6 +1,7 @@
 {
     "recommendations": [
         "charliermarsh.ruff",
+        "DotJoshJohnson.xml",
         "esbenp.prettier-vscode",
         "Gruntfuggly.todo-tree",
         "ms-azuretools.vscode-docker",
@@ -8,6 +9,6 @@
         "ms-python.mypy-type-checker",
         "ms-python.python",
         "njpwerner.autodocstring",
-        "tamasfe.even-better-toml"
+        "tamasfe.even-better-toml",
     ]
 }

@@ -10,9 +10,9 @@
             real_robot (Default: false)
     -->
     <arg name="spot_name" />
-    <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true" />
+    <param name="/spot/immediate_control" value="true"/>
 
-    <arg name="/spot/immediate_control" value="true" />
+    <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true" />
 
     <!-- Run Rviz using a config file designed for this demo -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" />

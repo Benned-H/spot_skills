@@ -8,7 +8,7 @@
     <arg name="real_robot" value="true" />
 
     <!-- Launch the navigation system using its bringup file -->
-    <include file="$(find spot_skills)/launch/spot_nav_bringup.launch" />
+    <include file="$(find spot_skills)/launch/bringup_spot_nav.launch" />
 
     <!-- Allow users to specify the import path of the pre-constructed pointcloud map -->
     <arg name="rtabmap_database_path" default="~/.ros/rtabmap.db" />
@@ -27,6 +27,6 @@
     <!-- Launch all nodes to control Spot using MoveIt (this loads the robot description) -->
     <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true" />
 
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_nav_demo.rviz" />
 
 </launch>

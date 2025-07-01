@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -13,6 +14,7 @@ from bosdyn.client.image import ImageClient, build_image_request
 from cv_bridge import CvBridge
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image as ImageMsg
+from transform_utils.time_sync import Timestamp, TimeSync
 
 if TYPE_CHECKING:
     from bosdyn.client.robot import Robot
@@ -45,12 +47,16 @@ class ImageFormat(Enum):
 class SpotImageClient:
     """A wrapper for functions related to Spot's image client."""
 
-    def __init__(self, robot: Robot) -> None:
+    def __init__(self, robot: Robot, time_sync: TimeSync, debug_mode: bool) -> None:
         """Initialize an image client using the given robot.
 
         :param robot: Point of access for Spot's RPC clients
+        :param time_sync: A wrapper to manage time synchronization with Spot
+        :param debug_mode: Should debug messages and images be published?
         """
         self._image_client = robot.ensure_client(ImageClient.default_service_name)
+        self._time_sync = time_sync
+        self.debug_mode = debug_mode
 
         # Identify the image sources available from Spot
         image_sources_proto = self._image_client.list_image_sources()
@@ -58,8 +64,26 @@ class SpotImageClient:
         self.camera_names = ["frontleft", "frontright", "left", "right", "back", "hand"]
 
         self._cv_bridge = CvBridge()
-        self._debug_rgb_pub = rospy.Publisher("~debug_rgb_image", ImageMsg, queue_size=5)
-        self._debug_depth_pub = rospy.Publisher("~debug_depth_image", ImageMsg, queue_size=5)
+
+        if self.debug_mode:
+            self._debug_rgb_pub = rospy.Publisher("~debug_rgb_image", ImageMsg, queue_size=5)
+            self._debug_depth_pub = rospy.Publisher("~debug_depth_image", ImageMsg, queue_size=5)
+
+        self.publish_loop_cameras = ["frontleft", "frontright", "hand"]
+        self._image_pubs: dict[str, rospy.Publisher] = {}  # Maps camera names to image publishers
+        self._info_pubs: dict[str, rospy.Publisher] = {}  # Maps camera names to info publishers
+
+        for camera_name in self.publish_loop_cameras:
+            image_topic = f"/spot/camera/{camera_name}/image"
+            info_topic = f"/spot/camera/{camera_name}/camera_info"
+
+            self._image_pubs[camera_name] = rospy.Publisher(image_topic, ImageMsg, queue_size=10)
+            self._info_pubs[camera_name] = rospy.Publisher(info_topic, CameraInfo, queue_size=10)
+
+        # Create a thread to continually re-publish the requested cameras' images and info
+        self._publisher_thread = threading.Thread(target=self._publish_loop)
+        self._publisher_thread.daemon = True  # Thread exits when main process does
+        self._publisher_thread.start()
 
     def make_image_request(self, camera: str, image_format: ImageFormat) -> ImageRequest | None:
         """Build an image request Protobuf message to be sent to Spot.
@@ -199,9 +223,9 @@ class SpotImageClient:
         assert image_msg.height == rows
         assert image_msg.width == cols
 
-        if pixel_format == Image.PIXEL_FORMAT_RGB_U8:
+        if self.debug_mode and pixel_format == Image.PIXEL_FORMAT_RGB_U8:
             self._debug_rgb_pub.publish(image_msg)
-        elif pixel_format == Image.PIXEL_FORMAT_DEPTH_U16:
+        elif self.debug_mode and pixel_format == Image.PIXEL_FORMAT_DEPTH_U16:
             self._debug_depth_pub.publish(image_msg)
 
         return image_msg
@@ -242,3 +266,38 @@ class SpotImageClient:
         camera_info_msg.P = [fx, 0, cx, 0, 0, fy, cy, 0, 0, 0, 1, 0]
 
         return camera_info_msg
+
+    def _publish_loop(self) -> None:
+        """Publish camera images and info in a loop."""
+        try:
+            request_protos = [
+                self.make_image_request(c, ImageFormat.RGB) for c in self.publish_loop_cameras
+            ]
+
+            rate_hz = rospy.Rate(10.0)
+            while not rospy.is_shutdown():
+                response_protos = self.get_images(requests=request_protos)
+                assert len(response_protos) == len(self.publish_loop_cameras)
+
+                for camera_name, rgb_response in zip(self.publish_loop_cameras, response_protos):
+                    time_proto = rgb_response.shot.acquisition_time
+                    photo_taken_ts = Timestamp.from_proto(time_proto)
+                    taken_ros_time = self._time_sync.convert_to_ros_time(photo_taken_ts)
+
+                    image_msg = self.extract_image_msg(rgb_response.shot, taken_ros_time)
+
+                    if self.debug_mode:
+                        rospy.loginfo(
+                            f"Publishing {image_msg.height}x{image_msg.width} (HxW) image "
+                            f"with size {len(image_msg.data)} and '{image_msg.encoding}' encoding "
+                            f"from camera '{camera_name}'...",
+                        )
+
+                    self._image_pubs[camera_name].publish(image_msg)
+
+                    camera_info_msg = self.extract_camera_info_msg(rgb_response, taken_ros_time)
+                    self._info_pubs[camera_name].publish(camera_info_msg)
+
+                rate_hz.sleep()
+        except rospy.ROSInterruptException as ros_e:
+            rospy.logwarn(f"[SpotImageClient._publish_loop] {ros_e}")

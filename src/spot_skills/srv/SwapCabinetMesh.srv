@@ -1,0 +1,5 @@
+# Swap the cabinet mesh to "open" or "closed" and modify its pose
+string cabinet_state
+float64[6] pose
+---
+bool success

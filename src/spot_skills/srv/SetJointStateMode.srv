@@ -1,0 +1,4 @@
+string new_mode # New mode for joint states (e.g., "real_execution")
+---
+bool success
+string message

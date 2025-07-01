@@ -1,0 +1,14 @@
+<!-- Launch a node and load ROS parameters to enable Spot to open/close cabinets -->
+<launch>
+
+    <!-- Allow overriding the default open and close trajectories -->
+    <arg name="open_cabinet_traj" default="/docker/spot_skills/src/spot_skills/domains/recorded_skills/open1.npy" />
+    <param name="/spot/cabinet/open_trajectory" value="$(arg open_cabinet_traj)" />
+
+    <arg name="close_cabinet_traj" default="/docker/spot_skills/src/spot_skills/domains/recorded_skills/close1.npy" />
+    <param name="/spot/cabinet/close_trajectory" value="$(arg close_cabinet_traj)" />
+
+    <!-- Launch a node that provides services to open/close the cabinet -->
+    <node name="spot_cabinet_node" pkg="spot_skills" type="spot_cabinet_node.py" required="true" output="screen"/>
+
+</launch>

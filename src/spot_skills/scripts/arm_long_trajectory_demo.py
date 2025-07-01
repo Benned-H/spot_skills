@@ -19,7 +19,7 @@ from spot_skills_py.joint_trajectory import JointsPoint, JointTrajectory
 from spot_skills_py.spot.spot_arm_controller import SpotArmController
 from spot_skills_py.spot.spot_configuration import SPOT_URDF_ARM_JOINT_NAMES
 from spot_skills_py.spot.spot_manager import SpotManager
-from spot_skills_py.time_stamp import TimeStamp
+from transform_utils.time_sync import Timestamp
 
 RUN_TIME_S = 20  # Duration (seconds) to run our trajectory for
 
@@ -80,7 +80,7 @@ def main() -> None:
     arm_controller = SpotArmController(spot_manager, 30)  # Limit to 30 points/segment
 
     # By now, Spot should be powered on and controllable
-    spot_manager.take_control()
+    spot_manager.take_control(force=True)
     assert spot_manager.stand_up(20)
     assert spot_manager.deploy_arm()
 
@@ -110,9 +110,7 @@ def main() -> None:
     spot_manager.resync_and_log()
 
     # Set the full trajectory to begin in the future
-    future_proof_s = 1.0  # Offset duration (seconds) into the future
-    start_time_s = time.time() + future_proof_s
-    ref_timestamp = TimeStamp.from_time_s(start_time_s)
+    ref_timestamp = Timestamp.now().add_offset_s(1.0)  # Offset 1 second into the future
 
     # Create and send the full trajectory
     joint_names = SPOT_URDF_ARM_JOINT_NAMES

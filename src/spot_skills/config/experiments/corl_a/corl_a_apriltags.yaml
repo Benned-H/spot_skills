@@ -1,0 +1,36 @@
+# AR marker config for CoRL Experiment A
+# Specify AprilTag-to-object relative transforms, tag sizes, and which cameras detect which tag sizes
+tags:
+  tag_5:
+    tag_size_cm: 4.0
+    relative_frames:
+      eraser: [0, 0, -3.175, 0, 0, 2.35619449]
+
+  tag_50:
+    tag_size_cm: 18.5
+    relative_frames:
+      cabinet: [0, -0.386, 0.091, -1.57079633, -1.57079633, 0] # Moved cabinet 5 cm back from Spot
+      # Was: cabinet: [0, -0.386, 0.141, -1.57079633, -1.57079633, 0]
+
+  tag_1: # Master marker of bundle on cabinet exterior
+    tag_size_cm: 7.62
+    relative_frames:
+      # Was: cabinet: [0.144, -0.077, -0.1835, -1.57079633, -1.57079633, 0]
+      cabinet: [0.204, -0.077, -0.1835, -1.57079633, -1.57079633, 0] # added 6 cm in marker's x
+    bundle: True
+
+cameras:
+  frontleft:
+    recognized_tag_sizes_cm: [7.62, 18.5]
+    detects_single_tags: True
+    detects_bundles: True
+  frontright:
+    recognized_tag_sizes_cm: [7.62, 18.5]
+    detects_single_tags: True
+    detects_bundles: True
+  hand:
+    recognized_tag_sizes_cm: [4.0, 7.62]
+    detects_single_tags: True
+    detects_bundles: True
+
+camera_topic_prefix: "/ar_pose_marker"
