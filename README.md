@@ -13,8 +13,22 @@ git clone --recurse-submodules git@github.com:Benned-H/spot_skills.git
 If you have already cloned the repository, run the following command to ensure that all submodules are up-to-date:
 
 ```bash
+cd spot_skills/
 bash docker/git_pull_all.sh
 ```
+
+## Installing Docker
+
+If you do not already have Docker on your system, you will need to follow these steps:
+
+- Install Docker using apt [LINK](https://docs.docker.com/engine/install/linux-postinstall/)
+- Enable non-sudo Docker [LINK](https://docs.docker.com/engine/install/linux-postinstall/)
+
+You then need to set up the drivers to allow docker to interface with the GPU:
+  
+- Install the NVIDIA Container Toolkit [LINK](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+- Configure for Docker [LINK](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#configuring-docker)
+
 
 ## Docker Commands
 
