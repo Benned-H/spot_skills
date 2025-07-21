@@ -41,6 +41,3 @@ CMD ["bash"]
 
 # Finalize the default working directory for the image
 WORKDIR /docker/spot_skills
-
-# TODO: I should pip install: bosdyn-client==5.0.0
-# TODO: I haven't apt-get installed: iputils-ping
