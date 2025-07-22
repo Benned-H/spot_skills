@@ -20,7 +20,7 @@
     <!-- Launch RViz if it was explicitly requested -->
     <arg name="rviz" default="false" />
     <group if="$(arg rviz)">
-        <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_viz)/rviz/robot.rviz" />
+        <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_viz)/rviz/robot.rviz" required="true" />
     </group>
 
 </launch>

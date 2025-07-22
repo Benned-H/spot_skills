@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import rospy
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 
@@ -188,6 +189,17 @@ class JointTrajectory:
         velocities = [point.velocities_radps for point in self.points]
         times = [point.time_from_start_s for point in self.points]
 
+        monotonic_times: list[float] = []
+        for time in times:
+            if not monotonic_times:
+                monotonic_times.append(time)
+                continue
+
+            if time <= monotonic_times[-1]:
+                monotonic_times.append(monotonic_times[-1] + 0.03)
+            else:
+                monotonic_times.append(time)
+
         timestamp_proto = self.reference_timestamp.to_proto()
 
         # Segment the trajectory as described in this method's docstring
@@ -199,7 +211,7 @@ class JointTrajectory:
         while True:
             segment_positions = positions[start_idx : end_idx + 1]
             segment_velocities = velocities[start_idx : end_idx + 1]
-            segment_times = times[start_idx : end_idx + 1]
+            segment_times = monotonic_times[start_idx : end_idx + 1]
 
             robot_command = RobotCommandBuilder.arm_joint_move_helper(
                 joint_positions=segment_positions,

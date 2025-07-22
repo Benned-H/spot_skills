@@ -10,10 +10,10 @@ import rospy
 from actionlib import GoalStatus, SimpleActionClient
 from geometry_msgs.msg import Twist
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from transform_utils.kinematics import DEFAULT_FRAME, Pose3D
-from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
+from robotics_utils.kinematics import DEFAULT_FRAME
+from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
+from robotics_utils.ros.transform_manager import TransformManager
 from transform_utils.math.distances import absolute_yaw_error_rad, euclidean_distance_2d_m
-from transform_utils.transform_manager import TransformManager
 from transform_utils.world_model.known_landmarks import KnownLandmarks2D
 
 from spot_skills.srv import (
@@ -95,8 +95,8 @@ class SpotNavigationServer:
         :param target_pose_2d: Target base pose for Spot
         :return: True if Spot is "close" to the given target pose, else False
         """
-        now = rospy.Time.now()
-        curr_pose = TransformManager.lookup_transform("body", target_pose_2d.ref_frame, now)
+        curr_pose = TransformManager.lookup_transform("body", target_pose_2d.ref_frame)
+
         if curr_pose is None:
             rospy.logfatal(f"Could not look up body pose in frame '{target_pose_2d.ref_frame}'.")
             return False
@@ -208,10 +208,10 @@ class SpotNavigationServer:
     def _publish_landmarks_tf_loop(self) -> None:
         """Publish the known landmarks' poses in a loop."""
         try:
-            rate_hz = rospy.Rate(TransformManager.loop_hz)
+            rate_hz = rospy.Rate(TransformManager.LOOP_HZ)
             while not rospy.is_shutdown():
                 for name, pose in self._landmarks.items():
-                    TransformManager.broadcast_transform(frame_name=name, pose=Pose3D.from_2d(pose))
+                    TransformManager.broadcast_transform(name, pose.to_3d())
 
                 rate_hz.sleep()
         except rospy.ROSInterruptException as ros_exc:
