@@ -35,8 +35,19 @@ VOLUME /docker/rtabmap_ws
 # Source the rtabmap workspace in all terminals
 RUN echo "source /docker/rtabmap_ws/devel/setup.bash" >> ~/.bashrc
 
-RUN python3 -m pip install bosdyn-client==5.0.0 transforms3d==0.4.2
+# Install any additional dependencies identified during development
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ros-noetic-joint-state-publisher \
+        ros-noetic-robot-state-publisher \
+        ros-noetic-twist-mux && \
+    # Clean up layer after using apt-get update
+    rm -rf /var/lib/apt/lists/* && apt-get clean
 
+RUN python3 -m pip install bosdyn-client==5.0.0 transforms3d==0.4.2 rosnumpy==0.0.6.2
+
+ENV DISABLE_ROS1_EOL_WARNINGS=1
 CMD ["bash"]
 
 # Finalize the default working directory for the image
