@@ -13,7 +13,7 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
-from robotics_utils.ros.trajectory_replayer import TrajectoryReplayer
+from robotics_utils.ros.trajectory_replayer import RelativeTrajectoryConfig, TrajectoryReplayer
 from ros_numpy import msgify
 from sensor_msgs.msg import Image as ImageMsg
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
@@ -101,7 +101,13 @@ class SpotROS1Wrapper:
             PlaybackTrajectory,
             self.handle_playback_trajectory,
         )
-        self.trajectory_replayer = TrajectoryReplayer()
+
+        traj_config = RelativeTrajectoryConfig(
+            ee_frame="arm_link_wr1",
+            body_frame="body",
+            move_group_name="arm",
+        )
+        self.trajectory_replayer = TrajectoryReplayer(traj_config)
 
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
