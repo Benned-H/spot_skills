@@ -246,6 +246,8 @@ When you're ready to begin recording transforms, run the following in another Do
 rosrun spot_skills record_transforms.py recorded-tfs.yaml
 ```
 
+To stop the recording, kill the node by typing `Ctrl-C` in that terminal tab.
+
 - The recorded transforms will be output to the specified file, here `recorded-tfs.yaml`. If that file already exists, the script will refuse to overwrite it by default.
 - To enable overwriting the output path, you can append the flag: `--overwrite true`
 
