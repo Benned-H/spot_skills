@@ -29,6 +29,12 @@ You then need to set up the drivers to allow docker to interface with the GPU:
 - Install the NVIDIA Container Toolkit [LINK](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 - Configure for Docker [LINK](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#configuring-docker)
 
+Pull the Docker container using the command:
+
+```bash
+docker compose pull spot-tamp-v3
+```
+
 ## Docker Commands
 
 This repository uses Docker to standardize its workspace across machines. Ignoring most of the details, you'll only need to know the following:
@@ -36,10 +42,11 @@ This repository uses Docker to standardize its workspace across machines. Ignori
 - To run the Spot skills code, you'll need to enter a Docker container, which has all the dependencies pre-installed.
 - The exact Docker container you should enter depends on your local machine: Is it macOS or Ubuntu? Does it have NVIDIA?
 
-Run the following script to select, launch, and then enter the appropriate container for your machine:
+Run the following commands to enter the Docker container:
 
 ```bash
-bash docker/launch.sh
+docker compose up spot-tamp-v3 --detach
+docker compose exec spot-tamp-v3 bash
 ```
 
 To enter the running container in another terminal, just run the same script again.
@@ -48,11 +55,6 @@ _Troubleshooting_:
 
 1. If the launch script isn't working, check that you've successfully pulled all submodules. Use:
    - `git submodule update --init --recursive`
-2. Try the following command to see the errors preventing you from entering Docker. Replace `SERVICE_NAME` with the name of the service that you're unable to enter (e.g., `spot-tamp-gpu-v2` is the service name in `Selected Docker service: 'spot-tamp-gpu-v2'`).
-
-```bash
-docker compose up --pull missing SERVICE_NAME
-```
 
 ## Example Demonstrations
 
@@ -66,6 +68,7 @@ stated, you need to move to the top-level `spot_skills` folder, build the worksp
 cd /docker/spot_skills
 catkin build
 source devel/setup.bash
+bash docker/source_all.sh
 ```
 
 If a demo requires a second or third terminal tab to be opened into Docker, move to the same directory and source `devel/setup.bash`.
