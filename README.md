@@ -39,8 +39,7 @@ docker compose pull spot-tamp-v3
 
 This repository uses Docker to standardize its workspace across machines. Ignoring most of the details, you'll only need to know the following:
 
-- To run the Spot skills code, you'll need to enter a Docker container, which has all the dependencies pre-installed.
-- The exact Docker container you should enter depends on your local machine: Is it macOS or Ubuntu? Does it have NVIDIA?
+- To run the Spot skills code, you'll need to enter the Docker container, which has all the dependencies pre-installed.
 
 Run the following commands to enter the Docker container:
 
