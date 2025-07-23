@@ -16,3 +16,5 @@ src/tmp3/
 # Ignore maps from RTAB-Map or pose estimation YAML files
 maps/
 **/*.egg-info
+
+ignore/

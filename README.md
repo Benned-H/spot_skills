@@ -25,10 +25,9 @@ If you do not already have Docker on your system, you will need to follow these 
 - Enable non-sudo Docker [LINK](https://docs.docker.com/engine/install/linux-postinstall/)
 
 You then need to set up the drivers to allow docker to interface with the GPU:
-  
+
 - Install the NVIDIA Container Toolkit [LINK](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 - Configure for Docker [LINK](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#configuring-docker)
-
 
 ## Docker Commands
 
@@ -232,6 +231,42 @@ In this real-world demonstration, we'll use ROS to trigger Spot's off-the-shelf 
    rosservice call /spot/unlock_arm "{}"
    rosservice call /spot/open_door "{}"
    ```
+
+### Recording an End-Effector Relative Trajectory
+
+Run the following command in the container after sourcing `devel/setup.bash` and running `source_all.bash`. Replace `NAME_HERE` with the name of the Spot you're using:
+
+```bash
+roslaunch spot_skills spot_driver_bringup.launch rviz:=true load_robot_description:=true spot_name:=NAME_HERE
+```
+
+When you're ready to begin recording transforms, run the following in another Docker terminal tab (after sourcing):
+
+```bash
+rosrun spot_skills record_transforms.py recorded-tfs.yaml
+```
+
+To stop the recording, kill the node by typing `Ctrl-C` in that terminal tab.
+
+- The recorded transforms will be output to the specified file, here `recorded-tfs.yaml`. If that file already exists, the script will refuse to overwrite it by default.
+- To enable overwriting the output path, you can append the flag: `--overwrite true`
+
+### Playing Back an End-Effector Relative Trajectory
+
+Open two terminal tabs into Docker and source the typical things. In the first tab, run:
+
+```bash
+roslaunch spot_skills playback_trajectory_demo.launch spot_name:=NAME_HERE
+```
+
+Once the printouts have settled, run the following commands in succession in the second tab:
+
+```bash
+rosservice call /spot/unlock_arm
+rosservice call /spot/playback_trajectory "yaml_path: 'YAML_FILEPATH'"
+```
+
+- Make sure to use the _absolute path_ to the YAML file (e.g., `/docker/spot_skills/recorded-tfs.yaml`).
 
 ## Real-Robot Experiments
 

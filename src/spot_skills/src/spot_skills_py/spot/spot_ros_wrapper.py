@@ -1,6 +1,7 @@
 """Define a class providing a ROS 1 interface to the Spot robot."""
 
 from copy import deepcopy
+from pathlib import Path
 
 import rospy
 from actionlib import SimpleActionServer
@@ -12,12 +13,20 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
+from robotics_utils.ros.trajectory_replayer import RelativeTrajectoryConfig, TrajectoryReplayer
 from ros_numpy import msgify
 from sensor_msgs.msg import Image as ImageMsg
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from spot_skills.msg import RGBDPair
-from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
+from spot_skills.srv import (
+    GetRGBDPairs,
+    GetRGBDPairsRequest,
+    GetRGBDPairsResponse,
+    PlaybackTrajectory,
+    PlaybackTrajectoryRequest,
+    PlaybackTrajectoryResponse,
+)
 from spot_skills_py.joint_trajectory import JointTrajectory
 from spot_skills_py.perception.object_detection_client import DetectObjectClient
 from spot_skills_py.spot.spot_arm_controller import (
@@ -36,6 +45,27 @@ class SpotROS1Wrapper:
 
     def __init__(self) -> None:
         """Initialize the ROS interface by creating an internal SpotManager."""
+        # Set up all ROS action servers provided by the class (do this early so MoveIt finds them)
+        self._arm_action_name = "arm_controller/follow_joint_trajectory"
+        self._arm_action_server = SimpleActionServer(
+            self._arm_action_name,
+            FollowJointTrajectoryAction,
+            execute_cb=self.arm_action_callback,
+            auto_start=False,
+        )
+        self._arm_action_server.start()
+        rospy.loginfo(f"[{self._arm_action_name}] Action server has started.")
+
+        self._gripper_action_name = "gripper_controller/gripper_action"
+        self._gripper_action_server = SimpleActionServer(
+            self._gripper_action_name,
+            GripperCommandAction,
+            execute_cb=self.gripper_action_callback,
+            auto_start=False,
+        )
+        self._gripper_action_server.start()
+        rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
+
         spot_rosparams = ["/spot/hostname", "/spot/username", "/spot/password"]
         spot_rosparam_values = [rospy.get_param(par) for par in spot_rosparams]
         spot_hostname, spot_username, spot_password = spot_rosparam_values
@@ -57,7 +87,7 @@ class SpotROS1Wrapper:
         immediate_control: bool = rospy.get_param("/spot/immediate_control", default=False)
 
         if immediate_control:
-            self._manager.take_control()
+            self._manager.take_control(force=True)
 
         # Initialize all ROS services provided by the class
         self._stand_service = rospy.Service("spot/stand", Trigger, self.handle_stand)
@@ -66,33 +96,24 @@ class SpotROS1Wrapper:
         self._unlock_arm_service = rospy.Service("spot/unlock_arm", Trigger, self.handle_unlock_arm)
         self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
         self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
+        self._playback_trajectory_service = rospy.Service(
+            "spot/playback_trajectory",
+            PlaybackTrajectory,
+            self.handle_playback_trajectory,
+        )
+
+        traj_config = RelativeTrajectoryConfig(
+            ee_frame="arm_link_wr1",
+            body_frame="body",
+            move_group_name="arm",
+        )
+        self.trajectory_replayer = TrajectoryReplayer(traj_config)
 
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
             GetRGBDPairs,
             self.handle_get_rgbd_pairs,
         )
-
-        # Initialize all ROS action servers provided by the class
-        self._arm_action_name = "arm_controller/follow_joint_trajectory"
-        self._arm_action_server = SimpleActionServer(
-            self._arm_action_name,
-            FollowJointTrajectoryAction,
-            execute_cb=self.arm_action_callback,
-            auto_start=False,
-        )
-        self._arm_action_server.start()
-        rospy.loginfo(f"[{self._arm_action_name}] Action server has started.")
-
-        self._gripper_action_name = "gripper_controller/gripper_action"
-        self._gripper_action_server = SimpleActionServer(
-            self._gripper_action_name,
-            GripperCommandAction,
-            execute_cb=self.gripper_action_callback,
-            auto_start=False,
-        )
-        self._gripper_action_server.start()
-        rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
 
         # If needed, create a client to request object detections
         object_detection_active = rospy.get_param("/spot/object_detection/active", default=False)
@@ -290,6 +311,37 @@ class SpotROS1Wrapper:
         message = "Spot opened the door." if door_opened else "Could not open the door."
 
         return TriggerResponse(door_opened, message)
+
+    def handle_playback_trajectory(
+        self,
+        request_msg: PlaybackTrajectoryRequest,
+    ) -> PlaybackTrajectoryResponse:
+        """Handle a service request to play back a trajectory read from file.
+
+        :param request_msg: ROS message specifying a path to a trajectory YAML file
+        :return: Response conveying whether Spot was able to play back the trajectory
+        """
+        yaml_path = Path(request_msg.yaml_path)
+        if not yaml_path.exists():
+            return PlaybackTrajectoryResponse(
+                success=False,
+                message=f"Cannot play back trajectory from nonexistent file: {yaml_path}",
+            )
+
+        if self._arm_locked:
+            message = f"Cannot replay trajectory from {yaml_path} because Spot's arm is locked."
+            return PlaybackTrajectoryResponse(success=False, message=message)
+
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
+
+        relative_poses = self.trajectory_replayer.load_relative_trajectory(yaml_path)
+        cartesian_plan = self.trajectory_replayer.compute_cartesian_plan(relative_poses)
+        self.trajectory_replayer.move_group.execute(cartesian_plan, wait=True)
+
+        message = f"Successfully executed trajectory loaded from file: {yaml_path}"
+        return PlaybackTrajectoryResponse(success=True, message=message)
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
