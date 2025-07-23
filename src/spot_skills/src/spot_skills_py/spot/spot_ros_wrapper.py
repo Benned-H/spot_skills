@@ -316,9 +316,9 @@ class SpotROS1Wrapper:
         self,
         request_msg: PlaybackTrajectoryRequest,
     ) -> PlaybackTrajectoryResponse:
-        """Handle a service request to playback a trajectory read from file.
+        """Handle a service request to play back a trajectory read from file.
 
-        :param request_msg: ROS message specifying a filepath to a trajectory YAML file
+        :param request_msg: ROS message specifying a path to a trajectory YAML file
         :return: Response conveying whether Spot was able to play back the trajectory
         """
         yaml_path = Path(request_msg.yaml_path)

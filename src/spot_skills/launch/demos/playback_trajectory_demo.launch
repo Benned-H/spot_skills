@@ -12,7 +12,6 @@
 
     <param name="/spot/immediate_control" value="true" />
 
-    <!-- Run Rviz using a config file designed for this demo -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" required="true" />
 
 </launch>

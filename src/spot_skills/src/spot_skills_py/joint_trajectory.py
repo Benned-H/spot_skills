@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import rospy
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 
