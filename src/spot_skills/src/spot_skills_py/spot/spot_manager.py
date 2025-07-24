@@ -27,7 +27,7 @@ from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from bosdyn.geometry import EulerZXY
 from robotics_utils.kinematics import Configuration
-from robotics_utils.kinematics.pose2d import Pose2D
+from robotics_utils.kinematics.poses import Pose2D
 from robotics_utils.ros.transform_manager import TransformManager
 from rospy import loginfo as ros_loginfo
 

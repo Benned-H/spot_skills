@@ -8,6 +8,8 @@
         "ms-python.mypy-type-checker",
         "ms-python.python",
         "njpwerner.autodocstring",
-        "tamasfe.even-better-toml"
+        "tamasfe.even-better-toml",
+        "ms-vscode-remote.remote-containers",
+        "inoseki.vscode-mogami"
     ]
 }

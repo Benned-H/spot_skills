@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "spot_skills"
+name = "spot_skills_py"
 version = "0.0.1"
 authors = [{ name = "Benned Hedegaard", email = "bhedegaa@cs.brown.edu" }]
 description = "Motion-planning-based skills for Boston Dynamics' Spot robot."
@@ -13,17 +13,32 @@ readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">= 3.8"
 
-dependencies = ["numpy", "trimesh", "scipy", "pycollada", "pyglet<2", "scipy>=1.5", "rosnumpy"]
+dependencies = ["numpy", "trimesh", "scipy", "pycollada", "pyglet<2", "scipy>=1.5", "rosnumpy", "robotics_utils", "transform_utils"]
 
-[project.optional-dependencies]
-dev = ["ruff", "mypy"]
+
+[tool.uv]
+dev-dependencies = ["ruff", "pytest", "hypothesis", "pytest-cov", "mypy"]
+
+
+[tool.uv.sources] # Here, `workspace = true` tells uv to resolve the dependency using a workspace member
+spot_skills_py = { path = "src/spot_skills/src/spot_skills_py", editable = true }
+robotics_utils = { workspace = true }
+transform_utils = { workspace = true }
+
+[tool.uv.workspace]
+# Workspace: "a collection of one or more packages, called workspace members, that are managed together."
+# Reference: https://docs.astral.sh/uv/concepts/projects/workspaces/
+
+# Each member directory must contain a pyproject.toml file
+members = ["src/spot_skills/src/robotics_utils", "src/spot_skills/src/transform_utils"]
 
 
 [tool.hatch.build.targets.wheel]
 packages = [
     "src/spot_skills/src/spot_skills_py",
+    "src/spot_skills/src/robotics_utils",
     "src/tmp3/src/tmp3",
-    "src/spot_skills/src/transform_utils"
+    "src/spot_skills/src/transform_utils",
 ] # Include packages at these paths
 
 

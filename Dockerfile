@@ -35,13 +35,24 @@ VOLUME /docker/rtabmap_ws
 # Source the rtabmap workspace in all terminals
 RUN echo "source /docker/rtabmap_ws/devel/setup.bash" >> ~/.bashrc
 
+# Install uv for in-container dependency management
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
 # Install any additional dependencies identified during development
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         ros-noetic-joint-state-publisher \
+        ros-noetic-joint-state-publisher-gui \
         ros-noetic-robot-state-publisher \
-        ros-noetic-twist-mux && \
+        ros-noetic-twist-mux \
+        ros-noetic-teleop-twist-joy \
+        ros-noetic-interactive-marker-twist-server \
+        ros-noetic-fiducial-msgs \
+        ros-noetic-velodyne-description \
+        ros-noetic-velodyne-pointcloud \
+        ros-noetic-point-cloud2-filters \
+        ros-noetic-robot-body-filter && \
     # Clean up layer after using apt-get update
     rm -rf /var/lib/apt/lists/* && apt-get clean
 

@@ -11,26 +11,23 @@ from actionlib import GoalStatus, SimpleActionClient
 from geometry_msgs.msg import Twist
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from robotics_utils.kinematics import DEFAULT_FRAME
+from robotics_utils.kinematics.poses import Pose2D
+from robotics_utils.kinematics.waypoints import Waypoints
+from robotics_utils.math.distances import angle_difference_rad, euclidean_distance_2d_m
 from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
 from robotics_utils.ros.transform_manager import TransformManager
-from transform_utils.math.distances import absolute_yaw_error_rad, euclidean_distance_2d_m
-from transform_utils.world_model.known_landmarks import KnownLandmarks2D
 
 from spot_skills.srv import (
-    NavigateToLandmark,
-    NavigateToLandmarkRequest,
-    NavigateToLandmarkResponse,
+    NameService,
+    NameServiceRequest,
+    NameServiceResponse,
     NavigateToPose,
     NavigateToPoseRequest,
     NavigateToPoseResponse,
-    ObjectNameService,
-    ObjectNameServiceRequest,
-    ObjectNameServiceResponse,
 )
 
 if TYPE_CHECKING:
     from geometry_msgs.msg import PoseStamped
-    from transform_utils.kinematics import Pose2D
 
     from spot_skills_py.spot.spot_manager import SpotManager
 
@@ -51,41 +48,40 @@ class SpotNavigationServer:
             self.handle_pose,
         )
 
-        self._nav_to_landmark_srv = rospy.Service(
-            "/spot/navigation/to_landmark",
-            NavigateToLandmark,
-            self.handle_landmark,
+        self._nav_to_waypoint_srv = rospy.Service(
+            "/spot/navigation/to_waypoint",
+            NameService,
+            self.handle_waypoint,
         )
 
-        # Provide a service to create new landmarks at Spot's current base pose
-        self._new_landmark_srv = rospy.Service(
-            "/spot/navigation/create_landmark",
-            ObjectNameService,
-            self.handle_create_landmark,
+        # Provide a service to create new waypoints at Spot's current base pose
+        self._new_waypoint_srv = rospy.Service(
+            "/spot/navigation/create_waypoint",
+            NameService,
+            self.handle_create_waypoint,
         )
 
-        # Load landmark locations from a YAML file specified via ROS param
-        landmarks_yaml_path = Path(rospy.get_param("/spot/navigation/known_landmarks_yaml"))
-        known_landmarks = KnownLandmarks2D.from_yaml(landmarks_yaml_path)
-        self._landmarks: dict[str, Pose2D] = known_landmarks.landmarks
+        # Load waypoint locations from a YAML file specified via ROS param
+        waypoints_yaml_path = Path(rospy.get_param("/spot/navigation/waypoints_yaml"))
+        self._waypoints = Waypoints.from_yaml(waypoints_yaml_path)
 
-        rospy.loginfo(f"Loaded {len(self._landmarks)} named landmarks from YAML.")
+        rospy.loginfo(f"Loaded {len(self._waypoints)} named waypoints from YAML.")
 
         # Wait for the move_base action server to become available
         self._move_base_client = SimpleActionClient("move_base", MoveBaseAction)
         self._move_base_client.wait_for_server(timeout=rospy.Duration.from_sec(60.0))
 
         # Load thresholds for when Spot is considered "close to a goal" from ROS params
-        self.close_to_goal_m = rospy.get_param("/spot/navigation/close_to_goal_m")
-        self.close_to_goal_rad = rospy.get_param("/spot/navigation/close_to_goal_rad")
-        self.timeout_s = rospy.get_param("/spot/navigation/timeout_s")
+        self.close_to_goal_m: float = rospy.get_param("/spot/navigation/close_to_goal_m")
+        self.close_to_goal_rad: float = rospy.get_param("/spot/navigation/close_to_goal_rad")
+        self.timeout_s: float = rospy.get_param("/spot/navigation/timeout_s")
 
         # Subscribe to a topic providing body-frame velocity commands
         self._cmd_vel_sub = rospy.Subscriber("cmd_vel", Twist, self.handle_cmd_vel, queue_size=1)
 
         self._CMD_VEL_DURATION_S = 1.0  # Duration (seconds) to execute each velocity command
 
-        self._tf_publisher_thread = threading.Thread(target=self._publish_landmarks_tf_loop)
+        self._tf_publisher_thread = threading.Thread(target=self._publish_waypoints_tf_loop)
         self._tf_publisher_thread.daemon = True  # Thread exits when main process does
         self._tf_publisher_thread.start()
 
@@ -101,36 +97,37 @@ class SpotNavigationServer:
             rospy.logfatal(f"Could not look up body pose in frame '{target_pose_2d.ref_frame}'.")
             return False
 
-        distance_2d_m = euclidean_distance_2d_m(target_pose_2d, curr_pose)
-        abs_yaw_error_rad = absolute_yaw_error_rad(target_pose_2d, curr_pose)
+        distance_2d_m = euclidean_distance_2d_m(
+            target_pose_2d,
+            curr_pose.to_2d(),
+            change_frames=True,
+        )
+        abs_yaw_error_rad = angle_difference_rad(target_pose_2d.yaw_rad, curr_pose.yaw_rad)
 
         return distance_2d_m < self.close_to_goal_m and abs_yaw_error_rad < self.close_to_goal_rad
 
-    def handle_create_landmark(
-        self,
-        request: ObjectNameServiceRequest,
-    ) -> ObjectNameServiceResponse:
-        """Handle a ROS service request to create a new landmark at Spot's current base pose.
+    def handle_create_waypoint(self, request: NameServiceRequest) -> NameServiceResponse:
+        """Handle a ROS service request to create a new waypoint at Spot's current base pose.
 
-        :param request: Request specifying the landmark name to be used
-        :return: Response specifying whether the landmark was successfully created
+        :param request: Request specifying the waypoint name to be used
+        :return: Response specifying whether the waypoint was successfully created
         """
         curr_base_pose = TransformManager.lookup_transform("body", DEFAULT_FRAME)
         if curr_base_pose is None:
             message = f"Could not look up the transform from 'body' to '{DEFAULT_FRAME}'."
-            return ObjectNameServiceResponse(success=False, message=message)
+            return NameServiceResponse(success=False, message=message)
 
-        new_name = request.object_name
+        new_name: str = request.name
         curr_2d_pose = curr_base_pose.to_2d()
-        self._landmarks[new_name] = curr_2d_pose
+        self._waypoints[new_name] = curr_2d_pose
 
-        success = new_name in self._landmarks
+        success = new_name in self._waypoints
         if success:
-            message = f"Added landmark named '{new_name}' at {curr_2d_pose}."
+            message = f"Added waypoint named '{new_name}' at {curr_2d_pose}."
         else:
-            message = f"Failed to add landmark named '{new_name}' at {curr_2d_pose}."
+            message = f"Failed to add waypoint named '{new_name}' at {curr_2d_pose}."
 
-        return ObjectNameServiceResponse(success=success, message=message)
+        return NameServiceResponse(success=success, message=message)
 
     def handle_pose(self, request: NavigateToPoseRequest) -> NavigateToPoseResponse:
         """Handle a ROS service request for Spot to navigate to a given pose.
@@ -141,20 +138,20 @@ class SpotNavigationServer:
         success, message = self.navigate_to_pose(request.target_base_pose)
         return NavigateToPoseResponse(success, message)
 
-    def handle_landmark(self, request: NavigateToLandmarkRequest) -> NavigateToLandmarkResponse:
-        """Handle a ROS service request for Spot to navigate to a known landmark.
+    def handle_waypoint(self, request: NameServiceRequest) -> NameServiceResponse:
+        """Handle a ROS service request for Spot to navigate to a named waypoint.
 
-        :param request: Request specifying a landmark to navigate to
+        :param request: Request specifying a waypoint to navigate to
         :return: Response specifying whether the navigation succeeded
         """
-        if request.landmark_name not in self._landmarks:
-            message = f"Cannot navigate to unknown landmark '{request.landmark_name}'."
-            return NavigateToLandmarkResponse(success=False, message=message)
+        if request.name not in self._waypoints:
+            message = f"Cannot navigate to unknown waypoint '{request.name}'."
+            return NameServiceResponse(success=False, message=message)
 
-        target_pose = self._landmarks[request.landmark_name]
-        pose_stamped_msg = pose_to_stamped_msg(target_pose)
+        target_pose = self._waypoints[request.name]
+        pose_stamped_msg = pose_to_stamped_msg(target_pose.to_3d())
         success, message = self.navigate_to_pose(pose_stamped_msg)
-        return NavigateToLandmarkResponse(success, message)
+        return NameServiceResponse(success, message)
 
     def navigate_to_pose(self, pose_msg: PoseStamped) -> tuple[bool, str]:
         """Control Spot to navigate to the given pose (treated as if it were 2D).
@@ -205,14 +202,14 @@ class SpotNavigationServer:
             duration_s=self._CMD_VEL_DURATION_S,
         )
 
-    def _publish_landmarks_tf_loop(self) -> None:
-        """Publish the known landmarks' poses in a loop."""
+    def _publish_waypoints_tf_loop(self) -> None:
+        """Publish the defined waypoints' poses in a loop."""
         try:
             rate_hz = rospy.Rate(TransformManager.LOOP_HZ)
             while not rospy.is_shutdown():
-                for name, pose in self._landmarks.items():
+                for name, pose in self._waypoints.items():
                     TransformManager.broadcast_transform(name, pose.to_3d())
 
                 rate_hz.sleep()
         except rospy.ROSInterruptException as ros_exc:
-            rospy.logwarn(f"[_publish_landmarks_tf_loop] {ros_exc}")
+            rospy.logwarn(f"[_publish_waypoints_tf_loop] {ros_exc}")
