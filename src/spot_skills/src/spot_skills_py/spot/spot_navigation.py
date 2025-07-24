@@ -11,10 +11,11 @@ from actionlib import GoalStatus, SimpleActionClient
 from geometry_msgs.msg import Twist
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from robotics_utils.kinematics import DEFAULT_FRAME
+from robotics_utils.kinematics.landmarks import Landmarks
+from robotics_utils.kinematics.poses import Pose2D
+from robotics_utils.math.distances import angle_difference_rad, euclidean_distance_2d_m
 from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
 from robotics_utils.ros.transform_manager import TransformManager
-from transform_utils.math.distances import absolute_yaw_error_rad, euclidean_distance_2d_m
-from transform_utils.world_model.known_landmarks import KnownLandmarks2D
 
 from spot_skills.srv import (
     NavigateToLandmark,
@@ -30,7 +31,6 @@ from spot_skills.srv import (
 
 if TYPE_CHECKING:
     from geometry_msgs.msg import PoseStamped
-    from transform_utils.kinematics import Pose2D
 
     from spot_skills_py.spot.spot_manager import SpotManager
 
@@ -66,8 +66,7 @@ class SpotNavigationServer:
 
         # Load landmark locations from a YAML file specified via ROS param
         landmarks_yaml_path = Path(rospy.get_param("/spot/navigation/known_landmarks_yaml"))
-        known_landmarks = KnownLandmarks2D.from_yaml(landmarks_yaml_path)
-        self._landmarks: dict[str, Pose2D] = known_landmarks.landmarks
+        self._landmarks = Landmarks.from_yaml(landmarks_yaml_path)
 
         rospy.loginfo(f"Loaded {len(self._landmarks)} named landmarks from YAML.")
 
@@ -101,8 +100,8 @@ class SpotNavigationServer:
             rospy.logfatal(f"Could not look up body pose in frame '{target_pose_2d.ref_frame}'.")
             return False
 
-        distance_2d_m = euclidean_distance_2d_m(target_pose_2d, curr_pose)
-        abs_yaw_error_rad = absolute_yaw_error_rad(target_pose_2d, curr_pose)
+        distance_2d_m = euclidean_distance_2d_m(target_pose_2d, curr_pose.to_2d())
+        abs_yaw_error_rad = angle_difference_rad(target_pose_2d.yaw_rad, curr_pose.get_yaw())
 
         return distance_2d_m < self.close_to_goal_m and abs_yaw_error_rad < self.close_to_goal_rad
 

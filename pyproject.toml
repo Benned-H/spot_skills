@@ -23,7 +23,8 @@ dev = ["ruff", "mypy"]
 packages = [
     "src/spot_skills/src/spot_skills_py",
     "src/tmp3/src/tmp3",
-    "src/spot_skills/src/transform_utils"
+    "src/spot_skills/src/transform_utils",
+    "src/spot_skills/src/robotics_utils"
 ] # Include packages at these paths
 
 
