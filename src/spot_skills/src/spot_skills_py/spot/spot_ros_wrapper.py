@@ -67,7 +67,7 @@ class SpotROS1Wrapper:
         rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
 
         spot_rosparams = ["/spot/hostname", "/spot/username", "/spot/password"]
-        spot_rosparam_values = [rospy.get_param(par) for par in spot_rosparams]
+        spot_rosparam_values: list[str] = [rospy.get_param(par) for par in spot_rosparams]
         spot_hostname, spot_username, spot_password = spot_rosparam_values
 
         self._manager = SpotManager(
