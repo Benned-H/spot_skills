@@ -15,8 +15,9 @@ requires-python = ">= 3.8"
 
 dependencies = ["numpy", "trimesh", "scipy", "pycollada", "pyglet<2", "scipy>=1.5", "rosnumpy", "robotics_utils", "transform_utils"]
 
-[project.optional-dependencies]
-dev = ["ruff", "mypy"]
+
+[tool.uv]
+dev-dependencies = ["ruff", "pytest", "hypothesis", "pytest-cov", "mypy"]
 
 
 [tool.uv.sources] # Here, `workspace = true` tells uv to resolve the dependency using a workspace member

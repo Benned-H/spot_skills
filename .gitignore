@@ -9,12 +9,16 @@ __pycache__/
 
 # Ignore secrets (e.g., passwords, robot IPs, etc.)
 secrets/
+ignore/
 
 # Ignore what would otherwise be a submodule, were it not a private repo
 src/tmp3/
 
 # Ignore maps from RTAB-Map or pose estimation YAML files
 maps/
-**/*.egg-info
+*.db
 
-ignore/
+# Ignore Python config/test result files
+**/*.egg-info
+.coverage
+.hypothesis/

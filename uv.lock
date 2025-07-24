@@ -3587,28 +3587,40 @@ dependencies = [
     { name = "trimesh" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
+    { name = "hypothesis", version = "6.113.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "hypothesis", version = "6.136.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "mypy", version = "1.14.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "mypy", version = "1.17.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+    { name = "pytest", version = "8.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "pytest", version = "8.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+    { name = "pytest-cov", version = "5.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "pytest-cov", version = "6.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "ruff" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "mypy", marker = "extra == 'dev'" },
     { name = "numpy" },
     { name = "pycollada" },
     { name = "pyglet", specifier = "<2" },
     { name = "robotics-utils", editable = "src/spot_skills/src/robotics_utils" },
     { name = "rosnumpy" },
-    { name = "ruff", marker = "extra == 'dev'" },
     { name = "scipy" },
     { name = "scipy", specifier = ">=1.5" },
     { name = "transform-utils", editable = "src/spot_skills/src/transform_utils" },
     { name = "trimesh" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "hypothesis" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
 
 [[package]]
 name = "stack-data"

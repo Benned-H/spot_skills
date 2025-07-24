@@ -1,0 +1,5 @@
+# Request a service using the name of an object/waypoint/robot/etc.
+string name
+---
+bool success
+string message
