@@ -103,7 +103,7 @@
             <!-- 1 = ICP -->
             <param name="Vis/MinInliers" type="string" value="12" />
             <param name="Vis/EstimationType" type="string" value="0" />
-            <param name="Grid/CellSize" type="string" value="0.02" />
+            <param name="Grid/CellSize" type="string" value="0.05" />
 
             <!-- Create the occupancy grid using both the laser scan and depth image(s) -->
             <param name="Grid/Sensor" type="string" value="2" />

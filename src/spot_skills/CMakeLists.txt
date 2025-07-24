@@ -58,9 +58,8 @@ add_message_files(
 add_service_files(
   FILES
   GetRGBDPairs.srv
-  NavigateToLandmark.srv
+  NameService.srv
   NavigateToPose.srv
-  ObjectNameService.srv
   PlaybackTrajectory.srv
 )
 
