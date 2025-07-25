@@ -60,7 +60,7 @@ add_service_files(
   GetRGBDPairs.srv
   NameService.srv
   NavigateToPose.srv
-  PlaybackTrajectory.srv
+  YAMLPathService.srv
 )
 
 ## Generate actions in the 'action' folder

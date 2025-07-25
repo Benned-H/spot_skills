@@ -23,9 +23,9 @@ from spot_skills.srv import (
     GetRGBDPairs,
     GetRGBDPairsRequest,
     GetRGBDPairsResponse,
-    PlaybackTrajectory,
-    PlaybackTrajectoryRequest,
-    PlaybackTrajectoryResponse,
+    YAMLPathService,
+    YAMLPathServiceRequest,
+    YAMLPathServiceResponse,
 )
 from spot_skills_py.joint_trajectory import JointTrajectory
 from spot_skills_py.perception.object_detection_client import DetectObjectClient
@@ -98,7 +98,7 @@ class SpotROS1Wrapper:
         self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
         self._playback_trajectory_service = rospy.Service(
             "spot/playback_trajectory",
-            PlaybackTrajectory,
+            YAMLPathService,
             self.handle_playback_trajectory,
         )
 
@@ -314,8 +314,8 @@ class SpotROS1Wrapper:
 
     def handle_playback_trajectory(
         self,
-        request_msg: PlaybackTrajectoryRequest,
-    ) -> PlaybackTrajectoryResponse:
+        request_msg: YAMLPathServiceRequest,
+    ) -> YAMLPathServiceResponse:
         """Handle a service request to play back a trajectory read from file.
 
         :param request_msg: ROS message specifying a path to a trajectory YAML file
@@ -323,14 +323,14 @@ class SpotROS1Wrapper:
         """
         yaml_path = Path(request_msg.yaml_path)
         if not yaml_path.exists():
-            return PlaybackTrajectoryResponse(
+            return YAMLPathServiceResponse(
                 success=False,
                 message=f"Cannot play back trajectory from nonexistent file: {yaml_path}",
             )
 
         if self._arm_locked:
             message = f"Cannot replay trajectory from {yaml_path} because Spot's arm is locked."
-            return PlaybackTrajectoryResponse(success=False, message=message)
+            return YAMLPathServiceResponse(success=False, message=message)
 
         has_control = self._manager.check_control()  # Only take control of Spot once necessary
         if not has_control:
@@ -341,7 +341,7 @@ class SpotROS1Wrapper:
         self.trajectory_replayer.move_group.execute(cartesian_plan, wait=True)
 
         message = f"Successfully executed trajectory loaded from file: {yaml_path}"
-        return PlaybackTrajectoryResponse(success=True, message=message)
+        return YAMLPathServiceResponse(success=True, message=message)
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.

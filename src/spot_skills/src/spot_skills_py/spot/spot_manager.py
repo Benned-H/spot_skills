@@ -9,12 +9,14 @@ from bosdyn.api.basic_command_pb2 import StandCommand
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.robot_command_pb2 import RobotCommand
+from bosdyn.api.robot_state_pb2 import RobotState
 from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client import create_standard_sdk, frame_helpers
 from bosdyn.client.door import DoorClient
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
+from bosdyn.client.robot import Robot
 from bosdyn.client.robot_command import (
     RobotCommandBuilder,
     RobotCommandClient,
@@ -66,7 +68,7 @@ class SpotManager:
 
         # Create one robot object, although the SDK client can manage more than one
         self._sdk = create_standard_sdk(client_name)
-        self._robot = self._sdk.create_robot(hostname)
+        self._robot: Robot = self._sdk.create_robot(hostname)
 
         # We need to authenticate with Spot before using it
         self._robot.authenticate(username=username, password=password)
@@ -223,6 +225,10 @@ class SpotManager:
         """Check whether the Spot robot has an arm connected."""
         return self._robot.has_arm()
 
+    def get_robot_state(self) -> RobotState:
+        """Retrieve the state of the robot as a Protobuf message."""
+        return self._state_client.get_robot_state()
+
     def get_arm_configuration(self) -> Configuration:
         """Query and return the current configuration of Spot's arm.
 
@@ -230,7 +236,7 @@ class SpotManager:
 
         :returns: Configuration mapping joint names (per Spot SDK) to their positions
         """
-        robot_state = self._state_client.get_robot_state()
+        robot_state = self.get_robot_state()
         sdk_joint_states = robot_state.kinematic_state.joint_states
 
         # Use the joint names as sent from Spot directly (differs from URDF names)

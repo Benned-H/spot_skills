@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import rospy
+from robotics_utils.ros.services import ServiceCaller
 from sensor_msgs.msg import Image as ImageMsg
-from transform_utils.ros.services import ServiceCaller
 
 from pose_estimation_msgs.srv import DetectObjects, DetectObjectsRequest, DetectObjectsResponse
 
@@ -22,11 +22,14 @@ class DetectObjectClient:
             self._obj_detect_service = ServiceCaller[DetectObjectsRequest, DetectObjectsResponse](
                 service_name,
                 DetectObjects,
-                timeout_s=30,
+                timeout_s=10,
             )
         except (rospy.ServiceException, rospy.ROSException) as exc:
             rospy.loginfo(f"Could not access object detection service: {exc}")
             self._obj_detect_service = None
+
+        if self._obj_detect_service is None:
+            raise RuntimeError(f"DetectObjectClient requires the {service_name} service!")
 
     def call_on_image(self, image_msg: ImageMsg) -> DetectObjectsResponse | None:
         """Call the object detection service using the given image message."""
