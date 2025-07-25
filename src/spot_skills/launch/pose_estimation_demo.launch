@@ -5,8 +5,8 @@
     <arg name="spot_name"/>
     <arg name="debug_images_gui" default="false"/>
 
-    <!-- Include the launch file to bringup nodes for pose estimation -->
-    <include file="$(find spot_skills)/launch/pose_estimation_bringup.launch">
+    <!-- Include the launch file to bring up nodes for pose estimation -->
+    <include file="$(find spot_skills)/launch/bringup/bringup_pose_estimation.launch">
         <arg name="debug_images_gui" value="$(arg debug_images_gui)"/>
     </include>
 

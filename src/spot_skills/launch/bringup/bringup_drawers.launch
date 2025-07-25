@@ -1,0 +1,9 @@
+<!-- Launch a node and load ROS params to enable Spot to open a chest of drawers -->
+<launch>
+
+    <arg name="open_traj_path" default="/docker/spot/TODO" />
+    <param name="/spot/filepaths/open_drawers_traj" value="$(arg open_traj_path)" />
+
+    <node name="spot_drawers_node" pkg="spot_skills" type="spot_drawers_node.py" required="true" output="screen" />
+
+</launch>

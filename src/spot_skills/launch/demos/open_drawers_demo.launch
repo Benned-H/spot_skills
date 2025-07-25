@@ -1,0 +1,18 @@
+<!-- Launch the nodes needed to run the OpenDrawers skill -->
+<launch>
+
+    <!-- For safety reasons, do not assume which Spot is being used -->
+    <arg name="spot_name"/>
+    <arg name="real_robot" default="true"/>
+
+    <param name="/spot/immediate_control" value="true"/>
+
+    <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true"/>
+
+    <!-- Include the launch file that brings up the "OpenDrawers" service-providing node -->
+    <include file="$(find spot_skills)/launch/bringup/bringup_drawers.launch"/>
+
+    <!-- Run Rviz using a config file designed for MoveIt-based demos -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" />
+
+</launch>
