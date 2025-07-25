@@ -80,7 +80,7 @@ def main() -> None:
     arm_controller = SpotArmController(spot_manager, 30)  # Limit to 30 points/segment
 
     # By now, Spot should be powered on and controllable
-    spot_manager.take_control()
+    spot_manager.take_control(force=True)
     assert spot_manager.stand_up(20)
     assert spot_manager.deploy_arm()
 

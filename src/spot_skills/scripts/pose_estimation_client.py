@@ -5,20 +5,21 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import rospy
-from transform_utils.kinematics import DEFAULT_FRAME, Pose3D
-from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
-from transform_utils.ros.services import ServiceCaller
-from transform_utils.transform_manager import TransformManager
+from robotics_utils.kinematics.poses import Pose3D
+from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
+from robotics_utils.ros.services import ServiceCaller
+from robotics_utils.ros.transform_manager import TransformManager
 
 from pose_estimation_msgs.msg import PoseEstimate
 from pose_estimation_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
+from spot_skills.msg import RGBDPair
 from spot_skills.srv import (
     GetRGBDPairs,
     GetRGBDPairsRequest,
     GetRGBDPairsResponse,
-    ObjectNameService,
-    ObjectNameServiceRequest,
-    ObjectNameServiceResponse,
+    NameService,
+    NameServiceRequest,
+    NameServiceResponse,
 )
 
 if TYPE_CHECKING:
@@ -51,7 +52,7 @@ class PoseEstimateClient:
         )
 
         # Configure the pose estimation service based on ROS params
-        cameras_list_str = rospy.get_param("/pose_estimation/default_cameras")
+        cameras_list_str = str(rospy.get_param("/pose_estimation/default_cameras"))
         self.camera_names: list[str] = [c.strip() for c in cameras_list_str.split(",")]
 
         self.known_objects: list[str] = rospy.get_param("known_objects")
@@ -64,8 +65,8 @@ class PoseEstimateClient:
         self.pose_pub = rospy.Publisher("/estimated_object_poses", PoseEstimate, queue_size=10)
 
         # Provide services to enable/disable pose estimation for specific objects
-        self.enable_srv = rospy.Service("~enable_object", ObjectNameService, self.enable_object)
-        self.disable_srv = rospy.Service("~disable_object", ObjectNameService, self.disable_object)
+        self.enable_srv = rospy.Service("~enable_object", NameService, self.enable_object)
+        self.disable_srv = rospy.Service("~disable_object", NameService, self.disable_object)
 
     def next_object(self) -> str | None:
         """Find the next object of interest for pose estimation.
@@ -107,8 +108,10 @@ class PoseEstimateClient:
         assert rgbd_pairs_msg is not None, "Received None instead of a GetRGBDPairsResponse."
 
         # Immediately look up all camera transforms (pose_w_c) at the time of the image capture
+        rgbd_pairs: list[RGBDPair] = rgbd_pairs_msg.rgbd_pairs
+
         camera_poses: dict[str, Pose3D] = {}
-        for camera_name, rgbd_pair in zip(self.camera_names, rgbd_pairs_msg.rgbd_pairs):
+        for camera_name, rgbd_pair in zip(self.camera_names, rgbd_pairs):
             camera_frame = rgbd_pair.camera_info.header.frame_id  # Optical frame of the camera
             capture_time = rgbd_pair.camera_info.header.stamp  # Acquisition time of the images
             pose_w_c = TransformManager.lookup_transform(
@@ -119,7 +122,7 @@ class PoseEstimateClient:
             if pose_w_c is not None:
                 camera_poses[camera_name] = pose_w_c
 
-        for camera_name, rgbd_pair in zip(self.camera_names, rgbd_pairs_msg.rgbd_pairs):
+        for camera_name, rgbd_pair in zip(self.camera_names, rgbd_pairs):
             request = EstimatePoseRequest()
             request.rgb = rgbd_pair.rgb
             request.depth = rgbd_pair.depth
@@ -145,47 +148,47 @@ class PoseEstimateClient:
             msg = PoseEstimate(object_name, pose_stamped_msg, response.confidence)
             self.pose_pub.publish(msg)
 
-    def enable_object(self, req: ObjectNameServiceRequest) -> ObjectNameServiceResponse:
+    def enable_object(self, req: NameServiceRequest) -> NameServiceResponse:
         """Enable pose estimation for the object requested via ROS service.
 
         :param req: Request message specifying which object should have pose estimation enabled
         :return: Response message conveying whether the request was successfully completed
         """
-        if req.object_name not in self.known_objects:
-            return ObjectNameServiceResponse(
+        if req.name not in self.known_objects:
+            return NameServiceResponse(
                 success=False,
-                message=f"Cannot enable pose estimation for unknown object '{req.object_name}'.",
+                message=f"Cannot enable pose estimation for unknown object '{req.name}'.",
             )
 
-        if req.object_name not in self.active_objects:
-            self.active_objects.append(req.object_name)
+        if req.name not in self.active_objects:
+            self.active_objects.append(req.name)
 
-        success = req.object_name in self.active_objects
+        success = req.name in self.active_objects
         resulting_status = "enabled" if success else "disabled"
-        message = f"Pose estimation is now {resulting_status} for object '{req.object_name}'."
+        message = f"Pose estimation is now {resulting_status} for object '{req.name}'."
 
-        return ObjectNameServiceResponse(success, message)
+        return NameServiceResponse(success, message)
 
-    def disable_object(self, req: ObjectNameServiceRequest) -> ObjectNameServiceResponse:
+    def disable_object(self, req: NameServiceRequest) -> NameServiceResponse:
         """Disable pose estimation for the object requested via ROS service.
 
         :param req: Request message specifying which object should have pose estimation disabled
         :return: Response message conveying whether the request was successfully completed
         """
-        if req.object_name not in self.known_objects:
-            return ObjectNameServiceResponse(
+        if req.name not in self.known_objects:
+            return NameServiceResponse(
                 success=False,
-                message=f"Cannot disable pose estimation for unknown object '{req.object_name}'.",
+                message=f"Cannot disable pose estimation for unknown object '{req.name}'.",
             )
 
-        if req.object_name in self.active_objects:
-            self.active_objects.remove(req.object_name)
+        if req.name in self.active_objects:
+            self.active_objects.remove(req.name)
 
-        success = req.object_name not in self.active_objects
+        success = req.name not in self.active_objects
         resulting_status = "disabled" if success else "enabled"
-        message = f"Pose estimation is now {resulting_status} for object '{req.object_name}'."
+        message = f"Pose estimation is now {resulting_status} for object '{req.name}'."
 
-        return ObjectNameServiceResponse(success, message)
+        return NameServiceResponse(success, message)
 
 
 def main() -> None:
