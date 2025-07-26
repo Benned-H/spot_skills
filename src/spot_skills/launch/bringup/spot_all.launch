@@ -1,0 +1,65 @@
+<!-- Launch all nodes involved in the Spot skills in the nominal experiment setup
+
+    Required arguments:
+
+        spot_name - Name of the Spot being used
+        
+    Optional arguments:
+
+        rtabmap_database_path - Path to the saved RTAB-Map 3D pointcloud map
+        TODO: apriltags_yaml_path - Path to a YAML file configuring the AR marker system
+
+-->
+<launch>
+
+    <!-- For safety reasons, do not assume which Spot is being used -->
+    <arg name="spot_name" />
+
+    <!-- Allow the user to specify the path to their recorded point cloud map -->
+    <arg name="rtabmap_database_path" default="/docker/spot_skills/maps/rtabmap.db" />
+
+    <!-- TODO: Allow the user to specify a config YAML for the AR marker detection system -->
+    <!-- <arg name="apriltags_yaml_path" default="/docker/spot_skills/src/spot_skills/config/experiments/corl_a/corl_a_apriltags.yaml" /> -->
+
+    <!-- Allow the user to specify the YAML file for named waypoints -->
+    <arg name="waypoints_yaml" default="/docker/spot_skills/src/spot_skills/config/waypoints.yaml"/>
+
+    <!-- We can only run the full system on the real robot -->
+    <arg name="real_robot" value="true" />
+    <arg name="/spot/immediate_control" value="false" />
+    <arg name="actively_running_tamp" default="false"/>
+
+    <!-- Default: Start Spot in localization mode and load in an existing map -->
+    <arg name="localization_mode" default="true" />
+    <arg name="start_new_map" default="false" />
+
+    <!-- Activate object detection so that Spot can identify the door handle -->
+    <param name="/spot/object_detection/active" value="true"/>
+
+    <!-- Launch all nodes to control Spot, simulated or real, using MoveIt -->
+    <include file="$(find spot_skills)/launch/bringup/bringup_spot_moveit.launch">
+        <arg name="real_robot" value="$(arg real_robot)" />
+        <arg name="spot_name" value="$(arg spot_name)" />
+    </include>
+
+    <!-- Launch the SLAM system using its main launch file -->
+    <include file="$(find spot_rtabmap)/launch/spot_rtabmap.launch">
+        <arg name="localization_mode" value="$(arg localization_mode)" />
+        <arg name="start_new_map" value="$(arg start_new_map)" />
+        <arg name="rtabmap_database_path" value="$(arg rtabmap_database_path)" />
+    </include>
+
+    <include file="$(find spot_skills)/launch/bringup/bringup_spot_nav.launch">
+        <arg name="waypoints_yaml" value="$(arg waypoints_yaml)" />
+    </include>
+    <include file="$(find spot_skills)/launch/bringup/bringup_drawers.launch"/>
+
+    <!-- Launch nodes for AR tag tracking using ar_track_alvar -->
+    <!--<include file="$(find spot_skills)/launch/bringup_alvar.launch">
+        <arg name="apriltags_yaml_path" value="$(arg apriltags_yaml_path)" />
+
+        <arg name="enable_frontleft_single_large" value="true" />
+        <arg name="enable_frontright_single_large" value="true" />
+    </include>-->
+
+</launch>

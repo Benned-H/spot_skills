@@ -11,7 +11,7 @@
     </include>
 
     <!-- Launch and authenticate with the Spot ROS driver -->
-    <include file="$(find spot_skills)/launch/spot_driver_bringup.launch">
+    <include file="$(find spot_skills)/launch/bringup/bringup_spot_driver.launch">
         <arg name="load_robot_description" value="true"/>
         <arg name="spot_name" value="$(arg spot_name)"/>
     </include>

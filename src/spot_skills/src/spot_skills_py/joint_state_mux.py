@@ -3,6 +3,7 @@
 import rospy
 from robotics_utils.kinematics import Configuration
 from robotics_utils.ros.msg_conversion import config_to_joint_state_msg
+from robotics_utils.ros.params import get_ros_param
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String
 
@@ -17,10 +18,10 @@ class JointStateMux:
         self.valid_modes = ["real_execution", "sim_execution", "tamp"]
 
         rospy.loginfo("Loading rosparams in JointStateMux...")
-        self.real_execution_topic = str(rospy.get_param("real_joint_states_topic"))
-        self.sim_execution_topic = str(rospy.get_param("sim_joint_states_topic"))
-        self.tamp_topic = str(rospy.get_param("tamp_joint_states_topic"))
-        self.output_topic = str(rospy.get_param("joint_mux_output_topic"))
+        self.real_execution_topic = get_ros_param("real_joint_states_topic", str)
+        self.sim_execution_topic = get_ros_param("sim_joint_states_topic", str)
+        self.tamp_planning_topic = get_ros_param("tamp_joint_states_topic", str)
+        self.output_topic = get_ros_param("joint_mux_output_topic", str)
 
         self._mode = self.find_default_mode()  # Look up the default mode from ROS params
 
@@ -40,7 +41,7 @@ class JointStateMux:
         )
 
         rospy.Subscriber(
-            self.tamp_topic,
+            self.tamp_planning_topic,
             JointState,
             self.joint_state_callback,
             callback_args="tamp",

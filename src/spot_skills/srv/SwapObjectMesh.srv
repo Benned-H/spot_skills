@@ -1,0 +1,6 @@
+# Swap the collision mesh for the named object and modify its pose
+string object_name
+string mesh_filepath
+float64[6] pose_TODO_of_object_or_mesh # ?
+---
+bool success

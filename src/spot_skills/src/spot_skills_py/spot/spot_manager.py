@@ -14,6 +14,7 @@ from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client import create_standard_sdk, frame_helpers
 from bosdyn.client.door import DoorClient
 from bosdyn.client.estop import EstopClient
+from bosdyn.client.exceptions import LeaseUseError
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot import Robot
@@ -36,6 +37,7 @@ from rospy import loginfo as ros_loginfo
 from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
 from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
 from spot_skills_py.spot.spot_image_client import SpotImageClient
+from spot_skills_py.spot.spot_navigation import GoalReachedThresholds
 from spot_skills_py.spot.spot_sync import SpotTimeSync
 
 
@@ -266,21 +268,27 @@ class SpotManager:
             return None
 
         # Issue a command to the robot synchronously (blocks until done sending)
-        if duration_s is None:
-            command_id: int = self.command_client.robot_command(
-                command,
-                timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
-            )
-        else:  # Cut off the command after the given duration
-            if self.time_sync.robot_clock_skew_s is None:
-                self.log_info("Cannot send robot command because the robot is not time-synced.")
-                return None
+        try:
+            if duration_s is None:
+                command_id: int = self.command_client.robot_command(
+                    command,
+                    timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+                )
+            else:  # Cut off the command after the given duration
+                if self.time_sync.robot_clock_skew_s is None:
+                    self.log_info("Cannot send robot command because Spot is not time-synced.")
+                    return None
 
-            command_id: int = self.command_client.robot_command(
-                command,
-                end_time_secs=time.time() + duration_s,
-                timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+                command_id: int = self.command_client.robot_command(
+                    command,
+                    end_time_secs=time.time() + duration_s,
+                    timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+                )
+        except LeaseUseError as error:
+            self.log_info(
+                f"LeaseUseError: {error.error_message}, lease_use_result={error.lease_use_result}",
             )
+            return None
 
         self.log_info(f"Issued robot command with ID: {command_id}")
 
@@ -437,37 +445,56 @@ class SpotManager:
         self.log_info("Arm is now stowed.")
         return True
 
-    def navigate_to_base_pose(self, goal_base_pose: Pose2D, timeout_s: float) -> bool:
+    def navigate_to_base_pose(
+        self,
+        goal_base_pose: Pose2D,
+        thresholds: GoalReachedThresholds,
+        timeout_s: float,
+        retry_duration_s: float,
+    ) -> bool:
         """Send a command to Spot to navigate to the given base pose.
 
         Note: By default, the command is converted into the "vision" frame.
 
         :param goal_base_pose: Target base pose for the navigation
+        :param thresholds: Specifies when Spot is considered to have reached a navigation goal
         :param timeout_s: Duration (seconds) after which the command times out
+        :param retry_duration_s: Duration (seconds) for which the command will be re-attempted
         :return: True if the navigation command succeeded, else False
         """
         if not self.check_control():
+            self.log_info("Cannot navigate to base pose because SpotManager doesn't control Spot.")
             return False
 
         vision_frame = frame_helpers.VISION_FRAME_NAME
 
-        target_pose_v_b = TransformManager.convert_to_frame(goal_base_pose, vision_frame)
-        _, _, target_yaw_rad = target_pose_v_b.orientation.to_euler_rpy()
+        target_pose_v_b = TransformManager.convert_to_frame(goal_base_pose.to_3d(), vision_frame)
+        target_rpy = target_pose_v_b.orientation.to_euler_rpy()
 
         trajectory_command = RobotCommandBuilder.synchro_se2_trajectory_point_command(
             goal_x=target_pose_v_b.position.x,
             goal_y=target_pose_v_b.position.y,
-            goal_heading=target_yaw_rad,
+            goal_heading=target_rpy.yaw_rad,
             frame_name=vision_frame,
             params=self._mobility_params,
         )
 
-        command_id = self.send_robot_command(trajectory_command)
-        if command_id is None:
-            self.log_info("Navigation attempt returned None instead of a command ID.")
-            return False
+        # Repeatedly send the trajectory command to Spot until timeout or the goal is reached
+        end_time_s = time.time() + retry_duration_s
+        goal_reached = thresholds.is_goal_reached(goal_base_pose, lookup_timeout_s=2.0)
+        while time.time() < end_time_s and not goal_reached:
+            command_id = self.send_robot_command(trajectory_command, timeout_s)
+            if command_id is None:
+                self.log_info("Navigation attempt returned None instead of a command ID.")
+                continue
 
-        return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=timeout_s)
+            feedback = self.command_client.robot_command_feedback(command_id, timeout=1)
+            self.log_info(f"Current command feedback: {feedback}")
+
+            goal_reached = thresholds.is_goal_reached(goal_base_pose, lookup_timeout_s=2.0)
+            time.sleep(0.25)
+
+        return thresholds.is_goal_reached(goal_base_pose)
 
     def send_velocity_command(
         self,

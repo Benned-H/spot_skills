@@ -8,7 +8,7 @@
     -->
     <arg name="spot_name" />
     <arg name="real_robot" value="true" />
-    <include file="$(find spot_skills)/launch/spot_moveit_bringup.launch" pass_all_args="true" />
+    <include file="$(find spot_skills)/launch/bringup/bringup_spot_moveit.launch" pass_all_args="true" />
 
     <param name="/spot/immediate_control" value="true" />
 

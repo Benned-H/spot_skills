@@ -210,7 +210,7 @@ In this real-world demonstration, we'll use ROS to trigger Spot's off-the-shelf 
 Run the following command in the container after sourcing `devel/setup.bash` and running `source_all.bash`. Replace `NAME_HERE` with the name of the Spot you're using:
 
 ```bash
-roslaunch spot_skills spot_driver_bringup.launch rviz:=true load_robot_description:=true spot_name:=NAME_HERE
+roslaunch spot_skills bringup_spot_driver.launch rviz:=true load_robot_description:=true spot_name:=NAME_HERE
 ```
 
 When you're ready to begin recording transforms, run the following in another Docker terminal tab (after sourcing):
