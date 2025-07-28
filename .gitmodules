@@ -13,3 +13,6 @@
 [submodule "src/pose_estimation_msgs"]
 	path = src/pose_estimation_msgs
 	url = git@github.com:h2r/pose_estimation_msgs.git
+[submodule "src/spot_skills/src/robotics_utils"]
+	path = src/spot_skills/src/robotics_utils
+	url = git@github.com:Benned-H/robotics_utils.git
