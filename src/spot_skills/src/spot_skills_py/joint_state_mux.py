@@ -65,11 +65,11 @@ class JointStateMux:
 
         :return: String specifying the identified mode (e.g., "real_execution")
         """
-        give_tamp_control = bool(rospy.get_param("~actively_running_tamp"))
+        give_tamp_control = get_ros_param("~actively_running_tamp", bool)
         if give_tamp_control:
             return "tamp"
 
-        real_robot = bool(rospy.get_param("~real_robot"))
+        real_robot = get_ros_param("~real_robot", bool)
         return "real_execution" if real_robot else "sim_execution"
 
     def publish_state(self) -> None:
