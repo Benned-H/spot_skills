@@ -9,7 +9,7 @@
     <arg name="actively_running_tamp" default="false"/>
 
     <!-- Launch the joint_state_mux and load relevant ROS parameters -->
-    <include file="$(find spot_skills)/launch/bringup_joint_state_mux.launch">
+    <include file="$(find spot_skills)/launch/bringup/bringup_joint_state_mux.launch">
         <arg name="real_robot" value="$(arg real_robot)" />
         <arg name="actively_running_tamp" value="$(arg actively_running_tamp)" />
     </include>

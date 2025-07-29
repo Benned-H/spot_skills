@@ -175,6 +175,7 @@ catkin_install_python(PROGRAMS
   scripts/pose_estimation_client.py
   scripts/dummy_estimate_pose_server.py
   scripts/marker_listener.py
+  scripts/joint_state_mux_node.py
   src/robotics_utils/scripts/record_transforms.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

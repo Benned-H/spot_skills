@@ -1,7 +1,7 @@
 <!-- Launch all nodes to control Spot, simulated or real, using MoveIt
 
     This file launches/includes the following nodes/launch files:
-        - moveit_core.launch - All MoveIt-specific nodes for controlling any robot
+        - bringup_moveit_core.launch - All MoveIt-specific nodes for controlling any robot
         - fake_gripper_action_server - Fake controller for Spot's gripper (if simulated robot)
         - bringup_spot_driver.launch - Connects to Spot using its ROS driver (if real robot)
         - spot_wrapper_node - Connects to Spot using the ROS wrapper (to control real robot)
@@ -14,11 +14,15 @@
     <!-- Are we using a simulated (default) or real Spot? -->
     <arg name="real_robot" default="false"/>
 
+    <!-- If we're actively running TAMP, give the planner control over the robot joint states -->
+    <arg name="actively_running_tamp" default="false"/>
+
     <!-- Launch the core nodes MoveIt uses to control a robot (simulated or real) -->
-    <include file="$(dirname)/moveit_core.launch">
+    <include file="$(find spot_skills)/launch/bringup/bringup_moveit_core.launch">
         <!-- Load/override the robot description (URDF) using MoveIt -->
         <arg name="load_robot_description" value="true"/>
         <arg name="real_robot" value="$(arg real_robot)"/>
+        <arg name="actively_running_tamp" value="$(arg actively_running_tamp)"/>
     </include>
 
     <!-- If we're running in simulation, launch a fake controller for Spot's gripper -->

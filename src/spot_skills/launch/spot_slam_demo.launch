@@ -2,7 +2,7 @@
 
     This file launches/includes the following nodes/launch files:
         - bringup_spot_moveit.launch - Launches all nodes to control Spot using MoveIt, including:
-            - moveit_core.launch - All MoveIt-specific nodes for controlling any robot
+            - bringup_moveit_core.launch - All MoveIt-specific nodes for controlling any robot
             - bringup_spot_driver.launch - Connects to Spot using its ROS driver, for sensor data
             - spot_wrapper_node - Connects to Spot using the ROS wrapper, to control the robot
         
