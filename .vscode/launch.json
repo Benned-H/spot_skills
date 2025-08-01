@@ -3,11 +3,12 @@
     "configurations": [
         {
             "name": "TMP3 Debugger",
-            "type": "debugpy",
+            "type": "python",
             "request": "launch",
             "program": "src/tmp3/TMP.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Setup for TMP3",
         }
     ]
 }
