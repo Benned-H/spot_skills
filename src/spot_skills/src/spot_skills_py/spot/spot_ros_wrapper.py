@@ -34,6 +34,7 @@ from spot_skills_py.spot.spot_arm_controller import (
     GripperCommandOutcome,
     SpotArmController,
 )
+from spot_skills_py.spot.spot_erase import erase_board
 from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient
 from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.spot.spot_navigation import SpotNavigationServer
@@ -101,6 +102,7 @@ class SpotROS1Wrapper:
             PlaybackTrajectory,
             self.handle_playback_trajectory,
         )
+        self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
 
         traj_config = RelativeTrajectoryConfig(
             ee_frame="arm_link_wr1",
@@ -342,6 +344,29 @@ class SpotROS1Wrapper:
 
         message = f"Successfully executed trajectory loaded from file: {yaml_path}"
         return PlaybackTrajectoryResponse(success=True, message=message)
+
+    def handle_erase_board(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to erase a whiteboard.
+
+        :param _: Message representing a request to erase a board
+        :return: Response conveying whether the whiteboard was erased
+        """
+        if self._arm_locked:
+            return TriggerResponse(
+                success=False,
+                message="Could not erase whiteboard because Spot's arm remains locked.",
+            )
+
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
+
+        if not has_control:
+            return TriggerResponse(success=False, message="Could not erase the whiteboard.")
+
+        erase_board(self._manager)
+
+        return TriggerResponse(success=True, message="Erased the whiteboard.")
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
