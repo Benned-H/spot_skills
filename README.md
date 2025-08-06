@@ -37,18 +37,36 @@ docker compose pull spot-tamp-v3
 
 ## Docker Commands
 
-This repository uses Docker to standardize its workspace across machines. Ignoring most of the details, you'll only need to know the following:
-
-- To run the Spot skills code, you'll need to enter the Docker container, which has all the dependencies pre-installed.
-
-Run the following commands to enter the Docker container:
+This repository uses Docker to standardize its workspace across machines. To run the Spot skills code, you'll need to enter the Docker container. You can launch Docker using either _A)_ VS Code or _B)_ the command-line. Either way, first run the command:
 
 ```bash
+xhost +local:docker
+```
+
+- This allows ROS to open visualizations/GUIs from within the Docker.
+
+_A) Launch Docker via VS Code_ - Opens the Docker and connects it with VS Code, enabling better analysis/type-annotation.
+
+0. Install the **Dev Containers** VS Code extension on your local machine.
+1. Open a VS Code window to the top-level `spot_skills` folder (i.e., the folder containing this `README` file).
+2. In VS Code, press `Ctrl-Shift-P` and begin to type "**Dev Containers: Open Folder in Container...**".
+3. Select that option, navigate to the same top-level `spot_skills` folder, and press _Open_.
+
+Once the container is launched and VS Code is attached, you should see "_Dev Container: Spot Skills Dev Container_" in the bottom-left blue bar in VS Code.
+
+_B) Launch Docker via CLI_ - You can launch the Docker and attach a terminal into it from the command-line:
+
+1. Open a terminal and navigate to the top-level `spot_skills` folder.
+2. Run the following commands to launch the Docker container and then attach the terminal into the container:
+
+```bash
+# Launch the Spot skills Docker container
 docker compose up spot-tamp-v3 --detach
+# Attach the terminal to the running Docker
 docker compose exec spot-tamp-v3 bash
 ```
 
-To enter the running container in another terminal, just run the same script again.
+If you've launched the container using the command-line, you can still attach VS Code to that container using the process described above. Similarly, if you launched the Docker using VS Code, you can still use the second above command to attach another terminal into the running container.
 
 _Troubleshooting_:
 
