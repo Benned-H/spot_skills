@@ -14,6 +14,5 @@ fi
 
 # Install the project's Python packages (and their dependencies)
 # Reference: https://stackoverflow.com/a/35064498/10278033
-python3 -m pip install --upgrade pip
 pip install -e /docker/spot_skills
 pip install -e /docker/spot_skills/src/spot_skills/src/robotics_utils

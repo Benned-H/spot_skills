@@ -32,7 +32,7 @@ You then need to set up the drivers to allow docker to interface with the GPU:
 Pull the Docker container using the command:
 
 ```bash
-docker compose pull spot-tamp-v3
+docker compose pull spot-tamp-v3.1
 ```
 
 ## Docker Commands
@@ -61,9 +61,9 @@ _B) Launch Docker via CLI_ - You can launch the Docker and attach a terminal int
 
 ```bash
 # Launch the Spot skills Docker container
-docker compose up spot-tamp-v3 --detach
+docker compose up spot-tamp-v3.1 --detach
 # Attach the terminal to the running Docker
-docker compose exec spot-tamp-v3 bash
+docker compose exec spot-tamp-v3.1 bash
 ```
 
 If you've launched the container using the command-line, you can still attach VS Code to that container using the process described above. Similarly, if you launched the Docker using VS Code, you can still use the second above command to attach another terminal into the running container.
