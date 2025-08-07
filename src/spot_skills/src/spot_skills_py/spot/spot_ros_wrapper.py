@@ -13,6 +13,7 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
+from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.trajectory_replayer import RelativeTrajectoryConfig, TrajectoryReplayer
 from ros_numpy import msgify
 from sensor_msgs.msg import Image as ImageMsg
@@ -68,7 +69,7 @@ class SpotROS1Wrapper:
         rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
 
         spot_rosparams = ["/spot/hostname", "/spot/username", "/spot/password"]
-        spot_rosparam_values: list[str] = [rospy.get_param(par) for par in spot_rosparams]
+        spot_rosparam_values = [get_ros_param(par, str) for par in spot_rosparams]
         spot_hostname, spot_username, spot_password = spot_rosparam_values
 
         self._manager = SpotManager(
@@ -85,7 +86,7 @@ class SpotROS1Wrapper:
         self._door_opener = SpotDoorOpener(self._manager)
 
         # Only take immediate control of Spot if requested via rosparam
-        immediate_control: bool = rospy.get_param("/spot/immediate_control", default=False)
+        immediate_control = get_ros_param("/spot/immediate_control", bool, default_value=False)
 
         if immediate_control:
             self._manager.take_control(force=True)
@@ -96,6 +97,7 @@ class SpotROS1Wrapper:
         self._shutdown_service = rospy.Service("spot/shutdown", Trigger, self.handle_shutdown)
         self._unlock_arm_service = rospy.Service("spot/unlock_arm", Trigger, self.handle_unlock_arm)
         self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
+        self._deploy_arm_service = rospy.Service("spot/deploy_arm", Trigger, self.handle_deploy_arm)
         self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
         self._playback_trajectory_service = rospy.Service(
             "spot/playback_trajectory",
@@ -103,6 +105,7 @@ class SpotROS1Wrapper:
             self.handle_playback_trajectory,
         )
         self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
+        self._control_srv = rospy.Service("spot/take_control", Trigger, self.handle_take_control)
 
         traj_config = RelativeTrajectoryConfig(
             ee_frame="arm_link_wr1",
@@ -118,13 +121,13 @@ class SpotROS1Wrapper:
         )
 
         # If needed, create a client to request object detections
-        object_detection_active = rospy.get_param("/spot/object_detection/active", default=False)
-        if object_detection_active:
+        detect_objects = get_ros_param("/spot/object_detection/active", bool, default_value=False)
+        if detect_objects:
             self.detect_object_client = DetectObjectClient(["door handle"])
         else:
             rospy.loginfo("Skipping initialization of DetectObjectClient...")
 
-        navigation_active = rospy.get_param("/spot/navigation/active", default=False)
+        navigation_active = get_ros_param("/spot/navigation/active", bool, default_value=False)
         if navigation_active:
             rospy.loginfo("Now initializing the SpotNavigationServer...")
             self._navigation_server = SpotNavigationServer(manager=self._manager)
@@ -213,6 +216,25 @@ class SpotROS1Wrapper:
         message = "Spot's arm has been stowed." if arm_stowed else "Could not stow Spot's arm."
 
         return TriggerResponse(arm_stowed, message)
+
+    def handle_deploy_arm(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to deploy Spot's arm.
+
+        :param _: Message representing a request to deploy Spot's arm
+        :return: Response conveying whether Spot's arm has been deployed
+        """
+        if self._arm_locked:
+            message = "Spot's arm was not deployed because Spot's arm remains locked."
+            return TriggerResponse(success=False, message=message)
+
+        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if not has_control:
+            has_control = self._manager.take_control()
+
+        deployed = self._manager.deploy_arm() if has_control else False
+        message = "Spot's arm has been deployed." if deployed else "Could not deploy Spot's arm."
+
+        return TriggerResponse(success=deployed, message=message)
 
     def handle_get_rgbd_pairs(self, request_msg: GetRGBDPairsRequest) -> GetRGBDPairsResponse:
         """Handle a request to capture RGBD image pairs from the specified camera(s) on Spot.
@@ -367,6 +389,23 @@ class SpotROS1Wrapper:
         erase_board(self._manager)
 
         return TriggerResponse(success=True, message="Erased the whiteboard.")
+
+    def handle_take_control(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to forcibly take control of Spot.
+
+        :param _: Message representing a request to take control of Spot
+        :return: Response conveying whether control was successfully taken
+        """
+        has_control = self._manager.check_control()
+        if not has_control:
+            has_control = self._manager.take_control(force=True)
+
+        message = (
+            "SpotManager now controls Spot."
+            if has_control
+            else "SpotManager could not obtain control of Spot."
+        )
+        return TriggerResponse(success=has_control, message=message)
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
