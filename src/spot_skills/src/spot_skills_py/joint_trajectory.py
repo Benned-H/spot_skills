@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     import trajectory_msgs.msg
     from bosdyn.api.arm_command_pb2 import ArmJointTrajectory, ArmJointTrajectoryPoint
     from bosdyn.api.robot_command_pb2 import RobotCommand
-    from transform_utils.kinematics import Configuration
+    from robotics_utils.kinematics import Configuration
 
 
 @dataclass

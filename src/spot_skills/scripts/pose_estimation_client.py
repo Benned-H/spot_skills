@@ -5,10 +5,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import rospy
-from transform_utils.kinematics import DEFAULT_FRAME, Pose3D
-from transform_utils.kinematics_ros import pose_from_msg, pose_to_stamped_msg
-from transform_utils.ros.services import ServiceCaller
-from transform_utils.transform_manager import TransformManager
+from robotics_utils.kinematics import Pose3D
+from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
+from robotics_utils.ros.params import get_ros_param
+from robotics_utils.ros.services import ServiceCaller
+from robotics_utils.ros.transform_manager import TransformManager
 
 from pose_estimation_msgs.msg import PoseEstimate
 from pose_estimation_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
@@ -51,10 +52,10 @@ class PoseEstimateClient:
         )
 
         # Configure the pose estimation service based on ROS params
-        cameras_list_str = rospy.get_param("/pose_estimation/default_cameras")
+        cameras_list_str = get_ros_param("/pose_estimation/default_cameras", str)
         self.camera_names: list[str] = [c.strip() for c in cameras_list_str.split(",")]
 
-        self.known_objects: list[str] = rospy.get_param("known_objects")
+        self.known_objects: list[str] = get_ros_param("known_objects", list)
         self.active_objects: list[str] = []
         self._next_obj_idx = 0
 
