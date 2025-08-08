@@ -6203,6 +6203,7 @@ dependencies = [
     { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "opencv-python" },
     { name = "pycollada" },
     { name = "pyglet" },
     { name = "rosnumpy" },
@@ -6230,6 +6231,7 @@ dev = [
 requires-dist = [
     { name = "bosdyn-client", specifier = "==5.0.0" },
     { name = "numpy", specifier = ">=1.20" },
+    { name = "opencv-python" },
     { name = "pycollada" },
     { name = "pyglet", specifier = "<2" },
     { name = "rosnumpy" },

@@ -188,19 +188,15 @@ In this real-world demonstration, we'll use ROS to trigger Spot's off-the-shelf 
 
    - _Check_: Are Spot's front lights now flashing rainbow?
 
-3. On your computer, launch the `spot_skills` Docker and the `pose` Docker using the command:
+3. On your computer, launch the `spot_skills` Docker and the `pose` Docker using their respective instructions.
 
-   ```bash
-   bash docker/tmux_launch.sh
-   ```
-
-4. On the right window of `tmux`, launch the pose estimation and object detection server:
+4. In the `pose` Docker tab, launch the pose estimation and object detection server:
 
    ```bash
    sh /docker/pose/run_service.sh
    ```
 
-5. On the left window of `tmux`, launch the nodes for the demo using the following commands, replacing
+5. In the `spot_skills` Docker tab, launch the nodes for the demo using the following commands, replacing
    `NAME_HERE` with the name of the Spot you're using (e.g., `spot_name:=opener`):
 
    ```bash
