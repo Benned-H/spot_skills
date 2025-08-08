@@ -32,23 +32,41 @@ You then need to set up the drivers to allow docker to interface with the GPU:
 Pull the Docker container using the command:
 
 ```bash
-docker compose pull spot-tamp-v3
+docker compose pull spot-tamp-v3.1
 ```
 
 ## Docker Commands
 
-This repository uses Docker to standardize its workspace across machines. Ignoring most of the details, you'll only need to know the following:
-
-- To run the Spot skills code, you'll need to enter the Docker container, which has all the dependencies pre-installed.
-
-Run the following commands to enter the Docker container:
+This repository uses Docker to standardize its workspace across machines. To run the Spot skills code, you'll need to enter the Docker container. You can launch Docker using either _A)_ VS Code or _B)_ the command-line. Either way, first run the command:
 
 ```bash
-docker compose up spot-tamp-v3 --detach
-docker compose exec spot-tamp-v3 bash
+xhost +local:docker
 ```
 
-To enter the running container in another terminal, just run the same script again.
+- This allows ROS to open visualizations/GUIs from within the Docker.
+
+_A) Launch Docker via VS Code_ - Opens the Docker and connects it with VS Code, enabling better analysis/type-annotation.
+
+0. Install the **Dev Containers** VS Code extension on your local machine.
+1. Open a VS Code window to the top-level `spot_skills` folder (i.e., the folder containing this `README` file).
+2. In VS Code, press `Ctrl-Shift-P` and begin to type "**Dev Containers: Open Folder in Container...**".
+3. Select that option, navigate to the same top-level `spot_skills` folder, and press _Open_.
+
+Once the container is launched and VS Code is attached, you should see "_Dev Container: Spot Skills Dev Container_" in the bottom-left blue bar in VS Code.
+
+_B) Launch Docker via CLI_ - You can launch the Docker and attach a terminal into it from the command-line:
+
+1. Open a terminal and navigate to the top-level `spot_skills` folder.
+2. Run the following commands to launch the Docker container and then attach the terminal into the container:
+
+```bash
+# Launch the Spot skills Docker container
+docker compose up spot-tamp-v3.1 --detach
+# Attach the terminal to the running Docker
+docker compose exec spot-tamp-v3.1 bash
+```
+
+If you've launched the container using the command-line, you can still attach VS Code to that container using the process described above. Similarly, if you launched the Docker using VS Code, you can still use the second above command to attach another terminal into the running container.
 
 _Troubleshooting_:
 
@@ -56,9 +74,9 @@ _Troubleshooting_:
    - `git submodule update --init --recursive`
 
 ## Example Demonstrations
-NOTE: Before connecting to spot for the first time you will need to get the `secrets` folder containing the login information for each robot. For obvious security reasons this does not live online, so contact current codekeepers for the folder.
 
-The `secrets` folder needs to be put into `src/spot_skills`
+**NOTE**: Before connecting to Spot for the first time, you will need to populate a `secrets` folder containing the login information for each robot.
+For obvious security reasons this does not live online, so contact current codekeepers for the folder contents, which should be placed in `src/spot_skills/secrets`.
 
 ### Docker Demo Setup
 
@@ -173,19 +191,15 @@ In this real-world demonstration, we'll use ROS to trigger Spot's off-the-shelf 
 
    - _Check_: Are Spot's front lights now flashing rainbow?
 
-3. On your computer, launch the `spot_skills` Docker and the `pose` Docker using the command:
+3. On your computer, launch the `spot_skills` Docker and the `pose` Docker using their respective instructions.
 
-   ```bash
-   bash docker/tmux_launch.sh
-   ```
-
-4. On the right window of `tmux`, launch the pose estimation and object detection server:
+4. In the `pose` Docker tab, launch the pose estimation and object detection server:
 
    ```bash
    sh /docker/pose/run_service.sh
    ```
 
-5. On the left window of `tmux`, launch the nodes for the demo using the following commands, replacing
+5. In the `spot_skills` Docker tab, launch the nodes for the demo using the following commands, replacing
    `NAME_HERE` with the name of the Spot you're using (e.g., `spot_name:=opener`):
 
    ```bash

@@ -5,7 +5,7 @@
 import time
 
 import rospy
-from transform_utils.ros.services import trigger_service
+from robotics_utils.ros.services import trigger_service
 
 
 def main() -> None:

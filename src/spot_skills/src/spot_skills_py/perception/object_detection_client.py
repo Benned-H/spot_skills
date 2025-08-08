@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import rospy
+from robotics_utils.ros.services import ServiceCaller
 from sensor_msgs.msg import Image as ImageMsg
-from transform_utils.ros.services import ServiceCaller
 
 from pose_estimation_msgs.srv import DetectObjects, DetectObjectsRequest, DetectObjectsResponse
 

@@ -9,6 +9,7 @@ from bosdyn.api.basic_command_pb2 import StandCommand
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.robot_command_pb2 import RobotCommand
+from bosdyn.api.robot_state_pb2 import RobotState
 from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client import create_standard_sdk, frame_helpers
 from bosdyn.client.door import DoorClient
@@ -241,6 +242,13 @@ class SpotManager:
             for joint in sdk_joint_states
             if joint.name in SPOT_SDK_ARM_JOINT_NAMES
         }
+
+    def get_robot_state(self) -> RobotState:
+        """Query and return the current state of Spot.
+
+        :return: Protobuf message representing the current state of the robot
+        """
+        return self._state_client.get_robot_state()
 
     def send_robot_command(
         self,

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Check whether the image for the current Docker service can be pulled
-SERVICE_NAME="spot-tamp-v3"
+SERVICE_NAME="spot-tamp-v3.1"
 
 # Move to the directory of this script
 cd $(dirname "$0")

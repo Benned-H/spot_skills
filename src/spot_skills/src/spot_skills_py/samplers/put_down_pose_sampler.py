@@ -1,7 +1,7 @@
 """Define a class to sample put-down poses for placing objects on surfaces."""
 
 import numpy as np
-from transform_utils.kinematics import Point3D, Pose3D, Quaternion
+from robotics_utils.kinematics import EulerRPY, Point3D, Pose3D
 
 from spot_skills_py.planning_scene.put_down_surface import PutDownSurface
 from spot_skills_py.samplers.real_range import RealRange
@@ -56,5 +56,5 @@ class PutDownPoseSampler(Sampler[Pose3D]):
 
             yield Pose3D(
                 Point3D(x_m, y_m, self.height_m),
-                Quaternion.from_euler_rpy(0, 0, yaw_rad),
+                EulerRPY.from_sequence((0, 0, yaw_rad)).to_quaternion(),
             )

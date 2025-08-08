@@ -1,7 +1,7 @@
 ### Minimal Dockerfile for ROS 1 Noetic + Spot dependencies ###
 
 # Begin from a fixed version of the official ROS 1 Noetic Docker image
-FROM ros:noetic-perception@sha256:ef5fdebeaa881604208c067f96d42b61331825309e559c093e24e9e89c7d3d2e AS spot-tamp-v3
+FROM ros:noetic-perception@sha256:ef5fdebeaa881604208c067f96d42b61331825309e559c093e24e9e89c7d3d2e AS spot-tamp-v3.1
 
 # Install dependencies not included in the base image
 RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -56,7 +56,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     # Clean up layer after using apt-get update
     rm -rf /var/lib/apt/lists/* && apt-get clean
 
-RUN python3 -m pip install bosdyn-client==5.0.0 transforms3d==0.4.2 rosnumpy==0.0.6.2
+RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install transforms3d==0.4.2 bosdyn-client==5.0.0 numpy>=1.20
 
 ENV DISABLE_ROS1_EOL_WARNINGS=1
 CMD ["bash"]
