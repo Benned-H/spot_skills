@@ -21,7 +21,7 @@ bash docker/git_pull_all.sh
 
 If you do not already have Docker on your system, you will need to follow these steps:
 
-- Install Docker using apt [LINK](https://docs.docker.com/engine/install/linux-postinstall/)
+- Install Docker using apt [LINK](https://docs.docker.com/engine/install/ubuntu/)
 - Enable non-sudo Docker [LINK](https://docs.docker.com/engine/install/linux-postinstall/)
 
 You then need to set up the drivers to allow docker to interface with the GPU:
@@ -56,6 +56,9 @@ _Troubleshooting_:
    - `git submodule update --init --recursive`
 
 ## Example Demonstrations
+NOTE: Before connecting to spot for the first time you will need to get the `secrets` folder containing the login information for each robot. For obvious security reasons this does not live online, so contact current codekeepers for the file.
+
+The `secrets` file needs to be put into `src/spot_skills`
 
 ### Docker Demo Setup
 
