@@ -74,9 +74,9 @@ _Troubleshooting_:
    - `git submodule update --init --recursive`
 
 ## Example Demonstrations
-NOTE: Before connecting to spot for the first time you will need to get the `secrets` folder containing the login information for each robot. For obvious security reasons this does not live online, so contact current codekeepers for the folder.
 
-The `secrets` folder needs to be put into `src/spot_skills`
+**NOTE**: Before connecting to Spot for the first time, you will need to populate a `secrets` folder containing the login information for each robot.
+For obvious security reasons this does not live online, so contact current codekeepers for the folder contents, which should be placed in `src/spot_skills/secrets`.
 
 ### Docker Demo Setup
 
