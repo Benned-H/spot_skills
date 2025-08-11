@@ -10,9 +10,7 @@ import rospy
 from actionlib import GoalStatus, SimpleActionClient
 from geometry_msgs.msg import Twist
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from robotics_utils.kinematics import DEFAULT_FRAME
-from robotics_utils.kinematics.poses import Pose2D
-from robotics_utils.kinematics.waypoints import Waypoints
+from robotics_utils.kinematics import DEFAULT_FRAME, Pose2D, Waypoints
 from robotics_utils.math.distances import angle_difference_rad, euclidean_distance_2d_m
 from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
 from robotics_utils.ros.transform_manager import TransformManager

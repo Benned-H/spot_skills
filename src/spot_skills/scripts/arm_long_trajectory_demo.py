@@ -63,6 +63,7 @@ def main() -> None:
     rospy.init_node("arm_long_trajectory_demo")
 
     rospy.sleep(5)  # Wait for other nodes to finish setup
+    rospy.loginfo("Now beginning arm long trajectory demo...")
 
     # Attempt to load Spot's username, password, and IP from ROS parameters
     spot_rosparams = ["/spot/username", "/spot/password", "/spot/hostname"]
@@ -78,8 +79,10 @@ def main() -> None:
         spot_password,
     )
     arm_controller = SpotArmController(spot_manager, 30)  # Limit to 30 points/segment
+    spot_manager.log_info("SpotManager and SpotArmController have been created.")
 
     # By now, Spot should be powered on and controllable
+    spot_manager.log_info("Taking control of Spot...")
     spot_manager.take_control()
     assert spot_manager.stand_up(20)
     assert spot_manager.deploy_arm()
