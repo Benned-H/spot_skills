@@ -43,4 +43,5 @@
     "files.associations": {
         "*.launch": "xml"
     },
+    "python-envs.pythonProjects": [],
 }
