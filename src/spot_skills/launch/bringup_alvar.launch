@@ -1,0 +1,116 @@
+<!-- Launch the requested nodes to track AR tags using ar_track_alvar -->
+<launch>
+
+    <!-- =========  GLOBAL ARGS  ========= -->
+
+    <!-- Require the path to a YAML file configuring the AR marker system -->
+    <arg name="apriltags_yaml_path" default="/resources/apriltags/taskplan.yaml"/>
+
+    <!-- Require a path specifying where estimated object poses are output -->
+    <arg name="yaml_output_path" default="/docker/spot_skills/src/spot_skills/config/object_poses.yaml"/>
+
+    <!-- Marker sizes (cm) -->
+    <arg name="small_marker_size_cm" default="4.0"/>
+    <arg name="medium_marker_size_cm" default="7.62"/>
+    <arg name="large_marker_size_cm" default="18.5"/>
+
+    <!-- Tracker parameters -->
+    <arg name="max_new_marker_error" default="0.08"/>
+    <arg name="max_track_error" default="0.2"/>
+
+    <!-- Optionally, replace /tf with a dummy topic -->
+    <arg name="tf_topic" default="dummy_tf"/>
+
+    <!-- =========  ACTIVATION FLAGS (all false by default)  ========= -->
+
+    <!-- Hand camera can track small (single) and medium (bundle) tags -->
+    <arg name="enable_hand_single_small" default="true"/>
+    <arg name="enable_hand_bundle_medium" default="true"/>
+
+    <!-- Front‑left body camera can detect medium (bundle) and large (single) tags -->
+    <arg name="enable_frontleft_bundle_medium" default="true"/>
+    <arg name="enable_frontleft_single_medium" default="true"/>
+
+    <!-- Front‑right body camera can detect medium (bundle) and large (single) tags -->
+    <arg name="enable_frontright_bundle_medium" default="true"/>
+    <arg name="enable_frontright_single_medium" default="true"/>
+
+    <!-- =========  HAND CAMERA  ========= -->
+    <!-- <node if="$(arg enable_hand_single_small)" name="ar_single_hand_small" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg small_marker_size_cm)" type="double"/>
+        <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
+        <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
+        <param name="output_frame" value="hand"/>
+        <remap from="camera_image" to="/spot/camera/hand_color/image"/>
+        <remap from="camera_info" to="/spot/camera/hand_color/camera_info"/>
+        <remap from="ar_pose_marker" to="/ar_pose_marker/hand/single"/>
+        <remap from="tf" to="$(arg tf_topic)"/>
+    </node> -->
+
+    <!-- <node if="$(arg enable_hand_bundle_medium)" name="ar_bundle_hand_medium" pkg="ar_track_alvar" type="findMarkerBundlesNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
+        <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
+        <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
+        <param name="output_frame" value="hand"/>
+        <param name="bundle_files" value="$(find spot_skills)/config/ar_markers/cabinet_bundle_1_2_3_4.xml"/>
+        <remap from="camera_image" to="/spot/camera/hand_color/image"/>
+        <remap from="camera_info" to="/spot/camera/hand_color/camera_info"/>
+        <remap from="ar_pose_marker" to="/ar_pose_marker/hand/bundle"/>
+        <remap from="tf" to="$(arg tf_topic)"/>
+    </node> -->
+
+    <!-- =========  FRONT‑LEFT CAMERA  ========= -->
+    <!-- <node if="$(arg enable_frontleft_bundle_medium)" name="ar_bundle_frontleft_medium" pkg="ar_track_alvar" type="findMarkerBundlesNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
+        <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
+        <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
+        <param name="output_frame" value="frontleft_fisheye"/>
+        <param name="bundle_files" value="$(find spot_skills)/config/ar_markers/cabinet_bundle_1_2_3_4.xml"/>
+        <remap from="camera_image" to="/spot/camera/frontleft/image"/>
+        <remap from="camera_info" to="/spot/camera/frontleft/camera_info"/>
+        <remap from="ar_pose_marker" to="/ar_pose_marker/frontleft/bundle"/>
+        <remap from="tf" to="$(arg tf_topic)"/>
+    </node> -->
+
+    <node if="$(arg enable_frontleft_single_medium)" name="ar_single_frontleft_medium" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
+        <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
+        <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
+        <param name="output_frame" value="frontleft_fisheye"/>
+        <remap from="camera_image" to="/spot/camera/frontleft/image"/>
+        <remap from="camera_info" to="/spot/camera/frontleft/camera_info"/>
+        <remap from="ar_pose_marker" to="/ar_pose_marker/frontleft/single"/>
+        <remap from="tf" to="$(arg tf_topic)"/>
+    </node>
+
+    <!-- =========  FRONT‑RIGHT CAMERA  ========= -->
+    <!-- <node if="$(arg enable_frontright_bundle_medium)" name="ar_bundle_frontright_medium" pkg="ar_track_alvar" type="findMarkerBundlesNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
+        <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
+        <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
+        <param name="output_frame" value="frontright_fisheye"/>
+        <param name="bundle_files" value="$(find spot_skills)/config/ar_markers/cabinet_bundle_1_2_3_4.xml"/>
+        <remap from="camera_image" to="/spot/camera/frontright/image"/>
+        <remap from="camera_info" to="/spot/camera/frontright/camera_info"/>
+        <remap from="ar_pose_marker" to="/ar_pose_marker/frontright/bundle"/>
+        <remap from="tf" to="$(arg tf_topic)"/>
+    </node> -->
+
+    <node if="$(arg enable_frontright_single_medium)" name="ar_single_frontright_medium" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
+        <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
+        <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
+        <param name="output_frame" value="frontright_fisheye"/>
+        <remap from="camera_image" to="/spot/camera/frontright/image"/>
+        <remap from="camera_info" to="/spot/camera/frontright/camera_info"/>
+        <remap from="ar_pose_marker" to="/ar_pose_marker/frontright/single"/>
+        <remap from="tf" to="$(arg tf_topic)"/>
+    </node>
+
+    <!-- Launch a node to forward transforms from ar_track_alvar to /tf -->
+    <node name="marker_listener" pkg="spot_skills" type="marker_listener.py" output="screen" required="true">
+        <param name="apriltags_yaml_path" value="$(arg apriltags_yaml_path)"/>
+        <param name="yaml_output_path" value="$(arg yaml_output_path)"/>
+    </node>
+
+</launch>
