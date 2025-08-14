@@ -12,7 +12,7 @@
         <rosparam file="$(find spot_move_base)/config/costmap_global_params.yaml" command="load" />
         <rosparam file="$(find spot_move_base)/config/costmap_local_params.yaml" command="load" />
 
-        <param name="base_local_planner" value="base_local_planner/TrajectoryPlannerROS" />
+        <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS" />
         <!-- <param name="base_global_planner" value="global_planner/GlobalPlanner" /> -->
         <param name="base_global_planner" value="navfn/NavfnROS" />
         <param name="controller_frequency" value="10.0" />
