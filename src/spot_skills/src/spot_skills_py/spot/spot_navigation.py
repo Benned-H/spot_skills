@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import threading
+import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -211,3 +213,40 @@ class SpotNavigationServer:
                 rate_hz.sleep()
         except rospy.ROSInterruptException as ros_exc:
             rospy.logwarn(f"[_publish_waypoints_tf_loop] {ros_exc}")
+
+
+@dataclass(frozen=True)
+class GoalReachedThresholds:
+    """Thresholds specifying when Spot is considered to have reached a goal pose."""
+
+    distance_m: float  # Distance (meters) from the goal base pose
+    abs_angle_rad: float  # Absolute angle (radians) from the yaw of the base pose
+
+
+def check_reached_goal(target_pose_2d: Pose2D, thresholds: GoalReachedThresholds) -> bool:
+    """Check whether Spot is considered to have reach a goal pose.
+
+    :param target_pose_2d: Target base pose for Spot
+    :param thresholds: Thresholds specifying when Spot is considered to have reached the goal
+    :return: True if Spot is sufficiently close to the target pose, else False
+    """
+    pose_lookup_duration_s = 3  # How long should we allow pose lookup to fail/retry?
+    end_time_s = time.time() + pose_lookup_duration_s
+
+    target_frame = target_pose_2d.ref_frame
+
+    curr_pose = None
+    while time.time() < end_time_s:
+        curr_pose = TransformManager.lookup_transform("body", target_frame, timeout_s=0.1)
+
+    if curr_pose is None:
+        rospy.logfatal(f"Could not look up body pose in frame '{target_pose_2d.ref_frame}'.")
+        return False
+
+    distance_2d_m = euclidean_distance_2d_m(target_pose_2d, curr_pose, change_frames=True)
+    angle_error_rad = angle_difference_rad(target_pose_2d.yaw_rad, curr_pose.yaw_rad)
+
+    distance_reached = distance_2d_m < thresholds.distance_m
+    angle_reached = angle_error_rad < thresholds.abs_angle_rad
+
+    return distance_reached and angle_reached

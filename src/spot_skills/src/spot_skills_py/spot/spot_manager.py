@@ -35,6 +35,7 @@ from rospy import loginfo as ros_loginfo
 from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
 from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
 from spot_skills_py.spot.spot_image_client import SpotImageClient
+from spot_skills_py.spot.spot_navigation import GoalReachedThresholds, check_reached_goal
 from spot_skills_py.spot.spot_sync import SpotTimeSync
 
 
@@ -449,6 +450,7 @@ class SpotManager:
         :return: True if the navigation command succeeded, else False
         """
         if not self.check_control():
+            self.log_info("Can't navigate to base pose because SpotManager doesn't control Spot.")
             return False
 
         vision_frame = frame_helpers.VISION_FRAME_NAME
@@ -464,12 +466,24 @@ class SpotManager:
             params=self._mobility_params,
         )
 
-        command_id = self.send_robot_command(trajectory_command)
-        if command_id is None:
-            self.log_info("Navigation attempt returned None instead of a command ID.")
-            return False
+        # Repeatedly send the trajectory command to Spot until timeout or the goal is reached
+        thresholds = GoalReachedThresholds(distance_m=0.1, abs_angle_rad=0.3)
+        end_time_s = time.time() + timeout_s
 
-        return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=timeout_s)
+        goal_reached = check_reached_goal(goal_base_pose, thresholds)
+        while time.time() < end_time_s and not goal_reached:
+            command_id = self.send_robot_command(trajectory_command, timeout_s)
+            if command_id is None:
+                self.log_info("Navigation attempt returned None instead of a command ID.")
+                continue
+
+            feedback = self.command_client.robot_command_feedback(command_id, timeout=1)
+            self.log_info(f"Current command feedback: {feedback}")
+
+            goal_reached = check_reached_goal(goal_base_pose, thresholds)
+            time.sleep(0.25)
+
+        return check_reached_goal(goal_base_pose, thresholds)
 
     def send_velocity_command(
         self,
