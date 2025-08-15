@@ -467,7 +467,7 @@ class SpotManager:
         )
 
         # Repeatedly send the trajectory command to Spot until timeout or the goal is reached
-        thresholds = GoalReachedThresholds(distance_m=0.1, abs_angle_rad=0.3)
+        thresholds = GoalReachedThresholds(distance_m=0.5, abs_angle_rad=0.3)
         end_time_s = time.time() + timeout_s
 
         goal_reached = check_reached_goal(goal_base_pose, thresholds)
@@ -477,7 +477,7 @@ class SpotManager:
                 self.log_info("Navigation attempt returned None instead of a command ID.")
                 continue
 
-            feedback = self.command_client.robot_command_feedback(command_id, timeout=1)
+            feedback = self.command_client.robot_command_feedback(command_id, timeout=3)
             self.log_info(f"Current command feedback: {feedback}")
 
             goal_reached = check_reached_goal(goal_base_pose, thresholds)

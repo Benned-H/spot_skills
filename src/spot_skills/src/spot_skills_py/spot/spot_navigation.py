@@ -166,24 +166,24 @@ class SpotNavigationServer:
         if not has_control:
             return False, "Could not obtain control of Spot using the SpotManager."
 
-        duration_timeout = rospy.Duration.from_sec(self.timeout_s)
+        # duration_timeout = rospy.Duration.from_sec(self.timeout_s)
 
-        action_goal = MoveBaseGoal(target_pose=pose_msg)
-        self._move_base_client.send_goal_and_wait(action_goal, execute_timeout=duration_timeout)
+        # action_goal = MoveBaseGoal(target_pose=pose_msg)
+        # self._move_base_client.send_goal_and_wait(action_goal, execute_timeout=duration_timeout)
 
-        result_state = self._move_base_client.get_state()
-        result_text = self._move_base_client.get_goal_status_text()
+        # result_state = self._move_base_client.get_state()
+        # result_text = self._move_base_client.get_goal_status_text()
 
         target_pose_2d = pose_from_msg(pose_msg).to_2d()
 
         # If move_base didn't bring Spot sufficiently close to the goal, give up
-        if result_state != GoalStatus.SUCCEEDED:
-            rospy.loginfo(f"MoveBase failed with state {result_state} and text '{result_text}'.")
+        # if result_state != GoalStatus.SUCCEEDED:
+        #     rospy.loginfo(f"MoveBase failed with state {result_state} and text '{result_text}'.")
 
-            if not self.check_close_to_goal(target_pose_2d):
-                return (False, f"Move base failed with message: {result_text}")
+        #     if not self.check_close_to_goal(target_pose_2d):
+        #         return (False, f"Move base failed with message: {result_text}")
 
-        rospy.loginfo("Spot has successfully moved 'close' to the goal using move_base.")
+        # rospy.loginfo("Spot has successfully moved 'close' to the goal using move_base.")
 
         success = self._manager.navigate_to_base_pose(target_pose_2d, self.timeout_s)
         message = "Navigation was successful." if success else "Navigation failed."
@@ -243,8 +243,11 @@ def check_reached_goal(target_pose_2d: Pose2D, thresholds: GoalReachedThresholds
         rospy.logfatal(f"Could not look up body pose in frame '{target_pose_2d.ref_frame}'.")
         return False
 
-    distance_2d_m = euclidean_distance_2d_m(target_pose_2d, curr_pose, change_frames=True)
+    distance_2d_m = euclidean_distance_2d_m(target_pose_2d, curr_pose.to_2d(), change_frames=True)
     angle_error_rad = angle_difference_rad(target_pose_2d.yaw_rad, curr_pose.yaw_rad)
+
+    rospy.loginfo(f"Current Euclidean distance to target pose: {distance_2d_m} m")
+    rospy.loginfo(f"Current absolute angular error from target pose: {angle_error_rad} rad")
 
     distance_reached = distance_2d_m < thresholds.distance_m
     angle_reached = angle_error_rad < thresholds.abs_angle_rad

@@ -11,7 +11,7 @@
     <param name="/spot/navigation/close_to_goal_m" value="0.5" />
 
     <!-- Duration (seconds) after which a navigation command will time out -->
-    <param name="/spot/navigation/timeout_s" value="120" />
+    <param name="/spot/navigation/timeout_s" value="30" />
 
     <!-- Absolute angle (radians) within which Spot is considered "close" to its goal (here, 90 degrees) -->
     <param name="/spot/navigation/close_to_goal_rad" value="1.5708" />
