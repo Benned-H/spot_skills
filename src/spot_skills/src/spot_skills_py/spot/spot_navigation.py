@@ -230,7 +230,7 @@ def check_reached_goal(target_pose_2d: Pose2D, thresholds: GoalReachedThresholds
     :param thresholds: Thresholds specifying when Spot is considered to have reached the goal
     :return: True if Spot is sufficiently close to the target pose, else False
     """
-    pose_lookup_duration_s = 3  # How long should we allow pose lookup to fail/retry?
+    pose_lookup_duration_s = 5  # How long should we allow pose lookup to fail/retry?
     end_time_s = time.time() + pose_lookup_duration_s
 
     target_frame = target_pose_2d.ref_frame
@@ -246,10 +246,12 @@ def check_reached_goal(target_pose_2d: Pose2D, thresholds: GoalReachedThresholds
     distance_2d_m = euclidean_distance_2d_m(target_pose_2d, curr_pose.to_2d(), change_frames=True)
     angle_error_rad = angle_difference_rad(target_pose_2d.yaw_rad, curr_pose.yaw_rad)
 
-    rospy.loginfo(f"Current Euclidean distance to target pose: {distance_2d_m} m")
-    rospy.loginfo(f"Current absolute angular error from target pose: {angle_error_rad} rad")
-
     distance_reached = distance_2d_m < thresholds.distance_m
     angle_reached = angle_error_rad < thresholds.abs_angle_rad
+    result = distance_reached and angle_reached
 
-    return distance_reached and angle_reached
+    rospy.loginfo(f"Current Euclidean distance to target pose: {distance_2d_m} m")
+    rospy.loginfo(f"Current absolute angular error from target pose: {angle_error_rad} rad")
+    rospy.loginfo(f"Ending navigation? {result}")
+
+    return result

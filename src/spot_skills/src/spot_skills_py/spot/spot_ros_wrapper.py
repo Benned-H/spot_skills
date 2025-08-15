@@ -13,8 +13,10 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
+from robotics_utils.ros.msg_conversion import pose_to_stamped_msg
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.trajectory_replayer import RelativeTrajectoryConfig, TrajectoryReplayer
+from robotics_utils.ros.transform_manager import TransformManager
 from ros_numpy import msgify
 from sensor_msgs.msg import Image as ImageMsg
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
@@ -27,6 +29,9 @@ from spot_skills.srv import (
     PlaybackTrajectory,
     PlaybackTrajectoryRequest,
     PlaybackTrajectoryResponse,
+    PoseLookup,
+    PoseLookupRequest,
+    PoseLookupResponse,
 )
 from spot_skills_py.joint_trajectory import JointTrajectory
 from spot_skills_py.perception.object_detection_client import DetectObjectClient
@@ -47,6 +52,8 @@ class SpotROS1Wrapper:
 
     def __init__(self) -> None:
         """Initialize the ROS interface by creating an internal SpotManager."""
+        self._arm_locked = True  # Begin without ROS control of Spot's arm
+
         # Set up all ROS action servers provided by the class (do this early so MoveIt finds them)
         self._arm_action_name = "arm_controller/follow_joint_trajectory"
         self._arm_action_server = SimpleActionServer(
@@ -81,7 +88,6 @@ class SpotROS1Wrapper:
 
         max_segment_len = 30  # Limit the points/segment in ArmController trajectories
         self._arm_controller = SpotArmController(self._manager, max_segment_len)
-        self._arm_locked = True  # Begin without ROS control of Spot's arm
 
         self._door_opener = SpotDoorOpener(self._manager)
 
@@ -106,6 +112,7 @@ class SpotROS1Wrapper:
         )
         self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
         self._control_srv = rospy.Service("spot/take_control", Trigger, self.handle_take_control)
+        self._pose_lookup_srv = rospy.Service("pose_lookup", PoseLookup, self.handle_pose_lookup)
 
         traj_config = RelativeTrajectoryConfig(
             ee_frame="arm_link_wr1",
@@ -183,7 +190,7 @@ class SpotROS1Wrapper:
         """
         has_control = self._manager.check_control()  # Only take control of Spot once necessary
         if not has_control:
-            has_control = self._manager.take_control()
+            has_control = self._manager.take_control(force=True)
 
         if has_control:
             self._arm_locked = False
@@ -406,6 +413,20 @@ class SpotROS1Wrapper:
             else "SpotManager could not obtain control of Spot."
         )
         return TriggerResponse(success=has_control, message=message)
+
+    def handle_pose_lookup(self, request: PoseLookupRequest) -> PoseLookupResponse:
+        """Handle a request to look up the relative pose between two frames using /tf."""
+        relative_pose = TransformManager.lookup_transform(
+            request.source_frame,
+            request.target_frame,
+        )
+        success = relative_pose is not None
+        message = str(relative_pose.to_yaml_data()) if success else "Relative pose was None."
+        return PoseLookupResponse(
+            success=success,
+            message=message,
+            relative_pose=pose_to_stamped_msg(relative_pose),
+        )
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.

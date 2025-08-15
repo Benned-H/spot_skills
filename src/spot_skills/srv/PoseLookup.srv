@@ -1,0 +1,7 @@
+# Request a pose lookup between the two requested frames
+string source_frame
+string target_frame
+---
+bool success
+string message
+geometry_msgs/PoseStamped relative_pose

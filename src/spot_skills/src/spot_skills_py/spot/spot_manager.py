@@ -477,8 +477,8 @@ class SpotManager:
                 self.log_info("Navigation attempt returned None instead of a command ID.")
                 continue
 
-            feedback = self.command_client.robot_command_feedback(command_id, timeout=3)
-            self.log_info(f"Current command feedback: {feedback}")
+            # feedback = self.command_client.robot_command_feedback(command_id, timeout=3)
+            # self.log_info(f"Current command feedback: {feedback}")
 
             goal_reached = check_reached_goal(goal_base_pose, thresholds)
             time.sleep(0.25)

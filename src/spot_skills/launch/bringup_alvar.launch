@@ -10,7 +10,7 @@
     <arg name="yaml_output_path" default="/docker/spot_skills/src/spot_skills/config/object_poses.yaml"/>
 
     <!-- Marker sizes (cm) -->
-    <arg name="small_marker_size_cm" default="4.0"/>
+    <arg name="small_marker_size_cm" default="4.5"/>
     <arg name="medium_marker_size_cm" default="7.62"/>
     <arg name="large_marker_size_cm" default="18.5"/>
 
@@ -29,23 +29,23 @@
 
     <!-- Front‑left body camera can detect medium (bundle) and large (single) tags -->
     <arg name="enable_frontleft_bundle_medium" default="true"/>
-    <arg name="enable_frontleft_single_medium" default="true"/>
+    <arg name="enable_frontleft_single_small" default="true"/>
 
     <!-- Front‑right body camera can detect medium (bundle) and large (single) tags -->
     <arg name="enable_frontright_bundle_medium" default="true"/>
-    <arg name="enable_frontright_single_medium" default="true"/>
+    <arg name="enable_frontright_single_small" default="true"/>
 
     <!-- =========  HAND CAMERA  ========= -->
-    <!-- <node if="$(arg enable_hand_single_small)" name="ar_single_hand_small" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+    <node if="$(arg enable_hand_single_small)" name="ar_single_hand_small" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
         <param name="marker_size" value="$(arg small_marker_size_cm)" type="double"/>
         <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
         <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
-        <param name="output_frame" value="hand"/>
+        <param name="output_frame" value="hand_color_image_sensor"/>
         <remap from="camera_image" to="/spot/camera/hand_color/image"/>
         <remap from="camera_info" to="/spot/camera/hand_color/camera_info"/>
         <remap from="ar_pose_marker" to="/ar_pose_marker/hand/single"/>
         <remap from="tf" to="$(arg tf_topic)"/>
-    </node> -->
+    </node>
 
     <!-- <node if="$(arg enable_hand_bundle_medium)" name="ar_bundle_hand_medium" pkg="ar_track_alvar" type="findMarkerBundlesNoKinect" respawn="true" output="screen">
         <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
@@ -72,8 +72,8 @@
         <remap from="tf" to="$(arg tf_topic)"/>
     </node> -->
 
-    <node if="$(arg enable_frontleft_single_medium)" name="ar_single_frontleft_medium" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
-        <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
+    <node if="$(arg enable_frontleft_single_small)" name="ar_single_frontleft_small" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg small_marker_size_cm)" type="double"/>
         <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
         <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
         <param name="output_frame" value="frontleft_fisheye"/>
@@ -96,8 +96,8 @@
         <remap from="tf" to="$(arg tf_topic)"/>
     </node> -->
 
-    <node if="$(arg enable_frontright_single_medium)" name="ar_single_frontright_medium" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
-        <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
+    <node if="$(arg enable_frontright_single_small)" name="ar_single_frontright_small" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg small_marker_size_cm)" type="double"/>
         <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
         <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
         <param name="output_frame" value="frontright_fisheye"/>
