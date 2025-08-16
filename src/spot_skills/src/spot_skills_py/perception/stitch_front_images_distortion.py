@@ -293,59 +293,62 @@ def get_image_from_robot(robot, jpeg_quality_percent=90):
 
 def stitch(image_response):
     """Stitch two front fisheye images together"""
-    pygame.init()
+    try:
+        pygame.init()
 
-    display = (1080, 720)
-    pygame.display.set_mode(display, pygame.DOUBLEBUF | pygame.OPENGL | pygame.HIDDEN)
+        display = (1080, 720)
+        pygame.display.set_mode(display, pygame.DOUBLEBUF | pygame.OPENGL | pygame.HIDDEN)
 
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = os.path.dirname(os.path.abspath(__file__))
 
-    vert_path = os.path.join(base_dir, 'shader_vert.glsl')
-    frag_path = os.path.join(base_dir, 'shader_frag.glsl')
+        vert_path = os.path.join(base_dir, 'shader_vert.glsl')
+        frag_path = os.path.join(base_dir, 'shader_frag.glsl')
 
-    with open(vert_path, 'r') as f:
-        vert_shader = f.read()
-    with open(frag_path, 'r') as f:
-        frag_shader = f.read()
+        with open(vert_path, 'r') as f:
+            vert_shader = f.read()
+        with open(frag_path, 'r') as f:
+            frag_shader = f.read()
 
-    program = CompiledShader(vert_shader, frag_shader)
+        program = CompiledShader(vert_shader, frag_shader)
 
-    stitching_camera = None
+        stitching_camera = None
 
-    # Wait until images are ready
-    while not image_response.done():
-        pygame.time.wait(10)
-        pygame.event.pump()  # Important to keep GL context alive
+        # Wait until images are ready
+        # while not image_response.done():
+        #     pygame.time.wait(10)
+        #     pygame.event.pump()  # Important to keep GL context alive
 
-    # Handle image results
-    images = image_response.result()
-    front_left = front_right = None
-    for image in images:
-        if image.source.name == 'frontright_fisheye_image':
-            front_right = ImagePreppedForOpenGL(image)
-        elif image.source.name == 'frontleft_fisheye_image':
-            front_left = ImagePreppedForOpenGL(image)
+        # Handle image results
+        # images = image_response.result()
+        images = image_response
+        front_left = front_right = None
+        for image in images:
+            if image.source.name == 'frontright_fisheye_image':
+                front_right = ImagePreppedForOpenGL(image)
+            elif image.source.name == 'frontleft_fisheye_image':
+                front_left = ImagePreppedForOpenGL(image)
 
-    if front_right and front_left:
-        program.update_images(front_right, front_left)
-        stitching_camera = StitchingCamera(front_right, front_left)
-    else:
-        print("Both images not found")
+        if front_right and front_left:
+            program.update_images(front_right, front_left)
+            stitching_camera = StitchingCamera(front_right, front_left)
+        else:
+            print("Both images not found")
 
-    # Render
-    glClearColor(0, 0, 1, 0)  # OpenGL uses 0-1 floats for color
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    draw_routine(display, program, stitching_camera)
-    # pygame.display.flip()
-    width, height = display
-    image_data = glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE)
+        # Render
+        glClearColor(0, 0, 1, 0)  # OpenGL uses 0-1 floats for color
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        draw_routine(display, program, stitching_camera)
+        # pygame.display.flip()
+        width, height = display
+        image_data = glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE)
 
-    image_np = numpy.frombuffer(image_data, dtype=numpy.uint8)
-    image_np = image_np.reshape((height, width, 3))
-    image_np = numpy.flipud(image_np)  # Flip vertically to match normal image coordinates
-    return image_np
-    # Image.fromarray(image_np).save("./stitched_output.png")
-
+        image_np = numpy.frombuffer(image_data, dtype=numpy.uint8)
+        image_np = image_np.reshape((height, width, 3))
+        image_np = numpy.flipud(image_np)  # Flip vertically to match normal image coordinates
+        return image_np
+    finally:
+        pygame.display.quit()
+        pygame.quit()
 
 
 def main():

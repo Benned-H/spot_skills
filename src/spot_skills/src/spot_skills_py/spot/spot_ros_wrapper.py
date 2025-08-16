@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from pathlib import Path
+from yaml import safe_load
 
 import rospy
 from actionlib import SimpleActionServer
@@ -17,6 +18,7 @@ from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.trajectory_replayer import RelativeTrajectoryConfig, TrajectoryReplayer
 from ros_numpy import msgify
 from sensor_msgs.msg import Image as ImageMsg
+from std_msgs.msg import String                    
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from spot_skills.msg import RGBDPair
@@ -27,6 +29,9 @@ from spot_skills.srv import (
     PlaybackTrajectory,
     PlaybackTrajectoryRequest,
     PlaybackTrajectoryResponse,
+    TakePicture,
+    TakePictureRequest,
+    TakePictureResponse
 )
 from spot_skills_py.joint_trajectory import JointTrajectory
 from spot_skills_py.perception.object_detection_client import DetectObjectClient
@@ -106,6 +111,11 @@ class SpotROS1Wrapper:
         )
         self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
         self._control_srv = rospy.Service("spot/take_control", Trigger, self.handle_take_control)
+        self._capture_img_srv = rospy.Service(
+                '/spot/take_picture', 
+                TakePicture, 
+                self.handle_image_capture
+            )
 
         traj_config = RelativeTrajectoryConfig(
             ee_frame="arm_link_wr1",
@@ -389,6 +399,30 @@ class SpotROS1Wrapper:
         erase_board(self._manager)
 
         return TriggerResponse(success=True, message="Erased the whiteboard.")
+
+    def handle_image_capture(self, request_msg: TakePictureRequest) -> TakePictureResponse:
+        """
+        Handles a service request to take a picture, 
+        either through the front cameras (with stitching) 
+        or the gripper camera.
+
+        :param _: Message representing a request to take a picture
+        :return: Response conveying whether the picture was taken and where it was saved to
+        """
+
+        # ─── Subscribe briefly to get latest img & skill info ─────────────────────────
+        # msg = rospy.wait_for_message('skill_info', String, timeout=120.0)
+        # info = safe_load(msg.data)                                 
+        img_path = request_msg.img_path #"dummy.jpg" #info['img_path']
+        cam_type = request_msg.cam_type #'Front' #info['cam_type']
+        # rospy.loginfo(f"Current working directory: {os.getcwd()}")           
+
+        try:
+            self._manager.image_client.capture_and_stitch(Path(img_path), cam_type)
+            rospy.loginfo(f"Saved ⇒ {img_path}")
+            return TakePictureResponse(success=True, message=f"Image saved to {img_path}")
+        except Exception as e:
+            return TakePictureResponse(success=False, message=str(e))
 
     def handle_take_control(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to forcibly take control of Spot.

@@ -1,0 +1,6 @@
+string img_path
+string cam_type
+---
+bool success
+string message
+

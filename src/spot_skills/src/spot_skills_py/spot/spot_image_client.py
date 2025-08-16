@@ -3,20 +3,29 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
+
 
 import cv2
 import numpy as np
 import rospy
+import os
+from pathlib import Path
+from PIL import Image as Img
 from bosdyn.api.image_pb2 import Image, ImageCapture, ImageRequest, ImageResponse
 from bosdyn.client.image import ImageClient, build_image_request
 from cv_bridge import CvBridge
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image as ImageMsg
+from spot_skills_py.perception.stitch_front_images_distortion import stitch
 
 if TYPE_CHECKING:
     from bosdyn.client.robot import Robot
 
+
+JPEG_QUALITY = 100
+FRONT_IMAGE_SOURCES = ['frontright_fisheye_image', 'frontleft_fisheye_image']
+GRIPPER_IMAGE_SOURCE = "hand_color_image"
 
 class ImageFormat(Enum):
     """Enumeration of image formats available from Spot."""
@@ -242,3 +251,32 @@ class SpotImageClient:
         camera_info_msg.P = [fx, 0, cx, 0, 0, fy, cy, 0, 0, 0, 1, 0]
 
         return camera_info_msg
+
+    def _grab_pil_pair(self, cam_type) -> Tuple[Image.Image, Image.Image]:
+        if self._image_client is None:
+            # Dry‑run: generate placeholder images
+            w, h = 640, 480
+            arr1 = np.full((h, w, 3), (255, 0, 0), dtype=np.uint8)
+            arr2 = np.full((h, w, 3), (0, 255, 0), dtype=np.uint8)
+            return Img.fromarray(arr1), Img.fromarray(arr2)
+        if cam_type == "Front":
+            reqs = [build_image_request(src, quality_percent=JPEG_QUALITY, pixel_format=Image.PIXEL_FORMAT_RGB_U8) for src in FRONT_IMAGE_SOURCES]
+        else:
+            reqs = [build_image_request(src, quality_percent=JPEG_QUALITY, pixel_format=Image.PIXEL_FORMAT_RGB_U8) for src in [GRIPPER_IMAGE_SOURCE]]
+        responses = self._image_client.get_image(reqs, timeout=5.0)
+        return responses
+    
+    def capture_and_stitch(self, save_path: Path, cam_type: str):
+        """Capture and write JPEGs; return their paths."""
+        if cam_type == "Front":
+            responses = self._grab_pil_pair(cam_type)
+            image_np = stitch(responses)
+        else:
+            responses = self._grab_pil_pair(cam_type)
+            responses = responses.result()
+            image_data = responses[0].shot.image.data
+            image_np = cv2.imdecode(np.frombuffer(image_data, dtype=np.uint8), cv2.IMREAD_COLOR)
+
+        os.chdir("/docker/spot_skills")
+        # rospy.loginfo(os.getcwd())
+        Img.fromarray(image_np).save(save_path)
