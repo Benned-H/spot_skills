@@ -4,7 +4,7 @@
     <!-- =========  GLOBAL ARGS  ========= -->
 
     <!-- Require the path to a YAML file configuring the AR marker system -->
-    <arg name="apriltags_yaml_path" default="/resources/apriltags/taskplan.yaml"/>
+    <arg name="apriltags_yaml_path" default="$(find spot_skills)/config/apriltags.yaml"/>
 
     <!-- Require a path specifying where estimated object poses are output -->
     <arg name="yaml_output_path" default="/docker/spot_skills/src/spot_skills/config/object_poses.yaml"/>
@@ -112,5 +112,10 @@
         <param name="apriltags_yaml_path" value="$(arg apriltags_yaml_path)"/>
         <param name="yaml_output_path" value="$(arg yaml_output_path)"/>
     </node>
+    <!-- Launch tf publisher for detected april tags -->
+    <!-- <node name="ar_tag_pose_estimation_tf" pkg="spot_skills" type="ar_tag_pose_estimation_tf.py" output="screen" required="true">
+        <param name="apriltags_yaml_path" value="$(arg apriltags_yaml_path)"/>
+        <param name="prefix" value="ar_pose_marker"/>
+    </node> -->
 
 </launch>

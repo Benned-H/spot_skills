@@ -15,6 +15,7 @@ from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from robotics_utils.kinematics import DEFAULT_FRAME, Pose2D, Waypoints
 from robotics_utils.math.distances import angle_difference_rad, euclidean_distance_2d_m
 from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
+from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
 
 from spot_skills.srv import (
@@ -62,7 +63,7 @@ class SpotNavigationServer:
         )
 
         # Load waypoint locations from a YAML file specified via ROS param
-        waypoints_yaml_path = Path(rospy.get_param("/spot/navigation/waypoints_yaml"))
+        waypoints_yaml_path = get_ros_param("/spot/navigation/waypoints_yaml", Path)
         self._waypoints = Waypoints.from_yaml(waypoints_yaml_path)
 
         rospy.loginfo(f"Loaded {len(self._waypoints)} named waypoints from YAML.")
@@ -72,8 +73,8 @@ class SpotNavigationServer:
         self._move_base_client.wait_for_server(timeout=rospy.Duration.from_sec(60.0))
 
         # Load thresholds for when Spot is considered "close to a goal" from ROS params
-        self.close_to_goal_m: float = rospy.get_param("/spot/navigation/close_to_goal_m")
-        self.close_to_goal_rad: float = rospy.get_param("/spot/navigation/close_to_goal_rad")
+        self.close_to_goal_m = get_ros_param("/spot/navigation/close_to_goal_m", float)
+        self.close_to_goal_rad = get_ros_param("/spot/navigation/close_to_goal_rad", float)
         self.timeout_s: float = rospy.get_param("/spot/navigation/timeout_s")
 
         # Subscribe to a topic providing body-frame velocity commands
@@ -223,7 +224,11 @@ class GoalReachedThresholds:
     abs_angle_rad: float  # Absolute angle (radians) from the yaw of the base pose
 
 
-def check_reached_goal(target_pose_2d: Pose2D, thresholds: GoalReachedThresholds) -> bool:
+def check_reached_goal(
+    target_pose_2d: Pose2D,
+    thresholds: GoalReachedThresholds,
+    do_return_errors: bool = False,
+) -> bool:
     """Check whether Spot is considered to have reach a goal pose.
 
     :param target_pose_2d: Target base pose for Spot
@@ -254,4 +259,6 @@ def check_reached_goal(target_pose_2d: Pose2D, thresholds: GoalReachedThresholds
     rospy.loginfo(f"Current absolute angular error from target pose: {angle_error_rad} rad")
     rospy.loginfo(f"Ending navigation? {result}")
 
+    if do_return_errors:
+        return result, distance_2d_m, angle_error_rad
     return result

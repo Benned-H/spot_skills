@@ -59,14 +59,6 @@ build:
 	. $(VENV_DIR)/bin/activate && uv pip install -r RAIL-lsp-dev/modules/requirements.txt
 	. $(VENV_DIR)/bin/activate && uv pip install sknw
 	. $(VENV_DIR)/bin/activate && \
-		pip3 install RAIL-lsp-dev/modules/common && \
-		pip3 install RAIL-lsp-dev/modules/unitybridge && \
-		pip3 install RAIL-lsp-dev/modules/environments && \
-		pip3 install RAIL-lsp-dev/modules/learning && \
-		pip3 install RAIL-lsp-dev/modules/lsp && \
-		pip3 install RAIL-lsp-dev/modules/lsp_accel && \
-		pip3 install RAIL-lsp-dev/modules/gridmap && \
-		pip3 install RAIL-lsp-dev/modules/procthor && \
 		pip3 install RAIL-lsp-dev/modules/taskplan
 
 .PHONY: download-sbert-model
@@ -86,6 +78,14 @@ symlinks:
 .PHONY: test-demo
 test-demo: download-sbert-model
 test-demo:
-	@mkdir -p $(DATA_BASE_DIR)/test_logs
+	@mkdir -p $(DATA_BASE_DIR)/test_logs 
 	PYTHONPATH="$(PWD)/pddlstream:$(PWD)/$(VENV_NAME)/lib/python3.8/site-packages:$${PYTHONPATH}" \
 		python3 RAIL-lsp-dev/modules/taskplan/tests/test_demo.py
+
+
+.PHONY: run-ar-tag-tf
+run-ar-tag-tf:
+	PYTHONPATH="$(PWD)/pddlstream:$(PWD)/$(VENV_NAME)/lib/python3.8/site-packages:$${PYTHONPATH}" \
+		python3 src/spot_skills/scripts/ar_tag_pose_estimation_tf.py
+
+
