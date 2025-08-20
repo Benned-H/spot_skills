@@ -273,7 +273,6 @@ class SpotImageClient:
             image_np = stitch(responses)
         else:
             responses = self._grab_pil_pair(cam_type)
-            responses = responses.result()
             image_data = responses[0].shot.image.data
             image_np = cv2.imdecode(np.frombuffer(image_data, dtype=np.uint8), cv2.IMREAD_COLOR)
 
