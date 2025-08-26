@@ -21,6 +21,7 @@ dependencies = ["numpy>=1.20", # np.typing was introduced in 1.20
     "scipy>=1.5",
     "rosnumpy", 
     "bosdyn-client==5.0.0",
+    "bosdyn-choreography-client==5.0.0",
     "opencv-python"
 ]
 

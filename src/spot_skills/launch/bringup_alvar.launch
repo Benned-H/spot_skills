@@ -10,7 +10,7 @@
     <arg name="output_yaml_path" default="$(find spot_skills)/config/object_poses.yaml"/>
 
     <!-- Marker sizes (cm) -->
-    <arg name="small_marker_size_cm" default="4.5"/>
+    <arg name="small_marker_size_cm" default="4.4"/>
     <arg name="medium_marker_size_cm" default="7.62"/>
     <arg name="large_marker_size_cm" default="18.5"/>
 
@@ -34,8 +34,8 @@
     </node>
 
     <!-- =========  FRONT‑LEFT CAMERA  ========= -->
-    <node name="ar_single_frontleft_medium" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
-        <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
+    <node name="ar_single_frontleft_small" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg small_marker_size_cm)" type="double"/>
         <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
         <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
         <param name="output_frame" value="frontleft_fisheye"/>
@@ -46,8 +46,8 @@
     </node>
 
     <!-- =========  FRONT‑RIGHT CAMERA  ========= -->
-    <node name="ar_single_frontright_medium" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
-        <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
+    <node name="ar_single_frontright_small" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg small_marker_size_cm)" type="double"/>
         <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
         <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
         <param name="output_frame" value="frontright_fisheye"/>
