@@ -174,7 +174,9 @@ catkin_install_python(PROGRAMS
   scripts/fake_gripper_action_server.py
   scripts/pose_estimation_client.py
   scripts/dummy_estimate_pose_server.py
+  scripts/joint_state_mux_node.py
   src/robotics_utils/scripts/record_transforms.py
+  src/robotics_utils/scripts/fiducial_tracker_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
