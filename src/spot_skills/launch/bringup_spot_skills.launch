@@ -1,19 +1,22 @@
-<!-- Launch all nodes needed to demonstrate the navigation system on Spot -->
+<!-- Launch all nodes needed to test the Spot skills -->
 <launch>
 
     <!-- For safety reasons, do not assume which Spot is being used -->
     <arg name="spot_name" />
 
-    <!-- We can only run the navigation system on the real robot -->
+    <!-- We can only run the skills on the real robot -->
     <arg name="real_robot" value="true" />
 
     <!-- Launch the navigation and SLAM systems using their bringup files -->
     <include file="$(find spot_skills)/launch/bringup_spot_nav.launch" />
     <include file="$(find spot_skills)/launch/bringup_spot_slam.launch" pass_all_args="true" />
 
-    <!-- Launch all nodes to control Spot using MoveIt (this loads the robot description) -->
+    <!-- Launch nodes to control Spot using MoveIt (this loads the robot description) -->
     <include file="$(find spot_skills)/launch/bringup_spot_moveit.launch" pass_all_args="true" />
 
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" />
+    <!-- Launch nodes enabling pose estimation using ar_track_alvar -->
+    <include file="$(find spot_skills)/launch/bringup_alvar.launch" />
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/all_spot_skills.rviz" />
 
 </launch>
