@@ -1,0 +1,13 @@
+<!-- Launch nodes to demonstrate MoveIt-based manipulation skills using Alvar tag tracking -->
+<launch>
+
+    <!-- Launch the SLAM systam to build a dummy map (and include the MoveIt bringup)-->
+    <arg name="spot_name" />
+    <arg name="real_robot" value="true"/>
+    <arg name="/spot/immediate_control" value="true" />
+    <include file="$(find spot_skills)/launch/spot_slam_demo.launch" pass_all_args="true" />
+
+    <!-- Configure and bring-up ar_track_alvar to provide AR marker detections -->
+    <include file="$(find spot_skills)/launch/bringup_alvar.launch" />
+
+</launch>

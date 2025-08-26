@@ -38,6 +38,6 @@
         <arg name="rtabmap_database_path" value="$(arg rtabmap_database_path)" />
     </include>
 
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" required="true" />
 
 </launch>

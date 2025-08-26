@@ -4,7 +4,7 @@
     <!-- =========  GLOBAL ARGS  ========= -->
 
     <!-- Require the path to a YAML file configuring the AR marker system -->
-    <arg name="apriltags_yaml_path" default="/resources/apriltags/taskplan.yaml"/>
+    <arg name="apriltags_yaml_path" default="/docker/spot_skills/src/spot_skills/config/fiducial_markers.yaml"/>
 
     <!-- Require a path specifying where estimated object poses are output -->
     <arg name="yaml_output_path" default="/docker/spot_skills/src/spot_skills/config/object_poses.yaml"/>
