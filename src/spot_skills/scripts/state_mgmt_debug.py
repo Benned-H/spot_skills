@@ -137,10 +137,11 @@ LOC_TO_CAM={
 }
 
 LOC_TO_POSE = {
-    "FarDrawer": {'x':1.6185776551346573, 'y':4.351615016108794, 'yaw_rad':1.5767166962871992},
-    "NearDrawer":{'x':1.6962928228511267, 'y':5.324740652801458, 'yaw_rad':1.5800258763906496},
-    "Door": {'x':-0.9466865082753808, 'y':5.748536851563401, 'yaw_rad':1.6079377047012806},
-    "Whiteboard":{'x':-3.671084041944143, 'y':10.21919214184345, 'yaw_rad':0.00196145772676737},
+    # "Door": {'x':-2.551946893788989, 'y':-3.9969687054171574, 'yaw_rad':-1.5174806343024052},
+    "FarDrawer": {'x':-4.55887296632496, 'y':-3.5433156792805565, 'yaw_rad':-1.63045600343705},
+    "Door": {'x':-2.079424112544328, 'y':-4.382491836694199, 'yaw_rad':-1.6030232601628331},
+    "NearDrawer":{'x':-4.573109184001097, 'y':-4.4492154938777055, 'yaw_rad':-1.646244845583943},
+    "Whiteboard":{'x':0.11682090388171185, 'y':-8.976598643052844, 'yaw_rad':3.1017425112797765},
 }
 
 LOC_ID_TO_LOC = {
@@ -155,7 +156,6 @@ SKILL_TO_LOC_ID={
     "OpenDrawer": [1, 2],
     "PickFromDrawer": [1, 2],
     "EraseBoard": [3],
-    # "Table": []
 }
 
 # LOC_TO_SKILLS={
@@ -181,6 +181,7 @@ ZIYI_DEPLOYED_ARM_CONFIG = {
 pose = Pose3D.from_list([0, 0, 0, 0, 0, 0], ref_frame="")
 USING_GRIPPER_CAM_POSE_STAMPED = pose_to_stamped_msg(pose)
 
+#TODO make dict of loc to ee pose for locs that need to use gripper cam
 
 ###############################################################################
 # YAML persistence                                                             #
@@ -344,7 +345,6 @@ def _take_init_imgs(move_group: MoveGroupCommander) -> Dict:
         print(f"NAVIGATING TO {loc}...")
         _go_to_loc(loc, navigate_to)
         print(f"REACHED {loc}!")
-
         
         cam_type = LOC_TO_CAM[loc]
         if cam_type == "Gripper":
@@ -381,11 +381,14 @@ def _prepare_state_for_next(curr_state_img_paths, skill_str, changed_locs, post_
 
 def main():
     # rospy.loginfo(f"Current working directory: {os.getcwd()}")           
+    
+    #NOTE: If we use TMP3 to take pics, need to tell the photo-tsker which skill we're in
     rospy.init_node('skill_info_publisher')                      
     pub = rospy.Publisher('skill_info', String, queue_size=10, latch=True)      
     # cam_types = rospy.get_param('~cam_types')
     move_group = MoveGroupCommander("arm")   
- 
+    
+    #TODO make a Type of what is returned by this fun
     init_paths_pre = _take_init_imgs(move_group) #dict {"Door": Path, ...}
     
     # init_paths_pre = { #for debugging
@@ -403,6 +406,7 @@ def main():
 
     for s_idx in range(seq_i, len(SEQUENCES)):
         curr_state_img_paths = copy.deepcopy(init_paths_pre)
+        #TODO replace "task" var name with "seq"
         task_key = f"seq_{s_idx+1}"
         seq = SEQUENCES[s_idx]
         data.setdefault(task_key, {})
@@ -467,7 +471,7 @@ def main():
                             img_path = img_path.with_name(img_name + f"_{loc}_" + "post_skill_undeployed_robot_leaves.jpg") 
                             post_skill_state_img_paths[frozenset({loc, skill_str})] = str(img_path) #NOTE 1: either this or NOTE 2 happens
                         elif arm_state == "deployed":
-                            if cam_type == "Gripper": 
+                            if cam_type == "Gripper": # NOTE: Only this case will run if Gripper camera (TODO: Separate gripper case vs arm deployed case)
                                 #take pic with realsense attached to gripper. 
                                 _deploy_arm(move_group, USING_GRIPPER_CAM_POSE_STAMPED)
                                 img_path = img_path.with_name(img_name + f"_{loc}_" +  "post_skill_deployed_robot_leave.jpg") #only ever used for state of location after skill has been executed and robot has left the location
@@ -478,18 +482,19 @@ def main():
                                 curr_state_img_paths[loc] = str(img_path)
 
 
-                        #### --- MAY REMOVE SECTION ---####
+                        #NOTE: for now we aren't using tmp3 for pics. uncomment the below section only if pics are taken via tmp3 and comment out the take pic service function call below. tmp3 pic taking may be broken and may need to be tested
+                        #### --- MAY USE SECTION ---####
                         # ─── publish img path and skill info to ROS topic in order for img to be taken ────────────
-                        payload = {
-                            'img_paths': str(img_path), 
-                            'cam_type': cam_type,
-                            'skill_str': skill_str,      
-                            'seq': s_idx                        
-                        }
+                        # payload = {
+                        #     'img_paths': str(img_path), 
+                        #     'cam_type': cam_type,
+                        #     'skill_str': skill_str,      
+                        #     'seq': s_idx                        
+                        # }
                         
-                        yaml_str = yaml.dump(payload)
-                        pub.publish(String(data=yaml_str))
-                        #### --- MAY REMOVE SECTION ---####
+                        # yaml_str = yaml.dump(payload)
+                        # pub.publish(String(data=yaml_str))
+                        #### --- MAY USE SECTION ---####
 
                         #take picture
                         _take_pic_via_service(str(img_path), cam_type)
