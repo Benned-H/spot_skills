@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
 import rospy
 from spot_skills.srv import NavigateToPose, NavigateToPoseRequest
 from moveit_commander import MoveGroupCommander
@@ -48,8 +49,11 @@ IMAGE_ROOT = Path("src/spot_skills/scripts/skill_chaining/")
 IMAGE_ROOT.mkdir(parents=True, exist_ok=True)
 START_LOC = "FarDrawer"
 
-Skill = Tuple[str, bool]  # (skill_string, success_flag)
+Skill = str
 Seq = List[Skill]
+Loc = str  # Location name
+Image_Path = str  # Path to an image file
+State = Dict[Loc, Image_Path]  # Mapping from location names to image paths
 
 #TODO replace with real experiment sequences
 SEQUENCES: List[Seq] = [
@@ -57,6 +61,7 @@ SEQUENCES: List[Seq] = [
     [
         "OpenDoor()",
         "EraseBoard()",
+        "OpenDrawer()",
     ],
     # seq 1
     [
@@ -72,55 +77,55 @@ SEQUENCES: List[Seq] = [
         "Erase(Eraser, WhiteBoard)",
     ],
     # seq 2
-    [
-        ("GoTo(Cabinet)", True),
-        ("Open(Cabinet)", True),
-        ("Erase(Eraser, WhiteBoard)", False),
-        ("Pick(Eraser)", True),
-        ("Close(Cabinet)", False),
-        ("GoTo(Door)", True),
-        ("OpenDoor(Door)", False),
-        ("Erase(Eraser, WhiteBoard)", False),
-    ],
+    # [
+    #     ("GoTo(Cabinet)", True),
+    #     ("Open(Cabinet)", True),
+    #     ("Erase(Eraser, WhiteBoard)", False),
+    #     ("Pick(Eraser)", True),
+    #     ("Close(Cabinet)", False),
+    #     ("GoTo(Door)", True),
+    #     ("OpenDoor(Door)", False),
+    #     ("Erase(Eraser, WhiteBoard)", False),
+    # ],
     # seq 3
-    [
-        ("Open(Cabinet)", False),
-        ("OpenDoor(Door)", False),
-        ("Close(Cabinet)", False),
-        ("GoTo(Door)", True),
-        ("GoTo(Table)", True),
-        ("Close(Cabinet)", False),
-        ("Open(Cabinet)", False),
-        ("Pick(Eraser)", False),
-        ("Erase(Eraser, WhiteBoard)", False),
-    ],
+    # [
+    #     ("Open(Cabinet)", False),
+    #     ("OpenDoor(Door)", False),
+    #     ("Close(Cabinet)", False),
+    #     ("GoTo(Door)", True),
+    #     ("GoTo(Table)", True),
+    #     ("Close(Cabinet)", False),
+    #     ("Open(Cabinet)", False),
+    #     ("Pick(Eraser)", False),
+    #     ("Erase(Eraser, WhiteBoard)", False),
+    # ],
     # seq 4
-    [
-        ("GoTo(Table)", True),
-        ("GoTo(Cabinet)", True),
-        ("Close(Cabinet)", False),
-        ("Pick(Eraser)", False),
-        ("Open(Cabinet)", True),
-        ("Pick(Eraser)", True),
-        ("GoTo(Door)", True),
-        ("OpenDoor(Door)", False),
-        ("GoTo(WhiteBoard)", False),
-        ("Erase(Eraser, WhiteBoard)", False),
-    ],
+    # [
+    #     ("GoTo(Table)", True),
+    #     ("GoTo(Cabinet)", True),
+    #     ("Close(Cabinet)", False),
+    #     ("Pick(Eraser)", False),
+    #     ("Open(Cabinet)", True),
+    #     ("Pick(Eraser)", True),
+    #     ("GoTo(Door)", True),
+    #     ("OpenDoor(Door)", False),
+    #     ("GoTo(WhiteBoard)", False),
+    #     ("Erase(Eraser, WhiteBoard)", False),
+    # ],
     # seq 5
-    [
-        ("Close(Cabinet)", False),
-        ("GoTo(Table)", True),
-        ("Open(Cabinet)", False),
-        ("Close(Cabinet)", False),
-        ("GoTo(Cabinet)", True),
-        ("Open(Cabinet)", True),
-        ("Pick(Eraser)", True),
-        ("Close(Cabinet)", False),
-        ("GoTo(Door)", True),
-        ("OpenDoor(Door)", False),
-        ("Erase(Eraser, WhiteBoard)", False),
-    ],
+    # [
+    #     ("Close(Cabinet)", False),
+    #     ("GoTo(Table)", True),
+    #     ("Open(Cabinet)", False),
+    #     ("Close(Cabinet)", False),
+    #     ("GoTo(Cabinet)", True),
+    #     ("Open(Cabinet)", True),
+    #     ("Pick(Eraser)", True),
+    #     ("Close(Cabinet)", False),
+    #     ("GoTo(Door)", True),
+    #     ("OpenDoor(Door)", False),
+    #     ("Erase(Eraser, WhiteBoard)", False),
+    # ],
 ]
 
 REFINED_TREE_PATHS = {
@@ -183,6 +188,69 @@ USING_GRIPPER_CAM_POSE_STAMPED = pose_to_stamped_msg(pose)
 
 #TODO make dict of loc to ee pose for locs that need to use gripper cam
 
+
+@dataclass
+class SkillTransition:
+    before : Dict[str, State]
+    after : Dict[str, State]
+    success : bool
+    skill_instance : str
+
+#tested
+def get_skill_transitions(skill_name: str) -> List[SkillTransition]:
+    """
+    Finds all states before and after a specific skill is executed in a sequences YAML file.
+
+    Args:
+        skill_name: The name of the skill to search for (e.g., "OpenDoor").
+        yaml_path: The path to the skill sequences YAML file.
+
+    Returns:
+        A list of dictionaries, where each pair of dictionaries represents
+        the state before and the state after the skill was executed.
+    """
+    if not YAML_PATH.exists():
+        rospy.logerr(f"Error: YAML file not found at {YAML_PATH}")
+        return []
+
+    with open(YAML_PATH, "r") as f:
+        data = yaml.safe_load(f)
+
+    if not data:
+        return []
+
+    if skill_name in [None, "None"]:
+        print("ENTER AN ACTUAL SKILL, NOT THE INTIAL 'SKILL' NONE")
+        return []
+
+    all_results = []
+    for seq_key, seq_data in data.items():
+        # The steps are keyed by strings "0", "1", "2", ...
+        # We need to sort them to process in order.
+        sorted_step_keys = sorted(seq_data.keys(), key=int)
+
+        for i, step_key in enumerate(sorted_step_keys):
+            step_info = seq_data[step_key]
+            
+            # The skill at step 0 is always None, so we start from index 1.
+            if i > 0 and step_info.get("skill") == skill_name:
+                # Found the skill. The state "after" is this step's info.
+                # The state "before" is the previous step's info.
+                before_step_key = sorted_step_keys[i - 1]
+                
+                before = seq_data[before_step_key]
+                after = step_info
+
+                skill_transition = SkillTransition(before=before.get("images(state)", {}),
+                                after=after.get("images(state)", {}),
+                                success=after.get("success"), 
+                                skill_instance=after.get("skill"))
+
+                all_results.append(skill_transition)
+        
+    return all_results
+
+
 ###############################################################################
 # YAML persistence                                                             #
 ###############################################################################
@@ -203,21 +271,25 @@ def _save_yaml(data: Dict) -> None:
 ###############################################################################
 
 #tested
-def _find_resume_point(data: Dict) -> Tuple[int, int]:
+def _find_resume_point(data: Dict) -> Tuple[int, int, list]:
     """
-    Return (seq_idx, step_idx) to resume from (both 0‑based).
+    Return (seq_idx, step_idx, images_state) to resume from (both 0‑based).
+    images_state is the value of 'images(state)' at the resume step, or None if not available.
     """
-    
     for s_idx, seq in enumerate(SEQUENCES):
-        task_key = f"seq_{s_idx+1}"
-        if task_key not in data:
-            return s_idx, 0
-        steps = data[task_key]
-        # If step not yet logged, resume there
+        seq_key = f"seq_{s_idx+1}"
+        if seq_key not in data:
+            return s_idx, 0, None
+        steps = data[seq_key]
         for st_idx in range(len(seq) + 1):  # +1 for step 0
             if str(st_idx) not in steps:
-                return s_idx, st_idx
-    return len(SEQUENCES), 0  # done
+                # Try to get images(state) from previous step if exists
+                if st_idx > 0 and str(st_idx-1) in steps:
+                    images_state = steps[str(st_idx-1)].get('images(state)', None)
+                else:
+                    images_state = None
+                return s_idx, st_idx, images_state
+    return len(SEQUENCES), 0, None  # done
 
 
 def _stand():
@@ -340,7 +412,7 @@ def _go_to_loc(loc: str, navigate_to: rospy.ServiceProxy) -> None:
         rospy.logerr(f"Service call to navigate to '{loc}' failed: {e}")
 
 #tested
-def _take_init_imgs(move_group: MoveGroupCommander) -> Dict:
+def _take_init_imgs(move_group: MoveGroupCommander) -> State:
     """
     Takes initial images. 1 at each location. Using front or gripper camera. If front cam, without gripper in frame.
     """
@@ -363,7 +435,7 @@ def _take_init_imgs(move_group: MoveGroupCommander) -> Dict:
         if cam_type == "Gripper":
             print("DEPLOYING ARM...")
             # _deploy_arm(move_group,USING_GRIPPER_CAM_POSE_STAMPED)
-            _deploy_arm(move_group,ZIYI_DEPLOYED_ARM_CONFIG) #delete later, for debugging
+            _deploy_arm(move_group,ZIYI_DEPLOYED_ARM_CONFIG) #NOTE delete later. use line above when have actual 6D pose
             arm_deployed = True
 
         img_path_pre = dir / (loc + "_pre.jpg")
@@ -387,58 +459,6 @@ def _prepare_state_for_next(curr_state_img_paths, skill_str, changed_locs, post_
     
     return curr_state_img_paths
 
-#tested
-def get_skill_states(skill_name: str, yaml_path: Path) -> List[Dict[str, Any]]:
-    """
-    Finds all states before and after a specific skill is executed in a sequences YAML file.
-
-    Args:
-        skill_name: The name of the skill to search for (e.g., "OpenDoor").
-        yaml_path: The path to the skill sequences YAML file.
-
-    Returns:
-        A list of dictionaries, where each pair of dictionaries represents
-        the state before and the state after the skill was executed.
-    """
-    if not yaml_path.exists():
-        rospy.logerr(f"Error: YAML file not found at {yaml_path}")
-        return []
-
-    with open(yaml_path, "r") as f:
-        data = yaml.safe_load(f)
-
-    if not data:
-        return []
-
-    if skill_name in [None, "None"]:
-        print("ENTER AN ACTUAL SKILL, NOT THE INTIAL 'SKILL' NONE")
-        return []
-
-    all_results = {}
-    for seq_key, seq_data in data.items():
-        seq_results = []
-        # The steps are keyed by strings "0", "1", "2", ...
-        # We need to sort them to process in order.
-        sorted_step_keys = sorted(seq_data.keys(), key=int)
-
-        for i, step_key in enumerate(sorted_step_keys):
-            step_info = seq_data[step_key]
-
-            # The skill at step 0 is always None, so we start from index 1.
-            if i > 0 and step_info.get("skill") == skill_name:
-                # Found the skill. The state "after" is this step's info.
-                # The state "before" is the previous step's info.
-                before_step_key = sorted_step_keys[i - 1]
-                before_state = seq_data[before_step_key]
-                after_state = step_info
-
-                before_after = {"before": before_state, "after": after_state}
-
-                seq_results.append(before_after)
-        
-        all_results[seq_key] = seq_results
-    
-    return all_results
 
 
 ###############################################################################
@@ -458,32 +478,28 @@ def main():
     # cam_types = rospy.get_param('~cam_types')
     move_group = MoveGroupCommander("arm")   
     
-    #TODO make a Type of what is returned by this fun
-    init_paths_pre = _take_init_imgs(move_group) #dict {"Door": Path, ...}
-    
-    # init_paths_pre = { #for debugging
-    #     "Door": "src/spot_skills/scripts/skill_chaining/init_imgs/Door_pre.jpg",
-    #     "NearDrawer": "src/spot_skills/scripts/skill_chaining/init_imgs/NearDrawer_pre.jpg",
-    #     "FarDrawer": "src/spot_skills/scripts/skill_chaining/init_imgs/FarDrawer_pre.jpg",
-    #     "Whiteboard": "src/spot_skills/scripts/skill_chaining/init_imgs/Whiteboard_pre.jpg"
-    # }
-
     data = _load_yaml()
-    seq_i, step_i = _find_resume_point(data) #finds resume point of sequence and skill
+    seq_i, step_i, resume_images_state = _find_resume_point(data) # now also gets images(state)
+    if resume_images_state is None:
+        init_paths_pre: State = _take_init_imgs(move_group) #dict {"Door": Path, ...}
+
     if seq_i >= len(SEQUENCES):
         print("All sequences complete! Nothing to do.")
         return
 
     for s_idx in range(seq_i, len(SEQUENCES)):
-        curr_state_img_paths = copy.deepcopy(init_paths_pre)
-        #TODO replace "task" var name with "seq"
-        task_key = f"seq_{s_idx+1}"
+        # If resuming from a nonzero step, use the images(state) from the last completed step
+        if s_idx == seq_i and step_i > 0 and resume_images_state is not None:
+            curr_state_img_paths: State = resume_images_state
+        else:
+            curr_state_img_paths: State = copy.deepcopy(init_paths_pre)
+        seq_key = f"seq_{s_idx+1}"
         seq = SEQUENCES[s_idx]
-        data.setdefault(task_key, {})
+        data.setdefault(seq_key, {})
 
-        print(f"\n=== Starting {task_key} ===")
+        print(f"\n=== Starting {seq_key} ===")
         # ─── make a folder for this sequence ───
-        sequence_dir = IMAGE_ROOT / "skill_images" / task_key
+        sequence_dir = IMAGE_ROOT / "skill_images" / seq_key
         sequence_dir.mkdir(parents=True, exist_ok=True)
         for st_idx in range((step_i if s_idx == seq_i else 0), len(seq) + 1):
 
@@ -498,9 +514,9 @@ def main():
             
             step_dict = {}
 
-            print(f"\n[{task_key} | step {st_idx}] Skill: {skill_str if skill_str else 'INITIAL'} | success label: {success}")
+            print(f"\n[{seq_key} | step {st_idx}] Skill: {skill_str if skill_str else 'INITIAL'} | success label: {success}")
 
-            img_name = f"{task_key}_skill{st_idx}"
+            img_name = f"{seq_key}_skill_{st_idx}"
             img_path = sequence_dir / (img_name + ".jpg")
             
             changed_locs = []
@@ -522,10 +538,8 @@ def main():
             else:
                 # refined_tree_path = REFINED_TREE_PATHS[skill_str.split('(')[0]]
                 # run_skill_tamp(refined_tree_path) #goes to the location of the skill and does it
-
-                # base = Path("src/tmp3")
-
-                skill_str = skill_str.split('(')[0]
+                
+                skill_str = skill_str.split('(')[0] #NOTE may need to change depending on how the skill string will be
                 for view_id in SKILL_TO_LOC_ID[skill_str]:
                     loc = LOC_ID_TO_LOC[view_id]
                     _go_to_loc(loc, navigate_to) #navigate to pic location
@@ -544,7 +558,7 @@ def main():
                             if cam_type == "Gripper": # NOTE: Only this case will run if Gripper camera (TODO: Separate gripper case vs arm deployed case)
                                 #take pic with realsense attached to gripper. 
                                 _deploy_arm(move_group, USING_GRIPPER_CAM_POSE_STAMPED)
-                                img_path = img_path.with_name(img_name + f"_{loc}_" +  "post_skill_deployed_robot_leave.jpg") #only ever used for state of location after skill has been executed and robot has left the location
+                                img_path = img_path.with_name(img_name + f"_{loc}_" +  "post_skill_deployed_robot_leaves.jpg") #only ever used for state of location after skill has been executed and robot has left the location
                                 post_skill_state_img_paths[frozenset({loc, skill_str})] = str(img_path) #NOTE 2: either this or NOTE 1 happens
                             else: #e.g. front cam
                                 _deploy_arm(move_group, ZIYI_DEPLOYED_ARM_CONFIG)
@@ -574,10 +588,10 @@ def main():
                             _stow_arm()
                     
             # record to dict
-            step_dict['images(state)'] = [str(p) for p in curr_state_img_paths.values()]
+            step_dict['images(state)'] = curr_state_img_paths
             step_dict["skill"] = skill_str
             step_dict["success"] = success
-            data[task_key][str(st_idx)] = step_dict
+            data[seq_key][str(st_idx)] = step_dict
             _save_yaml(data)
             print("Step saved. YAML checkpoint updated.")
             
@@ -585,7 +599,7 @@ def main():
             curr_state_img_paths = _prepare_state_for_next(curr_state_img_paths, skill_str, changed_locs, post_skill_state_img_paths)
 
         step_i = 0  # reset for next sequence
-        print(f"=== Finished {task_key} ===\n")
+        print(f"=== Finished {seq_key} ===\n")
 
     print("\nAll sequences finished! Data stored in", YAML_PATH)
 
@@ -593,6 +607,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-        # states = get_skill_states("OpenDoor", YAML_PATH)
+        # states = get_skill_states("OpenDoor")
     except KeyboardInterrupt:
         print("\nInterrupted – progress saved to YAML. Bye!")
