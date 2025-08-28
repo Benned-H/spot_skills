@@ -387,7 +387,7 @@ def _prepare_state_for_next(curr_state_img_paths, skill_str, changed_locs, post_
     
     return curr_state_img_paths
 
-
+#tested
 def get_skill_states(skill_name: str, yaml_path: Path) -> List[Dict[str, Any]]:
     """
     Finds all states before and after a specific skill is executed in a sequences YAML file.
@@ -410,8 +410,13 @@ def get_skill_states(skill_name: str, yaml_path: Path) -> List[Dict[str, Any]]:
     if not data:
         return []
 
-    results = []
+    if skill_name in [None, "None"]:
+        print("ENTER AN ACTUAL SKILL, NOT THE INTIAL 'SKILL' NONE")
+        return []
+
+    all_results = {}
     for seq_key, seq_data in data.items():
+        seq_results = []
         # The steps are keyed by strings "0", "1", "2", ...
         # We need to sort them to process in order.
         sorted_step_keys = sorted(seq_data.keys(), key=int)
@@ -427,10 +432,13 @@ def get_skill_states(skill_name: str, yaml_path: Path) -> List[Dict[str, Any]]:
                 before_state = seq_data[before_step_key]
                 after_state = step_info
 
-                results.append(before_state)
-                results.append(after_state)
+                before_after = {"before": before_state, "after": after_state}
 
-    return results
+                seq_results.append(before_after)
+        
+        all_results[seq_key] = seq_results
+    
+    return all_results
 
 
 ###############################################################################
@@ -585,5 +593,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+        # states = get_skill_states("OpenDoor", YAML_PATH)
     except KeyboardInterrupt:
         print("\nInterrupted – progress saved to YAML. Bye!")
