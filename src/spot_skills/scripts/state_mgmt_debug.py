@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import rospy
 from spot_skills.srv import NavigateToPose, NavigateToPoseRequest
 from moveit_commander import MoveGroupCommander
@@ -49,14 +49,14 @@ IMAGE_ROOT.mkdir(parents=True, exist_ok=True)
 START_LOC = "FarDrawer"
 
 Skill = Tuple[str, bool]  # (skill_string, success_flag)
-Sequence = List[Skill]
+Seq = List[Skill]
 
 #TODO replace with real experiment sequences
-SEQUENCES: List[Sequence] = [
+SEQUENCES: List[Seq] = [
     #debug
     [
         "OpenDoor()",
-        "OpenCabinet()",
+        "EraseBoard()",
     ],
     # seq 1
     [
@@ -133,7 +133,7 @@ LOC_TO_CAM={
     "Door": "Front",
     "NearDrawer": "Gripper",
     "FarDrawer": "Front",
-    "Board": "Front"
+    "Whiteboard": "Front"
 }
 
 LOC_TO_POSE = {
@@ -218,6 +218,19 @@ def _find_resume_point(data: Dict) -> Tuple[int, int]:
             if str(st_idx) not in steps:
                 return s_idx, st_idx
     return len(SEQUENCES), 0  # done
+
+
+def _stand():
+    rospy.wait_for_service('spot/stand')
+    rospy.loginfo("Now taking a picture...")
+    try:
+        result = trigger_service("/spot/stand")
+        if result:
+            rospy.loginfo("Stood successfully!")
+        else:
+            rospy.logwarn("Service call failed (returned False).")
+    except Exception as exc:
+        rospy.logerr(f"Error during service call: {exc}")
 
 #tested
 def _deploy_arm(move_group, arm_or_pose):
@@ -354,7 +367,7 @@ def _take_init_imgs(move_group: MoveGroupCommander) -> Dict:
             arm_deployed = True
 
         img_path_pre = dir / (loc + "_pre.jpg")
-        _take_pic_via_service(img_path=img_path_pre, cam_type=cam_type) # init state before skill execution
+        _take_pic_via_service(str(img_path_pre), cam_type) # init state before skill execution
         init_paths_pre[loc] = img_path_pre
 
         if arm_deployed:
@@ -375,16 +388,65 @@ def _prepare_state_for_next(curr_state_img_paths, skill_str, changed_locs, post_
     return curr_state_img_paths
 
 
+def get_skill_states(skill_name: str, yaml_path: Path) -> List[Dict[str, Any]]:
+    """
+    Finds all states before and after a specific skill is executed in a sequences YAML file.
+
+    Args:
+        skill_name: The name of the skill to search for (e.g., "OpenDoor").
+        yaml_path: The path to the skill sequences YAML file.
+
+    Returns:
+        A list of dictionaries, where each pair of dictionaries represents
+        the state before and the state after the skill was executed.
+    """
+    if not yaml_path.exists():
+        rospy.logerr(f"Error: YAML file not found at {yaml_path}")
+        return []
+
+    with open(yaml_path, "r") as f:
+        data = yaml.safe_load(f)
+
+    if not data:
+        return []
+
+    results = []
+    for seq_key, seq_data in data.items():
+        # The steps are keyed by strings "0", "1", "2", ...
+        # We need to sort them to process in order.
+        sorted_step_keys = sorted(seq_data.keys(), key=int)
+
+        for i, step_key in enumerate(sorted_step_keys):
+            step_info = seq_data[step_key]
+
+            # The skill at step 0 is always None, so we start from index 1.
+            if i > 0 and step_info.get("skill") == skill_name:
+                # Found the skill. The state "after" is this step's info.
+                # The state "before" is the previous step's info.
+                before_step_key = sorted_step_keys[i - 1]
+                before_state = seq_data[before_step_key]
+                after_state = step_info
+
+                results.append(before_state)
+                results.append(after_state)
+
+    return results
+
+
 ###############################################################################
 # Main routine                                                                 #
 ###############################################################################
 
 def main():
-    # rospy.loginfo(f"Current working directory: {os.getcwd()}")           
+    # rospy.loginfo(f"Current working directory: {os.getcwd()}") 
     
-    #NOTE: If we use TMP3 to take pics, need to tell the photo-tsker which skill we're in
-    rospy.init_node('skill_info_publisher')                      
-    pub = rospy.Publisher('skill_info', String, queue_size=10, latch=True)      
+    _stand()          
+    
+    #NOTE: If we use TMP3 to take pics, need to tell the photo-taker which skill we're in
+    #NOTE: If we use TMP3 to take pics, uncomment the next 2 lines
+    # rospy.init_node('skill_info_publisher')                      
+    # pub = rospy.Publisher('skill_info', String, queue_size=10, latch=True)      
+    
     # cam_types = rospy.get_param('~cam_types')
     move_group = MoveGroupCommander("arm")   
     
@@ -427,7 +489,7 @@ def main():
                 success = input("Enter skill success (True/False): ").strip().lower() == "true"
             
             step_dict = {}
-            
+
             print(f"\n[{task_key} | step {st_idx}] Skill: {skill_str if skill_str else 'INITIAL'} | success label: {success}")
 
             img_name = f"{task_key}_skill{st_idx}"
@@ -450,7 +512,7 @@ def main():
                 changed_locs.append(START_LOC)
                 post_skill_state_img_paths[frozenset({START_LOC, skill_str})] = str(init_paths_pre[START_LOC])
             else:
-                refined_tree_path = REFINED_TREE_PATHS[skill_str.split('(')[0]]
+                # refined_tree_path = REFINED_TREE_PATHS[skill_str.split('(')[0]]
                 # run_skill_tamp(refined_tree_path) #goes to the location of the skill and does it
 
                 # base = Path("src/tmp3")
