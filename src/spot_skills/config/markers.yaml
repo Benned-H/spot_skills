@@ -4,7 +4,7 @@ markers:
   marker_3: # Attached to the top-right of the filing cabinet
     size_cm: 4.4 # Size (cm) along one side of the marker's black square
     relative_frames: # Relative transforms (expressed w.r.t. marker frame)
-      filing_cabinet: [-0.149, -0.560, -0.228, 0, -1.5708, -1.5708]
+      filing_cabinet1: [-0.149, -0.560, -0.228, 0, -1.5708, -1.5708]
 
 cameras:
   frontleft:
