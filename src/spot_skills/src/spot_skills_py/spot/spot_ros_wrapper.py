@@ -13,8 +13,10 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
+from robotics_utils.ros.msg_conversion import pose_to_stamped_msg
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.trajectory_replayer import RelativeTrajectoryConfig, TrajectoryReplayer
+from robotics_utils.ros.transform_manager import TransformManager
 from ros_numpy import msgify
 from sensor_msgs.msg import Image as ImageMsg
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
@@ -27,6 +29,9 @@ from spot_skills.srv import (
     PlaybackTrajectory,
     PlaybackTrajectoryRequest,
     PlaybackTrajectoryResponse,
+    PoseLookup,
+    PoseLookupRequest,
+    PoseLookupResponse,
 )
 from spot_skills_py.joint_trajectory import JointTrajectory
 from spot_skills_py.perception.object_detection_client import DetectObjectClient
@@ -106,6 +111,7 @@ class SpotROS1Wrapper:
         )
         self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
         self._control_srv = rospy.Service("spot/take_control", Trigger, self.handle_take_control)
+        self._pose_lookup_srv = rospy.Service("pose_lookup", PoseLookup, self.handle_pose_lookup)
 
         traj_config = RelativeTrajectoryConfig(
             ee_frame="arm_link_wr1",
@@ -406,6 +412,25 @@ class SpotROS1Wrapper:
             else "SpotManager could not obtain control of Spot."
         )
         return TriggerResponse(success=has_control, message=message)
+
+    def handle_pose_lookup(self, request: PoseLookupRequest) -> PoseLookupResponse:
+        """Handle a request to look up the relative pose between two frames using /tf."""
+        relative_pose = TransformManager.lookup_transform(
+            request.source_frame,
+            request.target_frame,
+        )
+
+        if relative_pose is not None:
+            return PoseLookupResponse(
+                success=True,
+                message=str(relative_pose.to_yaml_data()),
+                relative_pose=pose_to_stamped_msg(relative_pose),
+            )
+
+        response = PoseLookupResponse()  # Otherwise, respond with failure
+        response.success = False
+        response.message = "Relative pose was None."
+        return response
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
