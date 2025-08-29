@@ -73,9 +73,17 @@ Visualization Manager:
           Value: true
         cabinet:
           Value: true
+        dock_520:
+          Value: true
         door_to_lab:
           Value: true
         feet_center:
+          Value: true
+        fiducial_520:
+          Value: true
+        filing_cabinet:
+          Value: true
+        filtered_fiducial_520:
           Value: true
         flat_body:
           Value: true
@@ -121,6 +129,8 @@ Visualization Manager:
           Value: true
         map:
           Value: true
+        marker_3:
+          Value: true
         odom:
           Value: true
         rear_left_foot:
@@ -165,6 +175,9 @@ Visualization Manager:
             {}
           door_to_lab:
             {}
+          marker_3:
+            filing_cabinet:
+              {}
           vision:
             body:
               arm0.link_wr1:
@@ -240,6 +253,12 @@ Visualization Manager:
                     {}
               sensor:
                 {}
+            dock_520:
+              {}
+            fiducial_520:
+              {}
+            filtered_fiducial_520:
+              {}
           white_board:
             {}
       Update Interval: 0
@@ -254,7 +273,7 @@ Visualization Manager:
         Scene Alpha: 0.5
         Scene Color: 50; 230; 50
         Scene Display Time: 0.009999999776482582
-        Show Scene Geometry: false
+        Show Scene Geometry: true
         Voxel Coloring: Z-Axis
         Voxel Rendering: Occupied Voxels
       Scene Robot:
@@ -657,7 +676,7 @@ Visualization Manager:
       Marker Topic: /visualization_marker
       Name: Visualization Markers
       Namespaces:
-        {}
+        basic_shapes: true
       Queue Size: 100
       Value: true
     - Class: rviz/Image
@@ -723,4 +742,4 @@ Window Geometry:
     collapsed: false
   Width: 1920
   X: 271
-  Y: 184
+  Y: 147
