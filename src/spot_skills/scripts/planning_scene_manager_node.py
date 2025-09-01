@@ -14,7 +14,8 @@ def main() -> None:
     TransformManager.init_node("planning_scene_manager_node")
     yaml_path = get_ros_param("/environment_yaml", Path)
     tree = KinematicTree.from_yaml(yaml_path)
-    _ = PlanningSceneManager(tree)
+    manager = PlanningSceneManager()
+    manager.synchronize_state(tree)
 
     rospy.loginfo(f"Updated the planning scene based on {yaml_path}, now exiting...")
 
