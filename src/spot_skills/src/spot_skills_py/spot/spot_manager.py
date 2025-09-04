@@ -17,6 +17,7 @@ from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import (
+    NoTimeSyncError,
     RobotCommandBuilder,
     RobotCommandClient,
     block_for_trajectory_cmd,
@@ -77,7 +78,8 @@ class SpotManager:
         self.time_sync = SpotTimeSync(self._robot)
 
         self.log_info("Time sync has been established with Spot.")
-        self.resync_and_log()
+        for _ in range(5):  # Repeatedly re-sync to hopefully better model network variance
+            self.resync_and_log()
 
         # Define a client that can command Spot to move
         self.command_client = self._robot.ensure_client(RobotCommandClient.default_service_name)
@@ -208,7 +210,7 @@ class SpotManager:
         max_round_trip_s = self.time_sync.max_round_trip_s
         self.log_info(f"Maximum observed round trip time: {max_round_trip_s} seconds.")
 
-        clock_skew_s = self.time_sync.robot_clock_skew_s
+        clock_skew_s = self.time_sync.get_robot_clock_skew_s()
         self.log_info(f"Current robot clock skew from local: {clock_skew_s} seconds.")
 
         max_sync_time_s = self.time_sync.max_sync_time_s
@@ -255,6 +257,7 @@ class SpotManager:
         self,
         command: RobotCommand,
         duration_s: float | None = None,
+        attempts_left: int = 3,
     ) -> int | None:
         """Command Spot to execute the given robot command.
 
@@ -263,31 +266,38 @@ class SpotManager:
 
         :param command: Robot command for Spot to execute
         :param duration_s: Duration (seconds) after which to end the command
+        :param attempts_left: Remaining number of times to try sending the command (defaults to 3)
         :return: ID (integer) of the issued robot command, or None if manager doesn't control Spot
         """
+        if attempts_left <= 0:
+            self.log_info("Reached zero attempts left on sending a robot command, exiting...")
+            return None
+
         if not self.check_control():
             return None
 
-        # Issue a command to the robot synchronously (blocks until done sending)
-        if duration_s is None:
-            command_id: int = self.command_client.robot_command(
-                command,
-                timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
-            )
-        else:  # Cut off the command after the given duration
-            if self.time_sync.robot_clock_skew_s is None:
-                self.log_info("Cannot send robot command because the robot is not time-synced.")
-                return None
+        try:
+            # Issue a command to the robot synchronously (blocks until done sending)
+            if duration_s is None:
+                command_id: int = self.command_client.robot_command(
+                    command,
+                    timesync_endpoint=self.time_sync.endpoint,
+                )
+            else:  # Cut off the command after the given duration
+                command_id: int = self.command_client.robot_command(
+                    command,
+                    end_time_secs=time.time() + duration_s,
+                    timesync_endpoint=self.time_sync.endpoint,
+                )
 
-            command_id: int = self.command_client.robot_command(
-                command,
-                end_time_secs=time.time() + duration_s,
-                timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
-            )
+        except NoTimeSyncError:
+            self.log_info("Caught NoTimeSyncError from RobotCommand client. Attempting resync...")
+            self.time_sync.resync()
+            return self.send_robot_command(command, duration_s, attempts_left - 1)  # Try again...
 
-        self.log_info(f"Issued robot command with ID: {command_id}")
-
-        return command_id
+        else:
+            self.log_info(f"Issued robot command with ID: {command_id}")
+            return command_id
 
     def stand_up(self, timeout_s: float, control_params: BodyControlParams | None = None) -> bool:
         """Tell Spot to stand up within the given timeout (in seconds).
@@ -467,7 +477,7 @@ class SpotManager:
         )
 
         # Repeatedly send the trajectory command to Spot until timeout or the goal is reached
-        thresholds = GoalReachedThresholds(distance_m=0.5, abs_angle_rad=0.3)
+        thresholds = GoalReachedThresholds(distance_m=0.2, abs_angle_rad=0.3)
         end_time_s = time.time() + timeout_s
 
         reached_goal = check_reached_goal(goal_base_pose, thresholds)

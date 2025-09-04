@@ -115,6 +115,7 @@ class SpotNavigationServer:
         :param request: Request specifying a pose to navigate to
         :return: Response specifying whether the navigation succeeded
         """
+        self._manager.log_info("Handling 'NavigateToPose' request...")
         success, message = self.navigate_to_pose(request.target_base_pose)
         return NavigateToPoseResponse(success, message)
 
@@ -128,7 +129,12 @@ class SpotNavigationServer:
             message = f"Cannot navigate to unknown waypoint '{request.name}'."
             return NameServiceResponse(success=False, message=message)
 
+        self._manager.log_info(
+            f"Handling 'NavigateToWaypoint' request for waypoint '{request.name}'...",
+        )
         target_pose = self._waypoints[request.name]
+        self._manager.log_info(f"Waypoint '{request.name}' has target pose: {target_pose}.")
+
         pose_stamped_msg = pose_to_stamped_msg(target_pose.to_3d())
         success, message = self.navigate_to_pose(pose_stamped_msg)
         return NameServiceResponse(success, message)
