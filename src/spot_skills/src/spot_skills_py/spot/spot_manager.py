@@ -470,15 +470,11 @@ class SpotManager:
         thresholds = GoalReachedThresholds(distance_m=0.5, abs_angle_rad=0.3)
         end_time_s = time.time() + timeout_s
 
-        # goal_reached, dist_err, angle_err = check_reached_goal(
-        #     goal_base_pose,
-        #     thresholds,
-        #     do_return_errors=True,
-        # )
+        # goal_reached, dist_err, angle_err = check_reached_goal(goal_base_pose,thresholds,do_return_errors=True)
 
-        check_reached_goal(goal_base_pose, thresholds)
+        goal_reached=check_reached_goal(goal_base_pose, thresholds)
 
-        while time.time() < end_time_s:  # and not goal_reached:
+        while time.time() < end_time_s and not goal_reached:
             # if dist_err < 0.7 and angle_err < 0.:
             #     end_time_s = min(end_time_s, time.time() + 5.0)
             each_command_duration_s = 10
@@ -490,7 +486,8 @@ class SpotManager:
             # feedback = self.command_client.robot_command_feedback(command_id, timeout=3)
             # self.log_info(f"Current command feedback: {feedback}")
 
-            check_reached_goal(goal_base_pose, thresholds)
+            goal_reached = check_reached_goal(goal_base_pose, thresholds)
+
             time.sleep(0.25)
 
         stop_command = RobotCommandBuilder.stop_command()

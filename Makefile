@@ -82,6 +82,12 @@ test-demo:
 	PYTHONPATH="$(PWD)/pddlstream:$(PWD)/$(VENV_NAME)/lib/python3.8/site-packages:$${PYTHONPATH}" \
 		python3 RAIL-lsp-dev/modules/taskplan/tests/test_demo.py
 
+.PHONY: test-skills
+test-skills:
+	@mkdir -p $(DATA_BASE_DIR)/test_logs 
+	PYTHONPATH="$(PWD)/pddlstream:$(PWD)/$(VENV_NAME)/lib/python3.8/site-packages:$${PYTHONPATH}" \
+		python3 src/spot_skills/src/robotics_utils/src/robotics_utils/skills/gmu_skills.py
+
 
 .PHONY: run-ar-tag-tf
 run-ar-tag-tf:
