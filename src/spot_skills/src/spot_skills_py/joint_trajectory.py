@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from bosdyn.client.robot_command import RobotCommandBuilder
-from bosdyn.util import duration_to_seconds
+from bosdyn.util import duration_to_seconds, timestamp_to_sec
 
+from spot_skills_py.segment_schedule import SegmentSchedule
 from spot_skills_py.spot.spot_configuration import (
     MAP_JOINT_NAMES_URDF_TO_SPOT_SDK,
     SPOT_SDK_ARM_JOINT_NAMES,
@@ -168,8 +169,8 @@ class JointTrajectory:
             ]
             reorder_joint_values(self.points, sdk_indices)
 
-    def segment_to_robot_commands(self, max_segment_len: int) -> list[RobotCommand]:
-        """Convert this JointTrajectory into a list of robot commands for Spot.
+    def create_segment_schedule(self, max_segment_len: int) -> SegmentSchedule:
+        """Convert this JointTrajectory into a sequence of scheduled commands for Spot.
 
         Each command will contain a single "segment" of the overall trajectory, obeying
             the given maximum length, so that Spot can quickly process each command.
@@ -178,9 +179,8 @@ class JointTrajectory:
 
         TODO: Could raise or lower the output commands' velocity/acceleration limits
 
-        :param      max_segment_len     Maximum allowed segment length (# points)
-
-        :return     List of RobotCommand objects ready to be sent to Spot
+        :param max_segment_len: Maximum number of points allowed in each segment
+        :return: SegmentSchedule specifying a reference time and RobotCommand per segment
         """
         self.convert_to_spot_sdk()
 
@@ -189,33 +189,33 @@ class JointTrajectory:
         times = [point.time_from_start_s for point in self.points]
 
         monotonic_times: list[float] = []
-        for time in times:
+        for t in times:
             if not monotonic_times:
-                monotonic_times.append(time)
+                monotonic_times.append(t)
                 continue
 
-            if time <= monotonic_times[-1]:
+            if t <= monotonic_times[-1]:
                 monotonic_times.append(monotonic_times[-1] + 0.03)
             else:
-                monotonic_times.append(time)
+                monotonic_times.append(t)
 
         timestamp_proto = self.reference_timestamp.to_proto()
+        ref_local_time_s = timestamp_to_sec(timestamp_proto)
 
         # Segment the trajectory as described in this method's docstring
+        first_relative_times_s: list[float] = []  # First relative time in each segment
+        robot_commands: list[RobotCommand] = []
 
         start_idx = 0  # Both indices are inclusive
         end_idx = min(start_idx + max_segment_len, len(self.points)) - 1
-
-        robot_commands: list[RobotCommand] = []
         while True:
-            segment_positions = positions[start_idx : end_idx + 1]
-            segment_velocities = velocities[start_idx : end_idx + 1]
             segment_times = monotonic_times[start_idx : end_idx + 1]
+            first_relative_times_s.append(segment_times[0])
 
             robot_command = RobotCommandBuilder.arm_joint_move_helper(
-                joint_positions=segment_positions,
+                joint_positions=positions[start_idx : end_idx + 1],
                 times=segment_times,
-                joint_velocities=segment_velocities,
+                joint_velocities=velocities[start_idx : end_idx + 1],
                 ref_time=timestamp_proto,
             )
 
@@ -229,4 +229,4 @@ class JointTrajectory:
             start_idx = end_idx  # Recall: both are inclusive
             end_idx = min(start_idx + max_segment_len, len(self.points)) - 1
 
-        return robot_commands
+        return SegmentSchedule(ref_local_time_s, first_relative_times_s, robot_commands)

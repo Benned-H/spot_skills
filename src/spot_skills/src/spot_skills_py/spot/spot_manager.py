@@ -35,6 +35,7 @@ from rospy import loginfo as ros_loginfo
 from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
 from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
 from spot_skills_py.spot.spot_image_client import SpotImageClient
+from spot_skills_py.spot.spot_navigation import GoalReachedThresholds, check_reached_goal
 from spot_skills_py.spot.spot_sync import SpotTimeSync
 
 
@@ -76,7 +77,8 @@ class SpotManager:
         self.time_sync = SpotTimeSync(self._robot)
 
         self.log_info("Time sync has been established with Spot.")
-        self.resync_and_log()
+        for _ in range(5):  # Repeatedly re-sync to hopefully better model network variance
+            self.resync_and_log()
 
         # Define a client that can command Spot to move
         self.command_client = self._robot.ensure_client(RobotCommandClient.default_service_name)
@@ -449,6 +451,7 @@ class SpotManager:
         :return: True if the navigation command succeeded, else False
         """
         if not self.check_control():
+            self.log_info("Can't navigate to base pose because SpotManager doesn't control Spot.")
             return False
 
         vision_frame = frame_helpers.VISION_FRAME_NAME
@@ -464,12 +467,24 @@ class SpotManager:
             params=self._mobility_params,
         )
 
-        command_id = self.send_robot_command(trajectory_command)
-        if command_id is None:
-            self.log_info("Navigation attempt returned None instead of a command ID.")
-            return False
+        # Repeatedly send the trajectory command to Spot until timeout or the goal is reached
+        thresholds = GoalReachedThresholds(distance_m=0.2, abs_angle_rad=0.3)
+        end_time_s = time.time() + timeout_s
 
-        return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=timeout_s)
+        reached_goal = check_reached_goal(goal_base_pose, thresholds)
+        while not reached_goal and time.time() < end_time_s:
+            command_id = self.send_robot_command(trajectory_command, duration_s=5)
+            if command_id is None:
+                self.log_info("Navigation attempt returned None instead of a command ID.")
+                continue
+
+            reached_goal = check_reached_goal(goal_base_pose, thresholds)
+            time.sleep(0.2)
+
+        stop_command = RobotCommandBuilder.stop_command()
+        self.send_robot_command(stop_command)
+
+        return check_reached_goal(goal_base_pose, thresholds)
 
     def send_velocity_command(
         self,
