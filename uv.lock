@@ -274,6 +274,19 @@ wheels = [
 ]
 
 [[package]]
+name = "bosdyn-choreography-client"
+version = "5.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "bosdyn-api" },
+    { name = "bosdyn-client" },
+    { name = "bosdyn-core" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/c8/081add97a881493944fd1d5d67affc6e2b56b36706f3140bfb68d1c69107/bosdyn_choreography_client-5.0.0-py3-none-any.whl", hash = "sha256:6c7e18541a4de23cebc3a79505a23793da68dffa8be7649ae962e52adbd95373", size = 23475, upload-time = "2025-05-13T02:14:51.396Z" },
+]
+
+[[package]]
 name = "bosdyn-client"
 version = "5.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -6198,6 +6211,7 @@ name = "spot-skills-py"
 version = "0.0.1"
 source = { editable = "." }
 dependencies = [
+    { name = "bosdyn-choreography-client" },
     { name = "bosdyn-client" },
     { name = "numpy", version = "1.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
@@ -6229,6 +6243,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "bosdyn-choreography-client", specifier = "==5.0.0" },
     { name = "bosdyn-client", specifier = "==5.0.0" },
     { name = "numpy", specifier = ">=1.20" },
     { name = "opencv-python" },

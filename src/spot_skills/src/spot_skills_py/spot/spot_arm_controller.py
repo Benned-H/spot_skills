@@ -6,9 +6,16 @@ import time
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
+from bosdyn.api.arm_command_pb2 import ArmJointTrajectory
 from bosdyn.client.robot_command import RobotCommandBuilder
-from bosdyn.util import duration_to_seconds
+from bosdyn.util import (
+    duration_to_seconds,
+    seconds_to_duration,
+    seconds_to_timestamp,
+    timestamp_to_sec,
+)
 
+from spot_skills_py.segment_schedule import SegmentSchedule
 from spot_skills_py.spot.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
 from spot_skills_py.time_stamp import TimeStamp
 
@@ -69,91 +76,117 @@ class SpotArmController:
         """Explicitly unlock Spot's arm, allowing the ArmController to control it."""
         self._locked = False
 
-    def send_segment_command(self, command: RobotCommand) -> None:
-        """Command Spot to execute a trajectory segment, given as a robot command.
+    def log_debug_info(self, schedule: SegmentSchedule, traj: ArmJointTrajectory) -> None:
+        """Log debug information about the given schedule and trajectory command."""
+        self._manager.log_info(f"Trajectory segment length: {len(traj.points)}")
 
-        :param      command     Robot command containing a short trajectory segment
+        self._manager.log_info(
+            f"Segment local reference time: {schedule.ref_local_time_s:.3f} seconds.",
+        )
+
+        first_rel_time_s = duration_to_seconds(traj.points[0].time_since_reference)
+        last_rel_time_s = duration_to_seconds(traj.points[-1].time_since_reference)
+
+        self._manager.log_info(f"First relative time in segment: {first_rel_time_s:.3f} seconds.")
+        self._manager.log_info(f"Last relative time in segment: {last_rel_time_s:.3f} seconds.")
+
+        segment_duration_s = last_rel_time_s - first_rel_time_s
+        self._manager.log_info(f"Total segment duration: {segment_duration_s:.3f} seconds.")
+
+    def send_segment_command(self, idx: int, schedule: SegmentSchedule) -> None:
+        """Command Spot to execute the indexed trajectory segment from the given schedule.
+
+        :param idx: Index into the schedule, corresponding to a joint trajectory segment
+        :param schedule: Schedule specifying segment reference times and robot commands
         """
         if self._locked:
             return
 
-        trajectory_proto = (
-            command.synchronized_command.arm_command.arm_joint_move_command.trajectory
-        )  # An ArmJointTrajectory
+        command = schedule.commands[idx]  # Unpack an ArmJointTrajectory from the RobotCommand
+        traj = command.synchronized_command.arm_command.arm_joint_move_command.trajectory
 
-        points_proto = trajectory_proto.points
-        len_points = len(points_proto)
+        assert len(traj.points) > 0, "Segment has no points."
+        assert len(traj.points) <= self.max_segment_len, "Segment too long!"
+        assert traj.HasField("reference_time"), "Segment must have a reference_time (local time)."
 
-        assert len_points <= self.max_segment_len, "Segment too long!"
-
-        # Log useful information about the trajectory segment to be sent
-
-        self._manager.log_info(f"Sending trajectory segment of length {len_points}...")
-
-        # Find the reference time (seconds) for the trajectory
-        ref_timestamp = TimeStamp.from_proto(trajectory_proto.reference_time)
-
-        ref_time_s = ref_timestamp.to_time_s()
-        self._manager.log_info(f"Segment reference time: {ref_time_s:.2f} seconds.")
-
-        first_rel_time_s = duration_to_seconds(points_proto[0].time_since_reference)
-        last_rel_time_s = duration_to_seconds(points_proto[-1].time_since_reference)
-
-        self._manager.log_info(
-            f"First relative time in segment: {first_rel_time_s:.2f} seconds.",
-        )
-        self._manager.log_info(
-            f"Last relative time in segment: {last_rel_time_s:.2f} seconds.",
-        )
-
-        duration_s = last_rel_time_s - first_rel_time_s
-        self._manager.log_info(f"Total segment duration: {duration_s:.2f} seconds.")
-
-        self._manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
+        self.log_debug_info(schedule, traj)
 
         # Wait to send the segment until close to when it starts
-        send_early_s = 5 * self._manager.time_sync.max_round_trip_s + 0.5
+        max_rtt_s = max(0.0, self._manager.time_sync.max_round_trip_s)
+        cushion_s = max(0.02, 1.5 * max_rtt_s)  # Margin for network jitter
+        eps_s = 0.01  # Additional margin (10 ms) for segment-adjusting overhead
+        send_early_s = schedule.min_lead_s + cushion_s + eps_s
 
-        self._manager.log_info(
-            f"Want to send the segment {send_early_s:.4f} seconds early...",
-        )
+        self._manager.log_info(f"Want to send the segment {send_early_s:.4f} seconds early...")
 
-        segment_start_time_s = ref_time_s + first_rel_time_s
-        self._manager.log_info(
-            f"Segment start time: {segment_start_time_s:.2f} seconds.",
-        )
+        # segment_start_robot_time_s = ref_robot_time_s + first_rel_time_s  # w.r.t. robot clock
+        # self._manager.log_info(
+        #     f"Segment start time (robot time): {segment_start_robot_time_s:.2f} seconds.",
+        # )
+        # send_robot_time_s = segment_start_robot_time_s - send_early_s
 
-        self._manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
+        # self._manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
 
-        segment_starts_in_s = segment_start_time_s - time.time()
-        self._manager.log_info(f"Segment starts in: {segment_starts_in_s:.2f} seconds.")
+        # # Convert robot time to local time for sleeping
+        # converter = self._manager.time_sync.endpoint.get_robot_time_converter()
+        # send_local_s = converter.local_seconds_from_robot_timestamp(
+        #     seconds_to_timestamp(send_robot_time_s),
+        # )
 
-        if segment_starts_in_s > send_early_s:
-            spare_time_s = segment_starts_in_s - send_early_s
-            self._manager.log_info(f"We have {spare_time_s:.4f} spare seconds...")
+        send_local_s = schedule.compute_send_local_time_s(idx, send_early_s)
 
-            # Re-sync with Spot, if there's time to spare
-            if spare_time_s > 2 * self._manager.time_sync.max_sync_time_s:
-                self._manager.log_info("Re-time-syncing with Spot...")
-                self._manager.resync_and_log()
+        sleep_for_s = max(0.0, send_local_s - time.time())
+        self._manager.log_info(f"Plan to send segment in: {sleep_for_s:.2f} seconds.")
 
-            # Sleep for any remaining time, if necessary
-            self._manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
+        end_s = time.monotonic() + sleep_for_s
+        while True:
+            remaining_s = end_s - time.monotonic()
+            if remaining_s <= 0:
+                break
+            time.sleep(min(remaining_s, 0.01))
 
-            segment_starts_in_s = segment_start_time_s - time.time()
+            # spare_time_s = segment_starts_in_s - send_early_s
+            # self._manager.log_info(f"We have {spare_time_s:.4f} spare seconds...")
 
-            self._manager.log_info(
-                f"Segment starts in: {segment_starts_in_s:.2f} seconds.",
-            )
+            # # Re-sync with Spot, if there's time to spare
+            # if spare_time_s > 2 * self._manager.time_sync.max_sync_time_s:
+            #     self._manager.log_info("Re-time-syncing with Spot...")
+            #     self._manager.resync_and_log()
 
-            if segment_starts_in_s > send_early_s:
-                spare_time_s = segment_starts_in_s - send_early_s
-                self._manager.log_info(f"Sleeping for {spare_time_s:.4f} seconds...")
+            # # Sleep for any remaining time, if necessary
+            # self._manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
 
-                time.sleep(spare_time_s)
+            # segment_starts_in_s = segment_start_time_s - time.time()
 
-        self._manager.log_info("Done waiting to send this trajectory segment.")
-        self._manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
+            # self._manager.log_info(
+            #     f"Segment starts in: {segment_starts_in_s:.2f} seconds.",
+            # )
+
+            # if segment_starts_in_s > send_early_s:
+            #     spare_time_s = segment_starts_in_s - send_early_s
+            #     self._manager.log_info(f"Sleeping for {spare_time_s:.4f} seconds...")
+
+            #     time.sleep(spare_time_s)
+
+        # Late guard: If we're too close or late, slide the segment forward
+        delta_s = schedule.slide_segment_if_late(idx, traj, send_early_s)
+        if delta_s > 0:
+            self._manager.log_info(f"Late by {delta_s:.3f} seconds; slid this and later segments.")
+
+        # robot_now_s = converter.robot_seconds_from_local_seconds(time.time())
+        # earliest_possible_start_robot_s = robot_now_s + min_lead_time_s
+
+        # delta_s = None
+        # if segment_start_robot_time_s <= earliest_possible_start_robot_s:
+        #     delta_s = earliest_possible_start_robot_s - segment_start_robot_time_s
+        #     for p in traj.points:
+        #         new_time_s = duration_to_seconds(p.time_since_reference) + delta_s
+        #         p.time_since_reference.CopyFrom(seconds_to_duration(new_time_s))
+
+        #     segment_start_robot_time_s += delta_s
+
+        # self._manager.log_info("Done waiting to send this trajectory segment.")
+        # self._manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
 
         self._command_id = self._manager.send_robot_command(command)
         self._manager.log_info("Trajectory segment sent.\n")
@@ -204,24 +237,30 @@ class SpotArmController:
                 )
                 return ArmCommandOutcome.INVALID_START
 
-        new_start_timestamp = TimeStamp.from_time_s(time.time() + self._future_proof_s)
-        trajectory.reference_timestamp = new_start_timestamp
+        # endpoint = self._manager.time_sync.endpoint
+        # robot_start_ts = endpoint.robot_timestamp_from_local_secs(local_start_time)
+        # assert robot_start_ts is not None, "Unable to convert local start time to robot time."
 
-        robot_commands = trajectory.segment_to_robot_commands(self.max_segment_len)
+        # Allow the SDK to convert times into robot time upon sending
+        local_start_time_s = time.time() + self._future_proof_s
+        trajectory.reference_timestamp = TimeStamp.from_time_s(local_start_time_s)
+
+        segments_schedule = trajectory.segment_to_robot_commands(self.max_segment_len)
 
         preempted = False
         if action_server is None:  # Simpler case, where ROS can't preempt the command
-            for segment_command in robot_commands:
-                self.send_segment_command(segment_command)
+            for idx in range(len(segments_schedule.commands)):
+                self.send_segment_command(idx, segments_schedule)
+
         else:  # Use the action server to check that the trajectory is not canceled
-            for segment_command in robot_commands:
+            for idx in range(len(segments_schedule.commands)):
                 if action_server.is_preempt_requested():  # Trajectory canceled!
                     self._manager.log_info("Action has been preempted.")
                     preempted = True
                     break  # Stop sending trajectory segments
 
                 # Otherwise, execute the next segment of the trajectory
-                self.send_segment_command(segment_command)
+                self.send_segment_command(idx, segments_schedule)
 
         # Wait until Spot finishes executing the last segment sent
         if self._command_id is not None:
