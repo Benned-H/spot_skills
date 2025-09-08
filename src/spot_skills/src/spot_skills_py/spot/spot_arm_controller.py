@@ -105,6 +105,7 @@ class SpotArmController:
         :param max_attempts: Maximum number of times to attempt (re)sending the segment
         """
         if self._locked:
+            self._manager.log_info("Cannot send trajectory segment because Spot's arm is locked.")
             return
 
         command = schedule.commands[idx]  # Unpack an ArmJointTrajectory from the RobotCommand
@@ -138,8 +139,16 @@ class SpotArmController:
                 self._command_id = self._manager.send_robot_command(command)
 
             except InvalidRequestError as err:
-                relevant_error_str = "time point before the current robot time"
-                if relevant_error_str not in str(err) or attempt == max_attempts:
+                attempt_num = f"{attempt}/{max_attempts}"
+                self._manager.log_info(
+                    f"Attempt {attempt_num} of sending a trajectory segment has failed.",
+                )
+
+                if "time point before the current robot time" not in str(err):
+                    raise err
+
+                if attempt == max_attempts:
+                    self._manager.log_info("Out of attempts, exiting...")
                     raise err
 
                 delta_s = schedule.slide_segment_if_late(idx, traj, send_early_s)
@@ -173,6 +182,9 @@ class SpotArmController:
         """
         if self._locked:
             return ArmCommandOutcome.ARM_LOCKED
+
+        # Re-sync with Spot to ensure that round-trip times are up-to-date
+        self._manager.time_sync.resync()
 
         # SpotManager outputs joint names based on the Spot SDK's naming conventions
         arm_configuration = self._manager.get_arm_configuration()

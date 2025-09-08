@@ -68,7 +68,6 @@ class SegmentSchedule:
         # Robot requires the segment's first relative time to be *after* the receiving time
         #   i.e., segment_start_time > now + communication latency
         if segment_start_local_time_s <= earliest_start_local_time_s:
-            earliest_start_local_time_s += 0.01  # Add 10 ms to cover post-slide overhead
             delta_s = earliest_start_local_time_s - segment_start_local_time_s
 
             # Shift the current segment's Protobuf message

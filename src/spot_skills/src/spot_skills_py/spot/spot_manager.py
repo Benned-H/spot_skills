@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import time
+from typing import TYPE_CHECKING
 
 import numpy as np
 from bosdyn.api.basic_command_pb2 import StandCommand
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
-from bosdyn.api.robot_command_pb2 import RobotCommand
-from bosdyn.api.robot_state_pb2 import RobotState
 from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client import create_standard_sdk, frame_helpers
 from bosdyn.client.door import DoorClient
@@ -27,16 +26,20 @@ from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from bosdyn.geometry import EulerZXY
-from robotics_utils.kinematics import Configuration
-from robotics_utils.kinematics.poses import Pose2D
+from robotics_utils.ros.navigation import GoalReachedThresholds, check_reached_goal
 from robotics_utils.ros.transform_manager import TransformManager
 from rospy import loginfo as ros_loginfo
 
 from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
 from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
 from spot_skills_py.spot.spot_image_client import SpotImageClient
-from spot_skills_py.spot.spot_navigation import GoalReachedThresholds, check_reached_goal
 from spot_skills_py.spot.spot_sync import SpotTimeSync
+
+if TYPE_CHECKING:
+    from bosdyn.api.robot_command_pb2 import RobotCommand
+    from bosdyn.api.robot_state_pb2 import RobotState
+    from robotics_utils.kinematics import Configuration
+    from robotics_utils.kinematics.poses import Pose2D
 
 
 class SpotManager:
