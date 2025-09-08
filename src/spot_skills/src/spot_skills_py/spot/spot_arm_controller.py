@@ -119,8 +119,8 @@ class SpotArmController:
 
         # Wait to send the segment until close to when it starts (only on the first attempt)
         max_rtt_s = max(0.0, self._manager.time_sync.max_round_trip_s)
-        cushion_s = max(0.02, 1.5 * max_rtt_s)  # Margin for network jitter
-        eps_s = 0.01  # Additional margin (10 ms) for segment-adjusting overhead
+        cushion_s = max(0.1, 2.0 * max_rtt_s)  # Margin for network jitter
+        eps_s = 0.03  # Additional margin (10 ms) for segment-adjusting overhead
         send_early_s = schedule.min_lead_s + cushion_s + eps_s
 
         self._manager.log_info(f"Want to send the segment {send_early_s:.3f} seconds early...")
@@ -151,7 +151,12 @@ class SpotArmController:
                     self._manager.log_info("Out of attempts, exiting...")
                     raise err
 
+                bump_s = 0.05 * (2 ** (attempt - 1))  # Minimum bump (seconds) to delay each retry
+
                 delta_s = schedule.slide_segment_if_late(idx, traj, send_early_s)
+                if delta_s <= 0:  # Force the retry a bit later if there was no delta
+                    delta_s = schedule.slide_segment_if_late(idx, traj, send_early_s + bump_s)
+
                 if delta_s > 0:
                     self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the schedule.")
 
@@ -163,6 +168,7 @@ class SpotArmController:
         self,
         trajectory: JointTrajectory,
         action_server: SimpleActionServer | None = None,
+        max_attempts: int = 5,
     ) -> ArmCommandOutcome:
         """Command Spot's arm to execute the given joint trajectory.
 
@@ -175,10 +181,10 @@ class SpotArmController:
         The action server, if provided, is used to check whether the trajectory request
             has been "preempted" (i.e., canceled) by the requesting client.
 
-        :param   trajectory      Trajectory of joint (position, velocity) points
-        :param   action_server   Optional action server used to check for cancellation
-
-        :returns    Enum member indicating the outcome of the command
+        :param trajectory: Trajectory of joint (position, velocity) points
+        :param action_server: Optional action server used to check for cancellation
+        :param max_attempts: Maximum number of (re)send attempts per traj. segment (defaults to 5)
+        :return: Enum member indicating the outcome of the command
         """
         if self._locked:
             return ArmCommandOutcome.ARM_LOCKED
@@ -212,7 +218,7 @@ class SpotArmController:
         preempted = False
         if action_server is None:  # Simpler case, where ROS can't preempt the command
             for idx in range(len(segments_schedule.commands)):
-                self.send_segment_command(idx, segments_schedule)
+                self.send_segment_command(idx, segments_schedule, max_attempts)
 
         else:  # Use the action server to check that the trajectory is not canceled
             for idx in range(len(segments_schedule.commands)):
@@ -222,7 +228,7 @@ class SpotArmController:
                     break  # Stop sending trajectory segments
 
                 # Otherwise, execute the next segment of the trajectory
-                self.send_segment_command(idx, segments_schedule)
+                self.send_segment_command(idx, segments_schedule, max_attempts)
 
         # Wait until Spot finishes executing the last segment sent
         if self._command_id is not None:
