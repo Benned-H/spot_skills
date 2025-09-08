@@ -47,6 +47,23 @@ class SpotROS1Wrapper:
 
     def __init__(self) -> None:
         """Initialize the ROS interface by creating an internal SpotManager."""
+        # Initialize Spot's arm as locked before enabling any of the actions!
+        self._arm_locked = True  # Begin without ROS control of Spot's arm
+
+        spot_rosparams = ["/spot/hostname", "/spot/username", "/spot/password"]
+        spot_rosparam_values = [get_ros_param(par, str) for par in spot_rosparams]
+        spot_hostname, spot_username, spot_password = spot_rosparam_values
+
+        self._manager = SpotManager(
+            client_name="SpotROS1Manager",
+            hostname=spot_hostname,
+            username=spot_username,
+            password=spot_password,
+        )
+
+        max_segment_len = 30  # Limit the points/segment in ArmController trajectories
+        self._arm_controller = SpotArmController(self._manager, max_segment_len)
+
         # Set up all ROS action servers provided by the class (do this early so MoveIt finds them)
         self._arm_action_name = "arm_controller/follow_joint_trajectory"
         self._arm_action_server = SimpleActionServer(
@@ -67,21 +84,6 @@ class SpotROS1Wrapper:
         )
         self._gripper_action_server.start()
         rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
-
-        spot_rosparams = ["/spot/hostname", "/spot/username", "/spot/password"]
-        spot_rosparam_values = [get_ros_param(par, str) for par in spot_rosparams]
-        spot_hostname, spot_username, spot_password = spot_rosparam_values
-
-        self._manager = SpotManager(
-            client_name="SpotROS1Manager",
-            hostname=spot_hostname,
-            username=spot_username,
-            password=spot_password,
-        )
-
-        max_segment_len = 30  # Limit the points/segment in ArmController trajectories
-        self._arm_controller = SpotArmController(self._manager, max_segment_len)
-        self._arm_locked = True  # Begin without ROS control of Spot's arm
 
         self._door_opener = SpotDoorOpener(self._manager)
 

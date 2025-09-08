@@ -6,6 +6,7 @@ import time
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
+from bosdyn.client.exceptions import InvalidRequestError
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 
@@ -89,11 +90,19 @@ class SpotArmController:
 
         self._manager.log_info(f"Local clock time: {time.time():.3f} seconds.")
 
-    def send_segment_command(self, idx: int, schedule: SegmentSchedule) -> None:
+    def _sleep_until(self, local_time_s: float) -> None:
+        """Sleep until just before the given local time (in seconds)."""
+        sleep_for_s = max(0.0, local_time_s - time.time())
+        deadline_s = time.monotonic() + sleep_for_s
+        while (remainder_s := deadline_s - time.monotonic()) > 0:
+            time.sleep(min(remainder_s, 0.01))
+
+    def send_segment_command(self, idx: int, schedule: SegmentSchedule, max_attempts: int) -> None:
         """Command Spot to execute the indexed trajectory segment from the given schedule.
 
         :param idx: Index into the schedule, corresponding to a joint trajectory segment
         :param schedule: Schedule specifying segment reference times and robot commands
+        :param max_attempts: Maximum number of times to attempt (re)sending the segment
         """
         if self._locked:
             return
@@ -107,7 +116,7 @@ class SpotArmController:
 
         self.log_debug_info(schedule, traj)
 
-        # Wait to send the segment until close to when it starts
+        # Wait to send the segment until close to when it starts (only on the first attempt)
         max_rtt_s = max(0.0, self._manager.time_sync.max_round_trip_s)
         cushion_s = max(0.02, 1.5 * max_rtt_s)  # Margin for network jitter
         eps_s = 0.01  # Additional margin (10 ms) for segment-adjusting overhead
@@ -116,23 +125,30 @@ class SpotArmController:
         self._manager.log_info(f"Want to send the segment {send_early_s:.3f} seconds early...")
 
         send_local_s = schedule.compute_send_local_time_s(idx, send_early_s)
-        sleep_for_s = max(0.0, send_local_s - time.time())
-        self._manager.log_info(f"Plan to send segment in: {sleep_for_s:.3f} seconds.")
-
-        end_s = time.monotonic() + sleep_for_s
-        while True:
-            remaining_s = end_s - time.monotonic()
-            if remaining_s <= 0:
-                break
-            time.sleep(min(remaining_s, 0.01))
+        self._sleep_until(send_local_s)
 
         # Late guard: If we're too close or late, slide the segment forward
         delta_s = schedule.slide_segment_if_late(idx, traj, send_early_s)
         if delta_s > 0:
             self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the segment schedule.")
 
-        self._command_id = self._manager.send_robot_command(command)
-        self._manager.log_info("Trajectory segment sent.\n")
+        # Retry loop: Adjust and resend only (no sleep)
+        for attempt in range(1, max_attempts + 1):
+            try:
+                self._command_id = self._manager.send_robot_command(command)
+
+            except InvalidRequestError as err:
+                relevant_error_str = "time point before the current robot time"
+                if relevant_error_str not in str(err) or attempt == max_attempts:
+                    raise err
+
+                delta_s = schedule.slide_segment_if_late(idx, traj, send_early_s)
+                if delta_s > 0:
+                    self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the schedule.")
+
+            else:
+                self._manager.log_info("Trajectory segment sent.\n")
+                return
 
     def command_trajectory(
         self,

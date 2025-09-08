@@ -209,7 +209,7 @@ class SpotManager:
         max_round_trip_s = self.time_sync.max_round_trip_s
         self.log_info(f"Maximum observed round trip time: {max_round_trip_s} seconds.")
 
-        clock_skew_s = self.time_sync.robot_clock_skew_s
+        clock_skew_s = self.time_sync.get_robot_clock_skew_s()
         self.log_info(f"Current robot clock skew from local: {clock_skew_s} seconds.")
 
         max_sync_time_s = self.time_sync.max_sync_time_s
@@ -273,17 +273,13 @@ class SpotManager:
         if duration_s is None:
             command_id: int = self.command_client.robot_command(
                 command,
-                timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+                timesync_endpoint=self.time_sync.endpoint,
             )
         else:  # Cut off the command after the given duration
-            if self.time_sync.robot_clock_skew_s is None:
-                self.log_info("Cannot send robot command because the robot is not time-synced.")
-                return None
-
             command_id: int = self.command_client.robot_command(
                 command,
                 end_time_secs=time.time() + duration_s,
-                timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+                timesync_endpoint=self.time_sync.endpoint,
             )
 
         self.log_info(f"Issued robot command with ID: {command_id}")
