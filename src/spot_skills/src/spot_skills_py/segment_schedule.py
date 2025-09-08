@@ -6,15 +6,9 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from bosdyn.util import (
-    duration_to_seconds,
-    seconds_to_duration,
-    seconds_to_timestamp,
-    timestamp_to_sec,
-)
+from bosdyn.util import seconds_to_timestamp
 
 if TYPE_CHECKING:
-    from bosdyn.api.arm_command_pb2 import ArmJointTrajectory
     from bosdyn.api.robot_command_pb2 import RobotCommand
 
 
@@ -92,18 +86,3 @@ class SegmentSchedule:
             return delta_s
 
         return 0.0
-
-
-# # Shift this segment's (local) reference_time forward
-# curr_ref_time = timestamp_to_sec(traj.reference_time)
-# traj.reference_time.CopyFrom(seconds_to_timestamp(curr_ref_time + delta_s))
-# # Or should we just use the class' stored ref_local_time_s? Why treat both as valid?
-
-# # Update the rest of the segment schedule's reference times
-# self.ref_local_time_s += delta_s
-# for j in range(idx, len(self.segment_rel_times_s)):
-#     self.commands[
-#         j
-#     ].synchronized_command.arm_command.arm_joint_move_command.trajectory.reference_time.CopyFrom(
-#         seconds_to_timestamp(curr_ref_time + delta_s),
-#     )
