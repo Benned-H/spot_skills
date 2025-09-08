@@ -47,6 +47,12 @@ class SpotROS1Wrapper:
 
     def __init__(self) -> None:
         """Initialize the ROS interface by creating an internal SpotManager."""
+        # Initialize Spot's arm as locked before enabling any of the actions!
+        self._arm_locked = True  # Begin without ROS control of Spot's arm
+
+        self._manager = None
+        self._arm_controller = None
+
         # Set up all ROS action servers provided by the class (do this early so MoveIt finds them)
         self._arm_action_name = "arm_controller/follow_joint_trajectory"
         self._arm_action_server = SimpleActionServer(
@@ -81,7 +87,6 @@ class SpotROS1Wrapper:
 
         max_segment_len = 30  # Limit the points/segment in ArmController trajectories
         self._arm_controller = SpotArmController(self._manager, max_segment_len)
-        self._arm_locked = True  # Begin without ROS control of Spot's arm
 
         self._door_opener = SpotDoorOpener(self._manager)
 
@@ -417,6 +422,15 @@ class SpotROS1Wrapper:
         :param goal: Joint trajectory to be followed
         :param delay_s: Delay (seconds) to wait after any successful command execution
         """
+        result = FollowJointTrajectoryResult()
+        result.error_code = -1  # Default error code: INVALID_GOAL
+
+        if self._manager is None or self._arm_controller is None:
+            result.error_string = "Could not follow trajectory because SpotManager is not set up."
+            rospy.loginfo(f"[{self._arm_action_name}] {result.error_string}")
+            self._arm_action_server.set_aborted(result)
+            return
+
         # Extract all fields of the received action goal message
         trajectory = JointTrajectory.from_ros_msg(goal.trajectory)
 
@@ -434,9 +448,6 @@ class SpotROS1Wrapper:
             f"[{self._arm_action_name}] Received trajectory of length "
             f"{len(trajectory.points)}, lasting {traj_duration_s} seconds.",
         )
-
-        result = FollowJointTrajectoryResult()
-        result.error_code = -1  # Default error code: INVALID_GOAL
 
         if self._arm_locked:
             result.error_string = "Could not follow trajectory because Spot's arm remains locked."
@@ -497,7 +508,7 @@ class SpotROS1Wrapper:
         """
         gripper_command_result = GripperCommandResult()
 
-        if self._arm_locked:
+        if self._manager is None or self._arm_controller is None or self._arm_locked:
             gripper_command_result.reached_goal = False
             self._gripper_action_server.set_aborted(gripper_command_result)
             return

@@ -6,6 +6,7 @@ import time
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
+from bosdyn.client.exceptions import InvalidRequestError
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 
@@ -14,9 +15,10 @@ from spot_skills_py.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
     from actionlib import SimpleActionServer
-    from bosdyn.api.robot_command_pb2 import RobotCommand
+    from bosdyn.api.arm_command_pb2 import ArmJointTrajectory
 
     from spot_skills_py.joint_trajectory import JointTrajectory
+    from spot_skills_py.segment_schedule import SegmentSchedule
     from spot_skills_py.spot.spot_manager import SpotManager
 
 
@@ -65,103 +67,111 @@ class SpotArmController:
         # Begin with the arm controller unable to affect Spot's arm
         self._locked = True
 
+        self._DEBUG_MODE = False
+
     def unlock_arm(self) -> None:
         """Explicitly unlock Spot's arm, allowing the ArmController to control it."""
         self._locked = False
 
-    def send_segment_command(self, command: RobotCommand) -> None:
-        """Command Spot to execute a trajectory segment, given as a robot command.
+    def log_debug_info(self, schedule: SegmentSchedule, traj: ArmJointTrajectory) -> None:
+        """Log debug information about the given schedule and trajectory command."""
+        self._manager.log_info(f"Trajectory segment length: {len(traj.points)}")
 
-        :param      command     Robot command containing a short trajectory segment
+        self._manager.log_info(
+            f"Schedule local reference time: {schedule.ref_local_time_s:.3f} seconds.",
+        )
+
+        first_rel_time_s = duration_to_seconds(traj.points[0].time_since_reference)
+        last_rel_time_s = duration_to_seconds(traj.points[-1].time_since_reference)
+
+        self._manager.log_info(f"First relative time in segment: {first_rel_time_s:.3f} seconds.")
+        self._manager.log_info(f"Last relative time in segment: {last_rel_time_s:.3f} seconds.")
+
+        segment_duration_s = last_rel_time_s - first_rel_time_s
+        self._manager.log_info(f"Total segment duration: {segment_duration_s:.3f} seconds.")
+
+        self._manager.log_info(f"Local clock time: {time.time():.3f} seconds.")
+
+    def _sleep_until(self, local_time_s: float) -> None:
+        """Sleep until just before the given local time (in seconds)."""
+        sleep_for_s = max(0.0, local_time_s - time.time())
+        deadline_s = time.monotonic() + sleep_for_s
+        while (remainder_s := deadline_s - time.monotonic()) > 0:
+            time.sleep(min(remainder_s, 0.01))
+
+    def send_segment_command(self, idx: int, schedule: SegmentSchedule, max_attempts: int) -> None:
+        """Command Spot to execute the indexed trajectory segment from the given schedule.
+
+        :param idx: Index into the schedule, corresponding to a joint trajectory segment
+        :param schedule: Schedule specifying segment reference times and robot commands
+        :param max_attempts: Maximum number of times to attempt (re)sending the segment
         """
         if self._locked:
+            self._manager.log_info("Cannot send trajectory segment because Spot's arm is locked.")
             return
 
-        trajectory_proto = (
-            command.synchronized_command.arm_command.arm_joint_move_command.trajectory
-        )  # An ArmJointTrajectory
+        # Validate the trajectory to be sent
+        traj = schedule.commands[
+            idx
+        ].synchronized_command.arm_command.arm_joint_move_command.trajectory
 
-        points_proto = trajectory_proto.points
-        len_points = len(points_proto)
+        assert len(traj.points) > 0, "Segment has no points."
+        assert len(traj.points) <= self.max_segment_len, "Segment too long!"
+        assert traj.HasField("reference_time"), "Segment must have a reference_time (local time)."
 
-        assert len_points <= self.max_segment_len, "Segment too long!"
+        if self._DEBUG_MODE:
+            self.log_debug_info(schedule, traj)
 
-        # Log useful information about the trajectory segment to be sent
+        # Wait to send the segment until close to when it starts (only on the first attempt)
+        max_rtt_s = max(0.0, self._manager.time_sync.max_round_trip_s)
+        cushion_s = max(0.1, 2.0 * max_rtt_s)  # Margin for network jitter
+        eps_s = 0.03  # Additional margin for segment-adjusting overhead
+        send_early_s = schedule.min_lead_s + cushion_s + eps_s
 
-        self._manager.log_info(f"Sending trajectory segment of length {len_points}...")
+        if self._DEBUG_MODE:
+            self._manager.log_info(f"Want to send the segment {send_early_s:.3f} seconds early...")
 
-        # Find the reference time (seconds) for the trajectory
-        ref_timestamp = TimeStamp.from_proto(trajectory_proto.reference_time)
+        send_local_s = schedule.compute_send_local_time_s(idx, send_early_s)
+        self._sleep_until(send_local_s)
 
-        ref_time_s = ref_timestamp.to_time_s()
-        self._manager.log_info(f"Segment reference time: {ref_time_s:.2f} seconds.")
+        # Late guard: If we're too close or late, slide the segment forward
+        delta_s = schedule.slide_segment_if_late(idx, send_early_s)
+        if delta_s > 0:
+            self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the schedule.")
 
-        first_rel_time_s = duration_to_seconds(points_proto[0].time_since_reference)
-        last_rel_time_s = duration_to_seconds(points_proto[-1].time_since_reference)
+        # Retry loop: Adjust and resend only (no sleep)
+        for attempt in range(1, max_attempts + 1):
+            try:
+                self._command_id = self._manager.send_robot_command(schedule.commands[idx])
 
-        self._manager.log_info(
-            f"First relative time in segment: {first_rel_time_s:.2f} seconds.",
-        )
-        self._manager.log_info(
-            f"Last relative time in segment: {last_rel_time_s:.2f} seconds.",
-        )
+            except InvalidRequestError as err:  # noqa: PERF203
+                attempt_num = f"{attempt}/{max_attempts}"
+                self._manager.log_info(
+                    f"Attempt {attempt_num} of sending a trajectory segment has failed.",
+                )
 
-        duration_s = last_rel_time_s - first_rel_time_s
-        self._manager.log_info(f"Total segment duration: {duration_s:.2f} seconds.")
+                if "time point before the current robot time" not in str(err):
+                    raise err
 
-        self._manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
+                if attempt == max_attempts:
+                    self._manager.log_info("Out of attempts, exiting...")
+                    raise err
 
-        # Wait to send the segment until close to when it starts
-        send_early_s = 5 * self._manager.time_sync.max_round_trip_s + 0.5
+                bump_s = 0.03 * (2 ** (attempt - 1))  # Minimum bump (seconds) to delay each retry
 
-        self._manager.log_info(
-            f"Want to send the segment {send_early_s:.4f} seconds early...",
-        )
+                delta_s = schedule.slide_segment_if_late(idx, send_early_s + bump_s)
+                if delta_s > 0:
+                    self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the schedule.")
 
-        segment_start_time_s = ref_time_s + first_rel_time_s
-        self._manager.log_info(
-            f"Segment start time: {segment_start_time_s:.2f} seconds.",
-        )
-
-        self._manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
-
-        segment_starts_in_s = segment_start_time_s - time.time()
-        self._manager.log_info(f"Segment starts in: {segment_starts_in_s:.2f} seconds.")
-
-        if segment_starts_in_s > send_early_s:
-            spare_time_s = segment_starts_in_s - send_early_s
-            self._manager.log_info(f"We have {spare_time_s:.4f} spare seconds...")
-
-            # Re-sync with Spot, if there's time to spare
-            if spare_time_s > 2 * self._manager.time_sync.max_sync_time_s:
-                self._manager.log_info("Re-time-syncing with Spot...")
-                self._manager.resync_and_log()
-
-            # Sleep for any remaining time, if necessary
-            self._manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
-
-            segment_starts_in_s = segment_start_time_s - time.time()
-
-            self._manager.log_info(
-                f"Segment starts in: {segment_starts_in_s:.2f} seconds.",
-            )
-
-            if segment_starts_in_s > send_early_s:
-                spare_time_s = segment_starts_in_s - send_early_s
-                self._manager.log_info(f"Sleeping for {spare_time_s:.4f} seconds...")
-
-                time.sleep(spare_time_s)
-
-        self._manager.log_info("Done waiting to send this trajectory segment.")
-        self._manager.log_info(f"Local clock time: {time.time():.2f} seconds.")
-
-        self._command_id = self._manager.send_robot_command(command)
-        self._manager.log_info("Trajectory segment sent.\n")
+            else:
+                self._manager.log_info("Trajectory segment sent.\n")
+                return
 
     def command_trajectory(
         self,
         trajectory: JointTrajectory,
         action_server: SimpleActionServer | None = None,
+        max_attempts: int = 5,
     ) -> ArmCommandOutcome:
         """Command Spot's arm to execute the given joint trajectory.
 
@@ -174,13 +184,16 @@ class SpotArmController:
         The action server, if provided, is used to check whether the trajectory request
             has been "preempted" (i.e., canceled) by the requesting client.
 
-        :param   trajectory      Trajectory of joint (position, velocity) points
-        :param   action_server   Optional action server used to check for cancellation
-
-        :returns    Enum member indicating the outcome of the command
+        :param trajectory: Trajectory of joint (position, velocity) points
+        :param action_server: Optional action server used to check for cancellation
+        :param max_attempts: Maximum number of (re)send attempts per traj. segment (defaults to 5)
+        :return: Enum member indicating the outcome of the command
         """
         if self._locked:
             return ArmCommandOutcome.ARM_LOCKED
+
+        # Re-sync with Spot to ensure that round-trip times are up-to-date
+        self._manager.time_sync.resync()
 
         # SpotManager outputs joint names based on the Spot SDK's naming conventions
         arm_configuration = self._manager.get_arm_configuration()
@@ -195,33 +208,30 @@ class SpotArmController:
             cmd_rad = command_start_angles_rad[joint_idx]
 
             if abs(curr_rad - cmd_rad) > self.angle_proximity_rad:
-                self._manager.log_info(
-                    "Commanded trajectory doesn't begin where Spot's arm is!",
-                )
+                self._manager.log_info("Commanded trajectory doesn't begin where Spot's arm is!")
                 self._manager.log_info(f"Current joint angle: {curr_rad} radians.")
-                self._manager.log_info(
-                    f"Command initial joint angle: {cmd_rad} radians.",
-                )
+                self._manager.log_info(f"Command initial joint angle: {cmd_rad} radians.")
                 return ArmCommandOutcome.INVALID_START
 
-        new_start_timestamp = TimeStamp.from_time_s(time.time() + self._future_proof_s)
-        trajectory.reference_timestamp = new_start_timestamp
+        local_start_time_s = time.time() + self._future_proof_s
+        trajectory.reference_timestamp = TimeStamp.from_time_s(local_start_time_s)
 
-        robot_commands = trajectory.segment_to_robot_commands(self.max_segment_len)
+        segments_schedule = trajectory.create_segment_schedule(self.max_segment_len)
 
         preempted = False
         if action_server is None:  # Simpler case, where ROS can't preempt the command
-            for segment_command in robot_commands:
-                self.send_segment_command(segment_command)
+            for idx in range(len(segments_schedule.commands)):
+                self.send_segment_command(idx, segments_schedule, max_attempts)
+
         else:  # Use the action server to check that the trajectory is not canceled
-            for segment_command in robot_commands:
+            for idx in range(len(segments_schedule.commands)):
                 if action_server.is_preempt_requested():  # Trajectory canceled!
                     self._manager.log_info("Action has been preempted.")
                     preempted = True
                     break  # Stop sending trajectory segments
 
                 # Otherwise, execute the next segment of the trajectory
-                self.send_segment_command(segment_command)
+                self.send_segment_command(idx, segments_schedule, max_attempts)
 
         # Wait until Spot finishes executing the last segment sent
         if self._command_id is not None:

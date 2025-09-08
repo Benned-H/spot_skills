@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import time
+from typing import TYPE_CHECKING
 
 import numpy as np
 from bosdyn.api.basic_command_pb2 import StandCommand
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
-from bosdyn.api.robot_command_pb2 import RobotCommand
-from bosdyn.api.robot_state_pb2 import RobotState
 from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client import create_standard_sdk, frame_helpers
 from bosdyn.client.door import DoorClient
@@ -27,8 +26,7 @@ from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from bosdyn.geometry import EulerZXY
-from robotics_utils.kinematics import Configuration
-from robotics_utils.kinematics.poses import Pose2D
+from robotics_utils.ros.navigation import GoalReachedThresholds, check_reached_goal
 from robotics_utils.ros.transform_manager import TransformManager
 from rospy import loginfo as ros_loginfo
 
@@ -36,6 +34,12 @@ from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
 from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
 from spot_skills_py.spot.spot_image_client import SpotImageClient
 from spot_skills_py.spot.spot_sync import SpotTimeSync
+
+if TYPE_CHECKING:
+    from bosdyn.api.robot_command_pb2 import RobotCommand
+    from bosdyn.api.robot_state_pb2 import RobotState
+    from robotics_utils.kinematics import Configuration
+    from robotics_utils.kinematics.poses import Pose2D
 
 
 class SpotManager:
@@ -76,7 +80,8 @@ class SpotManager:
         self.time_sync = SpotTimeSync(self._robot)
 
         self.log_info("Time sync has been established with Spot.")
-        self.resync_and_log()
+        for _ in range(5):  # Repeatedly re-sync to hopefully better model network variance
+            self.resync_and_log()
 
         # Define a client that can command Spot to move
         self.command_client = self._robot.ensure_client(RobotCommandClient.default_service_name)
@@ -207,7 +212,7 @@ class SpotManager:
         max_round_trip_s = self.time_sync.max_round_trip_s
         self.log_info(f"Maximum observed round trip time: {max_round_trip_s} seconds.")
 
-        clock_skew_s = self.time_sync.robot_clock_skew_s
+        clock_skew_s = self.time_sync.get_robot_clock_skew_s()
         self.log_info(f"Current robot clock skew from local: {clock_skew_s} seconds.")
 
         max_sync_time_s = self.time_sync.max_sync_time_s
@@ -271,17 +276,13 @@ class SpotManager:
         if duration_s is None:
             command_id: int = self.command_client.robot_command(
                 command,
-                timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+                timesync_endpoint=self.time_sync.endpoint,
             )
         else:  # Cut off the command after the given duration
-            if self.time_sync.robot_clock_skew_s is None:
-                self.log_info("Cannot send robot command because the robot is not time-synced.")
-                return None
-
             command_id: int = self.command_client.robot_command(
                 command,
                 end_time_secs=time.time() + duration_s,
-                timesync_endpoint=self.time_sync.get_time_sync_endpoint(),
+                timesync_endpoint=self.time_sync.endpoint,
             )
 
         self.log_info(f"Issued robot command with ID: {command_id}")
@@ -449,6 +450,7 @@ class SpotManager:
         :return: True if the navigation command succeeded, else False
         """
         if not self.check_control():
+            self.log_info("Can't navigate to base pose because SpotManager doesn't control Spot.")
             return False
 
         vision_frame = frame_helpers.VISION_FRAME_NAME
@@ -464,12 +466,24 @@ class SpotManager:
             params=self._mobility_params,
         )
 
-        command_id = self.send_robot_command(trajectory_command)
-        if command_id is None:
-            self.log_info("Navigation attempt returned None instead of a command ID.")
-            return False
+        # Repeatedly send the trajectory command to Spot until timeout or the goal is reached
+        thresholds = GoalReachedThresholds(distance_m=0.2, abs_angle_rad=0.3)
+        end_time_s = time.time() + timeout_s
 
-        return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=timeout_s)
+        reached_goal = check_reached_goal(goal_base_pose, thresholds)
+        while not reached_goal and time.time() < end_time_s:
+            command_id = self.send_robot_command(trajectory_command, duration_s=5)
+            if command_id is None:
+                self.log_info("Navigation attempt returned None instead of a command ID.")
+                continue
+
+            reached_goal = check_reached_goal(goal_base_pose, thresholds)
+            time.sleep(0.2)
+
+        stop_command = RobotCommandBuilder.stop_command()
+        self.send_robot_command(stop_command)
+
+        return check_reached_goal(goal_base_pose, thresholds)
 
     def send_velocity_command(
         self,

@@ -7,12 +7,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import rospy
-from actionlib import GoalStatus, SimpleActionClient
 from geometry_msgs.msg import Twist
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from robotics_utils.kinematics import DEFAULT_FRAME, Pose2D, Waypoints
-from robotics_utils.math.distances import angle_difference_rad, euclidean_distance_2d_m
+from robotics_utils.kinematics import DEFAULT_FRAME, Waypoints
 from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
+from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
 
 from spot_skills.srv import (
@@ -60,19 +58,15 @@ class SpotNavigationServer:
         )
 
         # Load waypoint locations from a YAML file specified via ROS param
-        waypoints_yaml_path = Path(rospy.get_param("/spot/navigation/waypoints_yaml"))
+        waypoints_yaml_path = get_ros_param("/spot/navigation/waypoints_yaml", Path)
         self._waypoints = Waypoints.from_yaml(waypoints_yaml_path)
 
         rospy.loginfo(f"Loaded {len(self._waypoints)} named waypoints from YAML.")
 
-        # Wait for the move_base action server to become available
-        self._move_base_client = SimpleActionClient("move_base", MoveBaseAction)
-        self._move_base_client.wait_for_server(timeout=rospy.Duration.from_sec(60.0))
-
         # Load thresholds for when Spot is considered "close to a goal" from ROS params
-        self.close_to_goal_m: float = rospy.get_param("/spot/navigation/close_to_goal_m")
-        self.close_to_goal_rad: float = rospy.get_param("/spot/navigation/close_to_goal_rad")
-        self.timeout_s: float = rospy.get_param("/spot/navigation/timeout_s")
+        self.close_to_goal_m = get_ros_param("/spot/navigation/close_to_goal_m", float)
+        self.close_to_goal_rad = get_ros_param("/spot/navigation/close_to_goal_rad", float)
+        self.timeout_s = get_ros_param("/spot/navigation/timeout_s", float)
 
         # Subscribe to a topic providing body-frame velocity commands
         self._cmd_vel_sub = rospy.Subscriber("cmd_vel", Twist, self.handle_cmd_vel, queue_size=1)
@@ -82,27 +76,6 @@ class SpotNavigationServer:
         self._tf_publisher_thread = threading.Thread(target=self._publish_waypoints_tf_loop)
         self._tf_publisher_thread.daemon = True  # Thread exits when main process does
         self._tf_publisher_thread.start()
-
-    def check_close_to_goal(self, target_pose_2d: Pose2D) -> bool:
-        """Check whether Spot is currently "close" to a goal pose, using the stored thresholds.
-
-        :param target_pose_2d: Target base pose for Spot
-        :return: True if Spot is "close" to the given target pose, else False
-        """
-        curr_pose = TransformManager.lookup_transform("body", target_pose_2d.ref_frame)
-
-        if curr_pose is None:
-            rospy.logfatal(f"Could not look up body pose in frame '{target_pose_2d.ref_frame}'.")
-            return False
-
-        distance_2d_m = euclidean_distance_2d_m(
-            target_pose_2d,
-            curr_pose.to_2d(),
-            change_frames=True,
-        )
-        abs_yaw_error_rad = angle_difference_rad(target_pose_2d.yaw_rad, curr_pose.yaw_rad)
-
-        return distance_2d_m < self.close_to_goal_m and abs_yaw_error_rad < self.close_to_goal_rad
 
     def handle_create_waypoint(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a ROS service request to create a new waypoint at Spot's current base pose.
@@ -133,6 +106,7 @@ class SpotNavigationServer:
         :param request: Request specifying a pose to navigate to
         :return: Response specifying whether the navigation succeeded
         """
+        self._manager.log_info("Handling 'NavigateToPose' request...")
         success, message = self.navigate_to_pose(request.target_base_pose)
         return NavigateToPoseResponse(success, message)
 
@@ -146,7 +120,11 @@ class SpotNavigationServer:
             message = f"Cannot navigate to unknown waypoint '{request.name}'."
             return NameServiceResponse(success=False, message=message)
 
+        self._manager.log_info(
+            f"Handling 'NavigateToWaypoint' request for waypoint '{request.name}'...",
+        )
         target_pose = self._waypoints[request.name]
+        self._manager.log_info(f"Waypoint '{request.name}' has target pose: {target_pose}.")
         pose_stamped_msg = pose_to_stamped_msg(target_pose.to_3d())
         success, message = self.navigate_to_pose(pose_stamped_msg)
         return NameServiceResponse(success, message)
@@ -164,24 +142,7 @@ class SpotNavigationServer:
         if not has_control:
             return False, "Could not obtain control of Spot using the SpotManager."
 
-        duration_timeout = rospy.Duration.from_sec(self.timeout_s)
-
-        action_goal = MoveBaseGoal(target_pose=pose_msg)
-        self._move_base_client.send_goal_and_wait(action_goal, execute_timeout=duration_timeout)
-
-        result_state = self._move_base_client.get_state()
-        result_text = self._move_base_client.get_goal_status_text()
-
         target_pose_2d = pose_from_msg(pose_msg).to_2d()
-
-        # If move_base didn't bring Spot sufficiently close to the goal, give up
-        if result_state != GoalStatus.SUCCEEDED:
-            rospy.loginfo(f"MoveBase failed with state {result_state} and text '{result_text}'.")
-
-            if not self.check_close_to_goal(target_pose_2d):
-                return (False, f"Move base failed with message: {result_text}")
-
-        rospy.loginfo("Spot has successfully moved 'close' to the goal using move_base.")
 
         success = self._manager.navigate_to_base_pose(target_pose_2d, self.timeout_s)
         message = "Navigation was successful." if success else "Navigation failed."
