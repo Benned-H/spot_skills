@@ -449,9 +449,6 @@ class SpotROS1Wrapper:
             f"{len(trajectory.points)}, lasting {traj_duration_s} seconds.",
         )
 
-        result = FollowJointTrajectoryResult()
-        result.error_code = -1  # Default error code: INVALID_GOAL
-
         if self._arm_locked:
             result.error_string = "Could not follow trajectory because Spot's arm remains locked."
             self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
