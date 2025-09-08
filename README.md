@@ -266,3 +266,7 @@ the TAMP codebase (`TMP3`) is required to generate and execute TAMP plans involv
 ### Phase 1 - Mapping
 
 See the [Mapping Demo](docs/mapping-demo.md) instructions.
+
+### Phase 2 - Object Pose Estimation
+
+See the [Object Pose Estimation Demo](docs/object-pose-estimation-demo.md) instructions.

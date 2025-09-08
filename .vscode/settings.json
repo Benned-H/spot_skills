@@ -29,6 +29,8 @@
         "${workspaceFolder}/devel/lib/python3/dist-packages",
         "/opt/ros/noetic/lib/python3/dist-packages"
     ],
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "python.terminal.activateEnvironment": true,
     "autoDocstring.docstringFormat": "sphinx-notypes",
     "notebook.codeActionsOnSave": {
         "notebook.source.fixAll": "explicit",
@@ -44,5 +46,4 @@
         "*.launch": "xml"
     },
     "python-envs.pythonProjects": [],
-    "python-envs.defaultEnvManager": "ms-python.python:system",
 }

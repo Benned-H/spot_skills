@@ -61,6 +61,7 @@ add_service_files(
   NameService.srv
   NavigateToPose.srv
   PlaybackTrajectory.srv
+  PoseLookup.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -175,6 +176,7 @@ catkin_install_python(PROGRAMS
   scripts/pose_estimation_client.py
   scripts/dummy_estimate_pose_server.py
   scripts/joint_state_mux_node.py
+  scripts/planning_scene_manager_node.py
   src/robotics_utils/scripts/record_transforms.py
   src/robotics_utils/scripts/fiducial_tracker_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
