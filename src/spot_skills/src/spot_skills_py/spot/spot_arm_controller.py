@@ -67,6 +67,8 @@ class SpotArmController:
         # Begin with the arm controller unable to affect Spot's arm
         self._locked = True
 
+        self._DEBUG_MODE = False
+
     def unlock_arm(self) -> None:
         """Explicitly unlock Spot's arm, allowing the ArmController to control it."""
         self._locked = False
@@ -108,37 +110,41 @@ class SpotArmController:
             self._manager.log_info("Cannot send trajectory segment because Spot's arm is locked.")
             return
 
-        command = schedule.commands[idx]  # Unpack an ArmJointTrajectory from the RobotCommand
-        traj = command.synchronized_command.arm_command.arm_joint_move_command.trajectory
+        # Validate the trajectory to be sent
+        traj = schedule.commands[
+            idx
+        ].synchronized_command.arm_command.arm_joint_move_command.trajectory
 
         assert len(traj.points) > 0, "Segment has no points."
         assert len(traj.points) <= self.max_segment_len, "Segment too long!"
         assert traj.HasField("reference_time"), "Segment must have a reference_time (local time)."
 
-        self.log_debug_info(schedule, traj)
+        if self._DEBUG_MODE:
+            self.log_debug_info(schedule, traj)
 
         # Wait to send the segment until close to when it starts (only on the first attempt)
         max_rtt_s = max(0.0, self._manager.time_sync.max_round_trip_s)
         cushion_s = max(0.1, 2.0 * max_rtt_s)  # Margin for network jitter
-        eps_s = 0.03  # Additional margin (10 ms) for segment-adjusting overhead
+        eps_s = 0.03  # Additional margin for segment-adjusting overhead
         send_early_s = schedule.min_lead_s + cushion_s + eps_s
 
-        self._manager.log_info(f"Want to send the segment {send_early_s:.3f} seconds early...")
+        if self._DEBUG_MODE:
+            self._manager.log_info(f"Want to send the segment {send_early_s:.3f} seconds early...")
 
         send_local_s = schedule.compute_send_local_time_s(idx, send_early_s)
         self._sleep_until(send_local_s)
 
         # Late guard: If we're too close or late, slide the segment forward
-        delta_s = schedule.slide_segment_if_late(idx, traj, send_early_s)
+        delta_s = schedule.slide_segment_if_late(idx, send_early_s)
         if delta_s > 0:
             self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the schedule.")
 
         # Retry loop: Adjust and resend only (no sleep)
         for attempt in range(1, max_attempts + 1):
             try:
-                self._command_id = self._manager.send_robot_command(command)
+                self._command_id = self._manager.send_robot_command(schedule.commands[idx])
 
-            except InvalidRequestError as err:
+            except InvalidRequestError as err:  # noqa: PERF203
                 attempt_num = f"{attempt}/{max_attempts}"
                 self._manager.log_info(
                     f"Attempt {attempt_num} of sending a trajectory segment has failed.",
@@ -151,12 +157,9 @@ class SpotArmController:
                     self._manager.log_info("Out of attempts, exiting...")
                     raise err
 
-                bump_s = 0.05 * (2 ** (attempt - 1))  # Minimum bump (seconds) to delay each retry
+                bump_s = 0.03 * (2 ** (attempt - 1))  # Minimum bump (seconds) to delay each retry
 
-                delta_s = schedule.slide_segment_if_late(idx, traj, send_early_s)
-                if delta_s <= 0:  # Force the retry a bit later if there was no delta
-                    delta_s = schedule.slide_segment_if_late(idx, traj, send_early_s + bump_s)
-
+                delta_s = schedule.slide_segment_if_late(idx, send_early_s + bump_s)
                 if delta_s > 0:
                     self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the schedule.")
 

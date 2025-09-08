@@ -6,7 +6,12 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from bosdyn.util import duration_to_seconds, seconds_to_duration
+from bosdyn.util import (
+    duration_to_seconds,
+    seconds_to_duration,
+    seconds_to_timestamp,
+    timestamp_to_sec,
+)
 
 if TYPE_CHECKING:
     from bosdyn.api.arm_command_pb2 import ArmJointTrajectory
@@ -29,9 +34,16 @@ class SegmentSchedule:
     min_lead_s: float = 0.5
     """Minimum lead time (seconds) to send each segment in advance of its execution."""
 
+    MIN_BUMP_S: float = 0.01
+    """Minimum duration (seconds) by which a late segment must be delayed."""
+
     def __post_init__(self) -> None:
         """Verify required properties of any constructed SegmentSchedule instance."""
         assert len(self.segment_rel_times_s) == len(self.commands), "Schedule/commands mismatch."
+
+        for command in self.commands:
+            traj = command.synchronized_command.arm_command.arm_joint_move_command.trajectory
+            assert traj.HasField("reference_time"), "Segment must have a (local) reference_time."
 
     def _first_abs_local_time_s(self, idx: int) -> float:
         """Retrieve the absolute local time (seconds) of the first knot point in segment `idx`."""
@@ -46,48 +58,52 @@ class SegmentSchedule:
     def slide_segment_if_late(
         self,
         idx: int,
-        traj: ArmJointTrajectory,
         send_early_s: float,
     ) -> float:
         """If the first knot point in segment `idx` would arrive late, slide the schedule.
 
         :param idx: Index of the segment under consideration
-        :param traj: Trajectory data for the segment
         :param send_early_s: Desired duration (seconds) to send the segment before it starts
         :return: Delta applied (seconds); 0.0 if not late
         """
         assert 0 <= idx < len(self.segment_rel_times_s), f"Segment index {idx} is out of range."
-        assert traj.HasField("reference_time"), "Segment must have a reference_time (local time)."
 
         # Find the earliest allowable local start time for the segment
-        segment_start_local_time_s = self._first_abs_local_time_s(idx)
-        local_now_s = time.time()
-
-        earliest_start_local_time_s = local_now_s + send_early_s
+        segment_start_local_s = self._first_abs_local_time_s(idx)
+        earliest_start_local_s = time.time() + send_early_s
 
         # Robot requires the segment's first relative time to be *after* the receiving time
         #   i.e., segment_start_time > now + communication latency
-        if segment_start_local_time_s <= earliest_start_local_time_s:
-            delta_s = earliest_start_local_time_s - segment_start_local_time_s
+        if segment_start_local_s <= earliest_start_local_s:
+            delta_s = max(earliest_start_local_s - segment_start_local_s, self.MIN_BUMP_S)
 
-            # Shift the current segment's Protobuf message
-            for p in traj.points:
-                shifted_rel_time_s = duration_to_seconds(p.time_since_reference) + delta_s
-                p.time_since_reference.CopyFrom(seconds_to_duration(shifted_rel_time_s))
+            new_ref_local_s = self.ref_local_time_s + delta_s  # New shared reference time
+            self.ref_local_time_s = new_ref_local_s
 
-            # Enforce strictly monotonic knot point relative times
-            prev_t = float("-inf")
-            for p in traj.points:
-                t = duration_to_seconds(p.time_since_reference)
-                if t <= prev_t:
-                    t = prev_t + 1e-3
-                    p.time_since_reference.CopyFrom(seconds_to_duration(t))
-                prev_t = t
-
-            # Update the rest of the segment schedule accordingly
+            # Update this segment and all future segments' reference time
+            new_ref_timestamp = seconds_to_timestamp(new_ref_local_s)
             for j in range(idx, len(self.segment_rel_times_s)):
-                self.segment_rel_times_s[j] += delta_s
+                self.commands[
+                    j
+                ].synchronized_command.arm_command.arm_joint_move_command.trajectory.reference_time.CopyFrom(
+                    new_ref_timestamp,
+                )
 
             return delta_s
 
         return 0.0
+
+
+# # Shift this segment's (local) reference_time forward
+# curr_ref_time = timestamp_to_sec(traj.reference_time)
+# traj.reference_time.CopyFrom(seconds_to_timestamp(curr_ref_time + delta_s))
+# # Or should we just use the class' stored ref_local_time_s? Why treat both as valid?
+
+# # Update the rest of the segment schedule's reference times
+# self.ref_local_time_s += delta_s
+# for j in range(idx, len(self.segment_rel_times_s)):
+#     self.commands[
+#         j
+#     ].synchronized_command.arm_command.arm_joint_move_command.trajectory.reference_time.CopyFrom(
+#         seconds_to_timestamp(curr_ref_time + delta_s),
+#     )
