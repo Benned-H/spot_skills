@@ -76,7 +76,7 @@ class SegmentSchedule:
 
             # Update this segment and all future segments' reference time
             new_ref_timestamp = seconds_to_timestamp(new_ref_local_s)
-            for j in range(idx, len(self.segment_rel_times_s)):
+            for j in range(idx, len(self.commands)):
                 self.commands[
                     j
                 ].synchronized_command.arm_command.arm_joint_move_command.trajectory.reference_time.CopyFrom(
