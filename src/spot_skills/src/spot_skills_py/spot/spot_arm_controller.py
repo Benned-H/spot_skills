@@ -76,7 +76,7 @@ class SpotArmController:
         self._manager.log_info(f"Trajectory segment length: {len(traj.points)}")
 
         self._manager.log_info(
-            f"Segment local reference time: {schedule.ref_local_time_s:.3f} seconds.",
+            f"Schedule local reference time: {schedule.ref_local_time_s:.3f} seconds.",
         )
 
         first_rel_time_s = duration_to_seconds(traj.points[0].time_since_reference)
@@ -130,7 +130,7 @@ class SpotArmController:
         # Late guard: If we're too close or late, slide the segment forward
         delta_s = schedule.slide_segment_if_late(idx, traj, send_early_s)
         if delta_s > 0:
-            self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the segment schedule.")
+            self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the schedule.")
 
         # Retry loop: Adjust and resend only (no sleep)
         for attempt in range(1, max_attempts + 1):
