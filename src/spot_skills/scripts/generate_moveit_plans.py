@@ -76,7 +76,7 @@ def main() -> None:
 
     ### Begin alternating Spot's arm between the target poses ###
 
-    switch_hz = 0.2  # Shift end-effector pose every 5 seconds
+    switch_hz = 0.3333  # Shift end-effector pose every 3 seconds
     rate = rospy.Rate(switch_hz)
 
     while not rospy.is_shutdown():
