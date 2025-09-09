@@ -168,7 +168,6 @@ include_directories(
 catkin_install_python(PROGRAMS
   scripts/generate_moveit_plans.py
   scripts/arm_long_trajectory_demo.py
-  scripts/planning_scene_loader.py
   scripts/pose_sampling_demo.py
   scripts/spot_wrapper_node.py
   scripts/spot_moveit_demo.py

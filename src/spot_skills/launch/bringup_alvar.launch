@@ -9,6 +9,9 @@
     <!-- Require a path specifying where estimated object poses are output -->
     <arg name="output_yaml_path" default="$(find spot_skills)/config/object_poses.yaml"/>
 
+    <!-- Require a path specifying a YAML file containing known object poses -->
+    <arg name="known_poses_yaml_path" default="$(find spot_skills)/config/known_poses.yaml"/>
+
     <!-- Marker sizes (cm) -->
     <arg name="small_marker_size_cm" default="4.4"/>
     <arg name="medium_marker_size_cm" default="7.62"/>
@@ -62,6 +65,7 @@
         <param name="markers_yaml_path" value="$(arg markers_yaml_path)"/>
         <param name="output_yaml_path" value="$(arg output_yaml_path)"/>
         <param name="marker_topic_prefix" value="/ar_pose_marker"/>
+        <param name="known_poses_yaml_path" value="$(arg known_poses_yaml_path)"/>
     </node>
 
 </launch>

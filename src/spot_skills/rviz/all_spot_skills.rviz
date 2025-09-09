@@ -5,7 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded: ~
       Splitter Ratio: 0.48929160833358765
-    Tree Height: 482
+    Tree Height: 287
   - Class: rviz/Help
     Name: Help
   - Class: rviz/Views
@@ -73,9 +73,15 @@ Visualization Manager:
           Value: true
         cabinet:
           Value: true
+        dock_520:
+          Value: true
         door_to_lab:
           Value: true
         feet_center:
+          Value: true
+        fiducial_520:
+          Value: true
+        filtered_fiducial_520:
           Value: true
         flat_body:
           Value: true
@@ -165,82 +171,88 @@ Visualization Manager:
             {}
           door_to_lab:
             {}
-          vision:
-            body:
-              arm0.link_wr1:
-                hand_color_image_sensor:
-                  {}
-              arm_link_sh0:
-                arm_link_sh1:
-                  arm_link_hr0:
-                    arm_link_el0:
-                      arm_link_el1:
-                        arm_link_wr0:
-                          arm_link_wr1:
-                            arm_link_fngr:
-                              {}
-              base_link:
-                {}
-              feet_center:
-                {}
-              flat_body:
-                {}
-              front_left_foot:
-                {}
-              front_left_hip:
-                front_left_upper_leg:
-                  front_left_lower_leg:
-                    {}
-              front_rail:
-                {}
-              front_right_foot:
-                {}
-              front_right_hip:
-                front_right_upper_leg:
-                  front_right_lower_leg:
-                    {}
-              hand:
-                {}
-              head:
-                back:
-                  back_fisheye:
-                    {}
-                frontleft:
-                  frontleft_fisheye:
-                    {}
-                frontright:
-                  frontright_fisheye:
-                    {}
-                left:
-                  left_fisheye:
-                    {}
-                right:
-                  right_fisheye:
-                    {}
-              link_wr1:
-                {}
-              odom:
-                gpe:
-                  {}
-                sensor_origin_velodyne-point-cloud:
-                  {}
-              rear_left_foot:
-                {}
-              rear_left_hip:
-                rear_left_upper_leg:
-                  rear_left_lower_leg:
-                    {}
-              rear_rail:
-                {}
-              rear_right_foot:
-                {}
-              rear_right_hip:
-                rear_right_upper_leg:
-                  rear_right_lower_leg:
-                    {}
-              sensor:
-                {}
           white_board:
+            {}
+        vision:
+          body:
+            arm0.link_wr1:
+              hand_color_image_sensor:
+                {}
+            arm_link_sh0:
+              arm_link_sh1:
+                arm_link_hr0:
+                  arm_link_el0:
+                    arm_link_el1:
+                      arm_link_wr0:
+                        arm_link_wr1:
+                          arm_link_fngr:
+                            {}
+            base_link:
+              {}
+            feet_center:
+              {}
+            flat_body:
+              {}
+            front_left_foot:
+              {}
+            front_left_hip:
+              front_left_upper_leg:
+                front_left_lower_leg:
+                  {}
+            front_rail:
+              {}
+            front_right_foot:
+              {}
+            front_right_hip:
+              front_right_upper_leg:
+                front_right_lower_leg:
+                  {}
+            hand:
+              {}
+            head:
+              back:
+                back_fisheye:
+                  {}
+              frontleft:
+                frontleft_fisheye:
+                  {}
+              frontright:
+                frontright_fisheye:
+                  {}
+              left:
+                left_fisheye:
+                  {}
+              right:
+                right_fisheye:
+                  {}
+            link_wr1:
+              {}
+            odom:
+              gpe:
+                {}
+              sensor_origin_velodyne-point-cloud:
+                {}
+            rear_left_foot:
+              {}
+            rear_left_hip:
+              rear_left_upper_leg:
+                rear_left_lower_leg:
+                  {}
+            rear_rail:
+              {}
+            rear_right_foot:
+              {}
+            rear_right_hip:
+              rear_right_upper_leg:
+                rear_right_lower_leg:
+                  {}
+            sensor:
+              {}
+          dock_520:
+            {}
+          fiducial_520:
+            {}
+          filtered_fiducial_520:
             {}
       Update Interval: 0
       Value: true
@@ -711,16 +723,16 @@ Visualization Manager:
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 1043
+  Height: 747
   Help:
     collapsed: false
   Hide Left Dock: false
   Hide Right Dock: false
   Image:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000100000000000001a8000003bdfc0200000008fb000000100044006900730070006c006100790073010000003b00000271000000c700fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a00560069006500770073000000010c000000a4000000a000fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006700000002b8000002880000000000000000fb0000000a0049006d00610067006501000002b2000001460000001600ffffff000005d2000003bd00000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000100000000000001a800000295fc0200000008fb000000100044006900730070006c006100790073010000003b000001ae000000c700fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a00560069006500770073000000010c000000a4000000a000fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006700000002b8000002880000000000000000fb0000000a0049006d00610067006501000001ef000000e10000001600ffffff000003310000029500000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Views:
     collapsed: false
-  Width: 1920
-  X: 271
-  Y: 184
+  Width: 1247
+  X: 66
+  Y: 32
