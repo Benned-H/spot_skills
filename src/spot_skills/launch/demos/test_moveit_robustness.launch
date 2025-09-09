@@ -1,0 +1,15 @@
+<!-- Launch nodes to test the robustness of MoveIt-based arm control -->
+<launch>
+
+    <!-- For safety reasons, do not assume which Spot is being used -->
+    <arg name="spot_name" />
+
+    <param name="/spot/immediate_control" value="true" />
+
+    <!-- Launch all nodes used to run the Spot skills -->
+    <include file="$(find spot_skills)/launch/bringup_spot_skills.launch" pass_all_args="true" />
+
+    <!-- Launch the Python node that prompts MoveIt to generate motion plans -->
+    <node name="generate_moveit_plans" pkg="spot_skills" type="generate_moveit_plans.py" output="screen" />
+
+</launch>

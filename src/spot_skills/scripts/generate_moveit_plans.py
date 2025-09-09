@@ -76,7 +76,7 @@ def main() -> None:
 
     ### Begin alternating Spot's arm between the target poses ###
 
-    switch_hz = 0.2  # Shift end-effector pose every 5 seconds
+    switch_hz = 0.5  # Shift end-effector pose every 2 seconds
     rate = rospy.Rate(switch_hz)
 
     while not rospy.is_shutdown():
@@ -102,7 +102,7 @@ def main() -> None:
 
         gripper_client.send_goal_and_wait(
             gripper_goal_msg,
-            execute_timeout=rospy.Duration.from_sec(10.0),
+            execute_timeout=rospy.Duration.from_sec(3.0),
         )
 
         target_idx = (target_idx + 1) % len(cycle_target_poses)
