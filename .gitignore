@@ -22,3 +22,6 @@ maps/
 **/*.egg-info
 .coverage
 .hypothesis/
+
+# Ignore the uv environment specification
+uv.lock
