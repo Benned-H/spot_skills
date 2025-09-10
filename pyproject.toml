@@ -33,7 +33,6 @@ dependencies = ["numpy>=1.20", # np.typing was introduced in 1.20
 dev-dependencies = ["ruff", "pytest", "hypothesis", "pytest-cov", "mypy"]
 
 [tool.uv.sources] # Here, `workspace = true` tells uv to resolve the dependency using a workspace member
-# spot_skills_py = { path = "src/spot_skills/src/spot_skills_py", editable = true }
 robotics_utils = { workspace = true }
 spot_wrapper = { workspace = true }
 
