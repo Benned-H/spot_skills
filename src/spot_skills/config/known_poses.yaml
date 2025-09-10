@@ -1,6 +1,6 @@
 # Specify any known poses in the environment
 known_poses:
-  filing_cabinet1:
+  dummy_name_filing_cabinet1:
     [
       2.590920981430272,
       -2.2288189568326646,
