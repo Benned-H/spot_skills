@@ -1,11 +1,11 @@
 {
-    "name": "Spot Skills Dev Container",
+    "name": "Spot Skills Dev Container (w/ NVIDIA)",
     "dockerComposeFile": [
-        "../compose.yaml"
+        "../../compose.yaml"
     ],
-    "service": "spot-tamp-v3.1",
+    "service": "nvidia-spot-tamp-v1",
     "runServices": [
-        "spot-tamp-v3.1"
+        "nvidia-spot-tamp-v1"
     ],
     "workspaceFolder": "/docker/spot_skills",
     "customizations": {

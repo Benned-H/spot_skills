@@ -84,18 +84,21 @@ All demonstrations should be run from inside the Docker container. Unless otherw
 stated, you need to move to the top-level `spot_skills` folder, build the workspace, and source `devel/setup.bash`. The commands to do this are:
 
 ```bash
-# Assumes you're inside the Docker container
-cd /docker/spot_skills
+# In Docker
+uv venv --clear --system-site-packages
+uv pip install -e .
+source .venv/bin/activate
+
 catkin build
 source devel/setup.bash
-bash docker/source_all.sh
 ```
 
-If a demo requires a second or third terminal tab to be opened into Docker, move to the same directory and source `devel/setup.bash`.
+If a demo requires a second or third terminal tab to be opened into Docker, move to the same directory and source the following:
 
 ```bash
 # For a second, third, etc. terminal tab in Docker
 cd /docker/spot_skills
+source .venv/bin/activate
 source devel/setup.bash
 ```
 
