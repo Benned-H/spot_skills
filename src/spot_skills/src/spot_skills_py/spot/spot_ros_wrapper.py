@@ -373,7 +373,11 @@ class SpotROS1Wrapper:
 
         relative_poses = self.trajectory_replayer.load_relative_trajectory(yaml_path)
         cartesian_plan = self.trajectory_replayer.compute_cartesian_plan(relative_poses)
-        self.trajectory_replayer.move_group.execute(cartesian_plan, wait=True)
+        ik_sequence = self.trajectory_replayer.compute_ik_sequence(relative_poses)
+        for ik in ik_sequence:
+            self.trajectory_replayer.go_to(ik.q)
+
+        # self.trajectory_replayer.move_group.execute(cartesian_plan, wait=True)
 
         message = f"Successfully executed trajectory loaded from file: {yaml_path}"
         return PlaybackTrajectoryResponse(success=True, message=message)
