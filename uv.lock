@@ -5428,6 +5428,7 @@ dependencies = [
     { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "numpy", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pyquaternion" },
     { name = "rich" },
     { name = "trimesh" },
 ]
@@ -5490,6 +5491,7 @@ requires-dist = [
     { name = "open3d", marker = "extra == 'realsense'" },
     { name = "opencv-python", marker = "extra == 'vision'" },
     { name = "pillow", marker = "extra == 'vision'" },
+    { name = "pyquaternion" },
     { name = "pyrealsense2", marker = "extra == 'realsense'" },
     { name = "rich" },
     { name = "robotics-utils", extras = ["vision"], marker = "extra == 'all'", editable = "src/spot_skills/src/robotics_utils" },

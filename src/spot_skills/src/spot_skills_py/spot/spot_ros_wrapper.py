@@ -16,7 +16,7 @@ from control_msgs.msg import (
 from robotics_utils.ros import TransformManager
 from robotics_utils.ros.msg_conversion import pose_to_stamped_msg
 from robotics_utils.ros.params import get_ros_param
-from robotics_utils.ros.trajectory_replayer import RelativeTrajectoryConfig, TrajectoryReplayer
+from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
 from ros_numpy import msgify
 from sensor_msgs.msg import Image as ImageMsg
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
@@ -123,7 +123,7 @@ class SpotROS1Wrapper:
             body_frame="body",
             move_group_name="arm",
         )
-        self.trajectory_replayer = TrajectoryReplayer(traj_config)
+        self.trajectory_replayer = TrajectoryPlayback(traj_config)
 
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
@@ -372,10 +372,14 @@ class SpotROS1Wrapper:
             has_control = self._manager.take_control()
 
         relative_poses = self.trajectory_replayer.load_relative_trajectory(yaml_path)
-        cartesian_plan = self.trajectory_replayer.compute_cartesian_plan(relative_poses)
-        ik_sequence = self.trajectory_replayer.compute_ik_sequence(relative_poses)
-        for ik in ik_sequence:
-            self.trajectory_replayer.go_to(ik.q)
+        rospy.loginfo(f"Loaded {len(relative_poses)} poses from YAML file: {yaml_path}.")
+        self.trajectory_replayer.execute_hybrid_cartesian_sequence(relative_poses)
+
+        # relative_poses = self.trajectory_replayer.load_relative_trajectory(yaml_path)
+        # cartesian_plan = self.trajectory_replayer.compute_cartesian_plan(relative_poses)
+        # ik_sequence = self.trajectory_replayer.compute_ik_sequence(relative_poses)
+        # for ik in ik_sequence:
+        #     self.trajectory_replayer.go_to(ik.q)
 
         # self.trajectory_replayer.move_group.execute(cartesian_plan, wait=True)
 

@@ -1,0 +1,35 @@
+# Define an environment for developing the OpenDrawer skill for the black dresser
+robot_base_poses:
+  spot: [0, 0, 0.56, 0, 0, 0] # x, y, z, roll, pitch, yaw
+
+object_poses:
+  # eraser1:
+  #   xyz_rpy: [0.22, 0, 0.46, 0, 0, 0] # Up and a bit forwards from the filing cabinet frame
+  #   frame: drawer1
+
+  black_dresser5:
+    xyz_rpy: [-0.48640824465, 3.42454136423, -0.33765786063, 0, 0, 0]
+    frame: map
+
+collision_models:
+  # eraser1:
+  #   primitives: [{ type: box, x: 0.05, y: 0.125, z: 0.03 }]
+
+  black_dresser_closed:
+    primitives:
+      - { type: box, x: 0.496, y: 0.754, z: 0.694 }
+
+  black_dresser_open:
+    primitives:
+      - { type: box, x: 0.496, y: 0.754, z: 0.694 } # TODO: Scan real mesh
+
+containers:
+  black_dresser5:
+    closed_model: black_dresser_closed
+    open_model: black_dresser_open
+    contains: [] #[eraser1]
+    state: closed
+
+object_types:
+  # eraser1: [eraser, pickable]
+  black_dresser5: [dresser, drawer]

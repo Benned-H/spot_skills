@@ -117,7 +117,11 @@ class SpotNavigationServer:
         :return: Response specifying whether the navigation succeeded
         """
         if request.name not in self._waypoints:
-            message = f"Cannot navigate to unknown waypoint '{request.name}'."
+            available_waypoints = list(self._waypoints.keys())
+            message = (
+                f"Cannot navigate to unknown waypoint '{request.name}'.\n "
+                f"Available waypoints: {available_waypoints}"
+            )
             return NameServiceResponse(success=False, message=message)
 
         self._manager.log_info(
