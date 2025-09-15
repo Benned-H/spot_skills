@@ -33,3 +33,10 @@ containers:
 object_types:
   # eraser1: [eraser, pickable]
   black_dresser5: [dresser, drawer]
+
+waypoints:
+  open_black_dresser:
+    x_y_yaw: [1.22, 0, 3.14159]
+    frame: black_dresser
+
+default_frame: map

@@ -270,26 +270,6 @@ def _broadcast_pose(label: str, pose: Pose3D, seconds: float) -> None:
         time.sleep(TransformManager.LOOP_HZ)
 
 
-def _prompt_pose(ref_frame_default: str) -> Tuple[Pose3D, str]:
-    console.print(Panel("Pose mode: enter [x,y,z,r,p,y] (meters, radians)", border_style="cyan"))
-
-    def askf(label: str, default: float) -> float:
-        return FloatPrompt.ask(label, default=default)
-
-    x = askf("x (m)", 0.58)
-    y = askf("y (m)", 0.0)
-    z = askf("z (m)", 0.505)
-    r = askf("roll r (rad)", 0.0)
-    p = askf("pitch p (rad)", 0.0)
-    yaw = askf("yaw y (rad)", 3.14159)
-    ref_frame = Prompt.ask("ref_frame", default=ref_frame_default)
-    pose = Pose3D.from_list([x, y, z, r, p, yaw], ref_frame=ref_frame)
-    summary = (
-        f"Pose in {ref_frame}: [x={x:.3f}, y={y:.3f}, z={z:.3f}, r={r:.3f}, p={p:.3f}, y={yaw:.3f}]"
-    )
-    return pose, summary
-
-
 def _prompt_configuration() -> Tuple[Dict[str, float], str]:
     console.print(Panel("Configuration mode: enter joint angles (radians)", border_style="cyan"))
     cfg: Dict[str, float] = {}
@@ -302,19 +282,6 @@ def _prompt_configuration() -> Tuple[Dict[str, float], str]:
         table.add_row(j, f"{cfg[j]:.6f}")
     console.print(table)
     return cfg, "Configuration (rad) shown above"
-
-
-def prompt_for_path(path_purpose: str) -> Path | None:
-    """Prompt the user for a filepath using the CLI."""
-    while True:
-        raw = Prompt.ask(f"{path_purpose} (absolute or relative)")
-        p = Path(raw).expanduser().resolve()
-        if p.is_file():
-            console.print(f"[cyan]Using file:[/] {p}")
-            return p
-        console.print(f"[red]File not found:[/] {p}")
-        if not Confirm.ask("Try again?", default=True):
-            return None
 
 
 class SpotArmStack:
@@ -606,33 +573,6 @@ def _handle_service(services: RosServices, key: str, opts: Options) -> Tuple[boo
         if spec.kind == "trigger":
             return services.call_trigger(key)
 
-        if spec.kind == "path":
-            # ask for YAML path
-            while True:
-                raw = Prompt.ask("YAML path for trajectory (absolute or relative)")
-                p = Path(raw).expanduser().resolve()
-                if p.is_file():
-                    break
-                console.print(f"[red]File not found:[/] {p}")
-                if not Confirm.ask("Try again?", default=True):
-                    return (False, "User canceled.")
-            console.print(f"[cyan]Using file:[/] {p}")
-            return services.call_playback(key, p)
-        if spec.kind == "pose":
-            src = Prompt.ask("Source frame", default="map")
-            tgt = Prompt.ask("Target frame", default="base_link")
-            ok, msg, pose = services.call_pose_lookup(key, src, tgt)
-            if ok and pose is not None:
-                p = pose.pose.position
-                o = pose.pose.orientation
-                t = Text()
-                stamp = getattr(pose.header.stamp, "to_sec", lambda: 0.0)()
-                t.append(f"Stamp: {stamp:.6f}\n")
-                t.append(f"Frame: {pose.header.frame_id}\n")
-                t.append(f"Position (m): x={p.x:.3f}, y={p.y:.3f}, z={p.z:.3f}\n")
-                t.append(f"Orientation (quat): x={o.x:.3f}, y={o.y:.3f}, z={o.z:.3f}, w={o.w:.3f}")
-                console.print(Panel(t, title=f"{src} → {tgt}", border_style="magenta"))
-            return (ok, msg)
     else:
         # Motion skills
         if key == "move_to_pose":
@@ -648,12 +588,7 @@ def _handle_service(services: RosServices, key: str, opts: Options) -> Tuple[boo
                 return (False, "Canceled")
             ok = _plan_exec_config(cfg)
             return (ok, "Done" if ok else "Failed")
-        if key == "open_gripper":
-            SpotArmStack.get().open_gripper()
-            return (True, "Done")
-        if key == "close_gripper":
-            SpotArmStack.get().close_gripper()
-            return (True, "Done")
+
         if key == "open_drawer":
             open_drawer()
             return (True, "Done")
