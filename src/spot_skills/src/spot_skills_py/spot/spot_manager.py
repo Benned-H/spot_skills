@@ -11,11 +11,13 @@ from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client import create_standard_sdk, frame_helpers
+from bosdyn.client.docking import DockingClient, blocking_dock_robot
 from bosdyn.client.door import DoorClient
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import (
+    CommandFailedError,
     RobotCommandBuilder,
     RobotCommandClient,
     block_for_trajectory_cmd,
@@ -98,6 +100,11 @@ class SpotManager:
         # Define clients used to control Spot to open doors
         self.manip_client = self._robot.ensure_client(ManipulationApiClient.default_service_name)
         self.door_client = self._robot.ensure_client(DoorClient.default_service_name)
+
+        # Define a client to allow Spot to dock
+        self._docking_client: DockingClient = self._robot.ensure_client(
+            DockingClient.default_service_name,
+        )
 
         # Define a client to later obtain control of Spot (i.e., Spot's "lease")
         self._lease_client: LeaseClient = self._robot.ensure_client(
@@ -518,6 +525,22 @@ class SpotManager:
 
         self.log_info("Now blocking until the velocity command finishes...")
         return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=duration_s)
+
+    def dock(self, dock_id: int, timeout_s: int = 60) -> bool:
+        """Send a docking command to Spot with the given dock ID and block until it finishes.
+
+        :param dock_id: Dock ID number to attempt docking at
+        :param timeout_s: Maximum duration (seconds) to wait for docking (defaults to 60)
+        :return: True if Spot successfully docked, else False
+        """
+        try:
+            blocking_dock_robot(self._robot, dock_id=dock_id, timeout=timeout_s)
+        except CommandFailedError as dock_err:
+            self.log_info(f"Docking failed for dock #{dock_id}: {dock_err}")
+            return False
+        else:
+            self.log_info(f"Docking succeeded at dock #{dock_id}.")
+            return True
 
     def release_control(self) -> None:
         """Release control of Spot so that other clients can control Spot."""

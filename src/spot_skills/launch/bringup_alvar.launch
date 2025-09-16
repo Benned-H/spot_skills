@@ -61,11 +61,11 @@
     </node>
 
     <!-- Launch a node to forward transforms from ar_track_alvar to /tf -->
-    <node name="fiducial_tracker_node" pkg="spot_skills" type="fiducial_tracker_node.py" output="screen" required="true">
+    <!--<node name="fiducial_tracker_node" pkg="spot_skills" type="fiducial_tracker_node.py" output="screen" required="true">
         <param name="markers_yaml_path" value="$(arg markers_yaml_path)"/>
         <param name="output_yaml_path" value="$(arg output_yaml_path)"/>
         <param name="marker_topic_prefix" value="/ar_pose_marker"/>
         <param name="known_poses_yaml_path" value="$(arg known_poses_yaml_path)"/>
-    </node>
+    </node>-->
 
 </launch>

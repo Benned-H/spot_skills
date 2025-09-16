@@ -117,6 +117,8 @@ class SpotROS1Wrapper:
         self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
         self._control_srv = rospy.Service("spot/take_control", Trigger, self.handle_take_control)
         self._pose_lookup_srv = rospy.Service("pose_lookup", PoseLookup, self.handle_pose_lookup)
+        self._dock_srv = rospy.Service("spot/dock", Trigger, self.handle_dock)
+        self._dock_id = 520
 
         traj_config = RelativeTrajectoryConfig(
             ee_frame="arm_link_wr1",
@@ -174,6 +176,16 @@ class SpotROS1Wrapper:
         message = "Spot is now sitting." if sit_success else "Spot could not sit."
 
         return TriggerResponse(sit_success, message)
+
+    def handle_dock(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to dock Spot at its default dock.
+
+        :param _: ROS message requesting that Spot be docked (unused)
+        :return: Response conveying whether Spot successfully docked
+        """
+        success = self._manager.dock(self._dock_id)
+        message = "Spot successfully docked." if success else "Spot failed to dock."
+        return TriggerResponse(success, message)
 
     def handle_shutdown(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to shut down the Spot wrapper and manager.
