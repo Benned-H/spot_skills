@@ -62,6 +62,7 @@ add_service_files(
   NavigateToPose.srv
   PlaybackTrajectory.srv
   PoseLookup.srv
+  Float64Service.srv
 )
 
 ## Generate actions in the 'action' folder

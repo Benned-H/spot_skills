@@ -27,7 +27,7 @@ from robotics_utils.kinematics import Point3D
 from spot_skills_py.spot.spot_manager import SpotManager
 
 
-def erase_board(manager: SpotManager) -> None:
+def erase_board(manager: SpotManager, x_m: float) -> None:
     """Use the given Spot manager to erase a whiteboard in front of Spot."""
     assert manager.has_arm(), "Robot requires an arm to erase a whiteboard!"
 
@@ -80,18 +80,18 @@ def erase_board(manager: SpotManager) -> None:
 
     f_x = 10
     hand_point_coords: list[Point3D] = [
-        Point3D(1.2, 0.2, 0.3),
-        Point3D(1.2, 0.2, 0.7),
-        Point3D(1.2, 0.12, 0.7),
-        Point3D(1.2, 0.12, 0.3),
-        Point3D(1.2, 0.04, 0.3),
-        Point3D(1.2, 0.04, 0.7),
-        Point3D(1.2, -0.04, 0.7),
-        Point3D(1.2, -0.04, 0.3),
-        Point3D(1.2, -0.12, 0.3),
-        Point3D(1.2, -0.12, 0.7),
-        Point3D(1.2, -0.2, 0.7),
-        Point3D(1.2, -0.2, 0.3),
+        Point3D(x_m, 0.2, 0.3),
+        Point3D(x_m, 0.2, 0.7),
+        Point3D(x_m, 0.12, 0.7),
+        Point3D(x_m, 0.12, 0.3),
+        Point3D(x_m, 0.04, 0.3),
+        Point3D(x_m, 0.04, 0.7),
+        Point3D(x_m, -0.04, 0.7),
+        Point3D(x_m, -0.04, 0.3),
+        Point3D(x_m, -0.12, 0.3),
+        Point3D(x_m, -0.12, 0.7),
+        Point3D(x_m, -0.2, 0.7),
+        Point3D(x_m, -0.2, 0.3),
     ]
 
     hand_points = [geometry_pb2.Vec3(x=p.x, y=p.y, z=p.z) for p in hand_point_coords]

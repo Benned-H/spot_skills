@@ -1,0 +1,5 @@
+# Request a service that erases a whiteboard.
+float64 value
+---
+bool success
+string message

@@ -23,6 +23,9 @@ from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from spot_skills.msg import RGBDPair
 from spot_skills.srv import (
+    Float64Service,
+    Float64ServiceRequest,
+    Float64ServiceResponse,
     GetRGBDPairs,
     GetRGBDPairsRequest,
     GetRGBDPairsResponse,
@@ -114,7 +117,11 @@ class SpotROS1Wrapper:
             PlaybackTrajectory,
             self.handle_playback_trajectory,
         )
-        self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
+        self._erase_service = rospy.Service(
+            "spot/erase_board",
+            Float64Service,
+            self.handle_erase_board,
+        )
         self._control_srv = rospy.Service("spot/take_control", Trigger, self.handle_take_control)
         self._pose_lookup_srv = rospy.Service("pose_lookup", PoseLookup, self.handle_pose_lookup)
         self._dock_srv = rospy.Service("spot/dock", Trigger, self.handle_dock)
@@ -398,14 +405,14 @@ class SpotROS1Wrapper:
         message = f"Successfully executed trajectory loaded from file: {yaml_path}"
         return PlaybackTrajectoryResponse(success=True, message=message)
 
-    def handle_erase_board(self, _: TriggerRequest) -> TriggerResponse:
+    def handle_erase_board(self, request: Float64ServiceRequest) -> Float64ServiceResponse:
         """Handle a service request to erase a whiteboard.
 
-        :param _: Message representing a request to erase a board
+        :param request: Message representing a request to erase a board (specifies +x erase plane)
         :return: Response conveying whether the whiteboard was erased
         """
         if self._arm_locked:
-            return TriggerResponse(
+            return Float64ServiceResponse(
                 success=False,
                 message="Could not erase whiteboard because Spot's arm remains locked.",
             )
@@ -415,11 +422,12 @@ class SpotROS1Wrapper:
             has_control = self._manager.take_control()
 
         if not has_control:
-            return TriggerResponse(success=False, message="Could not erase the whiteboard.")
+            return Float64ServiceResponse(success=False, message="Could not erase the whiteboard.")
 
-        erase_board(self._manager)
+        x_m = float(request.value)
+        erase_board(self._manager, x_m)
 
-        return TriggerResponse(success=True, message="Erased the whiteboard.")
+        return Float64ServiceResponse(success=True, message="Erased the whiteboard.")
 
     def handle_take_control(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to forcibly take control of Spot.
