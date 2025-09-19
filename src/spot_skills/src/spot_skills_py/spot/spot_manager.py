@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -14,7 +16,14 @@ from bosdyn.client import create_standard_sdk, frame_helpers
 from bosdyn.client.docking import DockingClient, blocking_dock_robot
 from bosdyn.client.door import DoorClient
 from bosdyn.client.estop import EstopClient
-from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
+from bosdyn.client.exceptions import Error as SDKError
+from bosdyn.client.exceptions import LeaseUseError
+from bosdyn.client.lease import (
+    LeaseClient,
+    LeaseKeepAlive,
+    LeaseWallet,
+    add_lease_wallet_processors,
+)
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import (
     CommandFailedError,
@@ -44,6 +53,23 @@ if TYPE_CHECKING:
     from robotics_utils.kinematics.poses import Pose2D
 
 
+@dataclass(frozen=True)
+class SpotControlStatus:
+    """A lightweight snapshot of the control state for a Spot."""
+
+    has_lease: bool
+    powered_on: bool
+    lease_resource: str
+    lease_owner: str | None
+    lease_epoch: int | None
+    last_checked_s: float
+
+    @property
+    def ok(self) -> bool:
+        """True if and only if we hold a live lease and the robot is powered on."""
+        return self.has_lease and self.powered_on
+
+
 class SpotManager:
     """A wrapper to ensure that Spot is safely connected and controllable."""
 
@@ -53,6 +79,7 @@ class SpotManager:
         hostname: str,
         username: str,
         password: str,
+        resource: str = "body",
     ) -> None:
         """Initialize the Spot manager by connecting to Spot.
 
@@ -68,53 +95,67 @@ class SpotManager:
         Reference: spot-sdk/python/examples/hello_spot/hello_spot.py
         """
         self._created_time_s = time.time()  # Record when the SpotManager was created
+        self._resource = resource
 
         setup_logging(verbose=True)  # Use verbose logging for the Spot SDK
 
         # Create one robot object, although the SDK client can manage more than one
         self._sdk = create_standard_sdk(client_name)
         self._robot = self._sdk.create_robot(hostname)
-
-        # We need to authenticate with Spot before using it
         self._robot.authenticate(username=username, password=password)
 
         # Establish a time-sync with Spot, which enables local-robot time conversion
         self.time_sync = SpotTimeSync(self._robot)
-
         self.log_info("Time sync has been established with Spot.")
         for _ in range(5):  # Repeatedly re-sync to hopefully better model network variance
             self.resync_and_log()
 
-        # Define a client that can command Spot to move
-        self.command_client = self._robot.ensure_client(RobotCommandClient.default_service_name)
-
-        # Define a client to query the state of the robot
-        self._state_client = self._robot.ensure_client(RobotStateClient.default_service_name)
-
-        # Define a client to query Spot's e-stop status
-        self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
-
-        # Define an image client to interface with Spot's cameras
-        self.image_client = SpotImageClient(self._robot)
-
-        # Define clients used to control Spot to open doors
-        self.manip_client = self._robot.ensure_client(ManipulationApiClient.default_service_name)
-        self.door_client = self._robot.ensure_client(DoorClient.default_service_name)
-
-        # Define a client to allow Spot to dock
-        self._docking_client: DockingClient = self._robot.ensure_client(
-            DockingClient.default_service_name,
-        )
+        self._lease_wallet = LeaseWallet()
+        self._lease_wallet.set_client_name(self._sdk.client_name)
 
         # Define a client to later obtain control of Spot (i.e., Spot's "lease")
         self._lease_client: LeaseClient = self._robot.ensure_client(
             LeaseClient.default_service_name,
         )
-        self._lease_keeper = None  # Stores a lease and keeps it alive once obtained
+        add_lease_wallet_processors(self._lease_client, self._lease_wallet)
+
+        # Define a client that can command Spot to move
+        self.command_client = self._robot.ensure_client(RobotCommandClient.default_service_name)
+        add_lease_wallet_processors(self.command_client, self._lease_wallet)
+
+        # Define a client to query the state of the robot
+        self._state_client = self._robot.ensure_client(RobotStateClient.default_service_name)
+        add_lease_wallet_processors(self._state_client, self._lease_wallet)
+
+        # Define a client to query Spot's e-stop status
+        self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
+        add_lease_wallet_processors(self._estop_client, self._lease_wallet)
+
+        # Define an image client to interface with Spot's cameras
+        self.image_client = SpotImageClient(self._robot, self._lease_wallet)
+
+        # Define clients used to control Spot to open doors
+        self.manip_client = self._robot.ensure_client(ManipulationApiClient.default_service_name)
+        add_lease_wallet_processors(self.manip_client, self._lease_wallet)
+
+        self.door_client = self._robot.ensure_client(DoorClient.default_service_name)
+        add_lease_wallet_processors(self.door_client, self._lease_wallet)
+
+        # Define a client to allow Spot to dock
+        self._docking_client: DockingClient = self._robot.ensure_client(
+            DockingClient.default_service_name,
+        )
+        add_lease_wallet_processors(self._docking_client, self._lease_wallet)
+
+        # Stores a lease and keeps it alive once obtained
+        self._lease_keeper: LeaseKeepAlive | None = None
 
         self._mobility_params = RobotCommandBuilder.mobility_params()
 
         assert self.wait_while_estopped()  # Wait until Spot isn't e-stopped
+
+        # Initialize the control status for the SpotManager
+        self._control_status: SpotControlStatus = self._compute_status()
 
     def wait_while_estopped(self, timeout_s: int = 30) -> bool:
         """Notify the user if Spot is e-stopped by spamming the ROS and Spot logs.
@@ -146,56 +187,135 @@ class SpotManager:
         list_leases = self._lease_client.list_leases()
         self.log_info(f"List of SpotManager's leases: {list_leases}")
 
-    def take_control(self, resource: str = "body", force: bool = False) -> bool:
+    def take_control(self, force: bool = False, power_on: bool = True) -> bool:
         """Request control of a resource from Spot and ensure Spot is powered on.
 
         In detail, this method performs these steps:
             1. Attempt to acquire the resource's lease and then keep it alive
             2. Attempt to power on Spot, if necessary
 
-        :param resource: Name of the resource for which to acquire a lease
         :param force: Whether the lease should be taken forcefully from any other owner
+        :param power_on: If True, ensure the robot is powered on
         :return: Boolean indicating if all attempted operations were successful
         """
-        # 1. Attempt to acquire a lease from Spot and keep it alive
-        if self._lease_keeper is None:
-            self.log_info(f"Acquiring resource '{resource}'...")
+        if self._lease_keeper is not None:  # Always clear any stale KeepAlive first
+            with contextlib.suppress(Exception):
+                self._lease_keeper.shutdown()
+            self._lease_keeper = None
 
-            if force:
-                self._lease_client.take(resource=resource)  # Forcefully take the lease
-            else:
-                self._lease_client.acquire(resource=resource)
-            self._lease_keeper = LeaseKeepAlive(
-                lease_client=self._lease_client,
-                resource=resource,
-                must_acquire=True,
-                return_at_exit=True,
+        self.log_info(f"Acquiring resource '{self._resource}' (force={force})...")
+        try:
+            lease = (
+                self._lease_client.take(resource=self._resource)
+                if force
+                else self._lease_client.acquire(resource=self._resource)
             )
-            self.log_info("Lease acquired.")
 
-        # 2. If needed, attempt to power on Spot
-        if not self._robot.is_powered_on():
+        except SDKError as sdk_err:
+            self.log_info(f"Lease acquire/take failed: {sdk_err!r}")
+            self._control_status = self._compute_status()
+            return False
+
+        # Add the lease to the wallet (allows future RPCs to auto-attach)
+        self._lease_wallet.add(lease)
+
+        # Start background keepalive using the WALLET (not a lease)
+        self._lease_keeper = LeaseKeepAlive(
+            lease_client=self._lease_client,
+            lease_wallet=self._lease_wallet,
+            resource=self._resource,
+            must_acquire=False,  # Because we've just acquired above
+            return_at_exit=True,
+        )
+
+        # 2. If requested and needed, attempt to power on Spot
+        if power_on and not self._robot.is_powered_on():
             self.log_info("Powering on Spot... This may take several seconds.")
             self._robot.power_on(timeout_sec=20)
 
-        # Verify that the attempted operations succeeded
-        power_success = self._robot.is_powered_on()
+        self._control_status = self._compute_status()
+        return self._control_status.ok if power_on else self._control_status.has_lease
 
-        self.log_info("Spot powered on." if power_success else "Spot power on failed.")
+    def _holds_live_lease(self) -> bool:
+        """Check that we have a LeaseKeepAlive and that it's alive."""
+        return (self._lease_keeper is not None) and self._lease_keeper.is_alive()
 
-        self.log_info("Exiting SpotManager.take_control()...\n")
+    def ensure_control(self, retake_if_lost: bool = True) -> bool:
+        """Idempotent method to guarantee that the SpotManager has control of Spot."""
+        self._control_status = self._compute_status()
 
-        return self.check_control()
+        if self._control_status.ok:
+            return True
 
-    def check_control(self) -> bool:
-        """Check whether the SpotManager has control of a powered-on robot.
+        # If we lost control and are allowed to retake it, do so
+        if retake_if_lost:
+            return self.take_control(force=True, power_on=True)
 
-        :returns: Boolean indicating if the manager has the lease and Spot is powered on
-        """
-        lease_alive = self._lease_keeper is not None and self._lease_keeper.is_alive()
-        powered_on = self._robot.is_powered_on()
+        return False
 
-        return lease_alive and powered_on
+    def release_control(self) -> None:
+        """Return the lease and stop the LeaseKeepAlive."""
+        self.log_info("Releasing control of Spot...")
+        try:
+            # Try returning the specific lease that we hold
+            with contextlib.suppress(Exception):
+                lease = self._lease_wallet.get_lease(self._resource)
+                self._lease_client.return_lease(lease)
+
+            if self._lease_keeper:
+                self._lease_keeper.shutdown()  # Blocks until complete
+                self._lease_keeper = None
+
+        finally:
+            self._control_status = self._compute_status()
+
+    @property
+    def has_control(self) -> bool:
+        """Check whether the SpotManager has control of Spot right now."""
+        self._control_status = self._compute_status()
+        return self._control_status.ok
+
+    def _compute_status(self) -> SpotControlStatus:
+        """Compute the current control status of the SpotManager."""
+        powered_on = False
+        try:
+            powered_on = self._robot.is_powered_on()
+        except Exception:
+            powered_on = False
+
+        lease_owner = None
+        lease_epoch = None
+        has_lease = False
+
+        try:  # Prefer the wallet as the ground truth for leases
+            state = self._lease_wallet.get_lease_state(self._resource)
+
+            status_enum = getattr(state, "lease_status", None)
+            owner = getattr(state, "lease_owner", None)
+            lease_owner = getattr(state, "client_name", None) or (
+                getattr(owner, "client_name", None) if owner else None
+            )
+
+            lease_msg = getattr(state, "lease_current", None) or getattr(state, "lease", None)
+            lease_epoch = getattr(lease_msg, "epoch", None)
+
+            has_lease = (status_enum is not None) and (
+                int(status_enum) == int(type(state).Status.SELF_OWNER)
+            )
+            # Double-check that the KeepAlive thread is up
+            has_lease = has_lease and self._holds_live_lease()
+
+        except Exception:
+            has_lease = self._holds_live_lease()
+
+        return SpotControlStatus(
+            has_lease=bool(has_lease),
+            powered_on=bool(powered_on),
+            lease_resource=self._resource,
+            lease_owner=lease_owner,
+            lease_epoch=lease_epoch,
+            last_checked_s=time.time(),
+        )
 
     def log_info(self, message: str) -> None:
         """Log the given message to the Spot and ROS information logs.
@@ -276,7 +396,7 @@ class SpotManager:
         :param duration_s: Duration (seconds) after which to end the command
         :return: ID (integer) of the issued robot command, or None if manager doesn't control Spot
         """
-        if not self.check_control():
+        if not self.has_control:
             return None
 
         # Issue a command to the robot synchronously (blocks until done sending)
@@ -303,7 +423,7 @@ class SpotManager:
         :param control_params: Parameters modifying Spot's standing body pose (defaults to None)
         :return: True if Spot stood up, otherwise False
         """
-        if not self.check_control():
+        if not self.has_control:
             return False
 
         if control_params is None:
@@ -324,7 +444,7 @@ class SpotManager:
         :param timeout_s: Timeout (seconds) for the sit command
         :return: True if Spot sat down, otherwise False
         """
-        if not self.check_control():
+        if not self.has_control:
             return False
 
         blocking_sit(self.command_client, timeout_sec=timeout_s)
@@ -337,7 +457,7 @@ class SpotManager:
         :param timeout_s: Timeout (seconds) for the pitch up command
         :return: True if the body was successfully pitched, else False
         """
-        if not self.check_control():
+        if not self.has_control:
             return False
 
         body_euler_zxy = EulerZXY(0.0, 0.0, -np.pi / 6.0)
@@ -414,7 +534,7 @@ class SpotManager:
 
         :returns: True if Spot's arm was deployed, otherwise False
         """
-        if not self.check_control():
+        if not self.has_control:
             return False
 
         self.log_info("Deploying Spot's arm to the 'ready' position...")
@@ -433,7 +553,7 @@ class SpotManager:
 
         :returns: True if Spot's arm was stowed, otherwise False
         """
-        if not self.check_control():
+        if not self.has_control:
             return False
 
         self.log_info("Stowing Spot's arm...")
@@ -456,7 +576,7 @@ class SpotManager:
         :param timeout_s: Duration (seconds) after which the command times out
         :return: True if the navigation command succeeded, else False
         """
-        if not self.check_control():
+        if not self.has_control:
             self.log_info("Can't navigate to base pose because SpotManager doesn't control Spot.")
             return False
 
@@ -507,7 +627,7 @@ class SpotManager:
         :param duration_s: Duration (seconds) of the sent command
         :return: Boolean indicating if the command was successfully sent
         """
-        if not self.check_control():
+        if not self.has_control:
             return False
 
         velocity_cmd = RobotCommandBuilder.synchro_velocity_command(
@@ -542,13 +662,6 @@ class SpotManager:
             self.log_info(f"Docking succeeded at dock #{dock_id}.")
             return True
 
-    def release_control(self) -> None:
-        """Release control of Spot so that other clients can control Spot."""
-        if self._lease_keeper is not None:
-            self.log_info("Releasing control of Spot...")
-            self._lease_keeper.shutdown()  # Blocks until complete
-            self._lease_keeper = None
-
     def safely_power_off(self) -> None:
         """Power Spot off by issuing a "safe power off" command."""
         self._robot.power_off(cut_immediately=False, timeout_sec=20)
@@ -557,7 +670,7 @@ class SpotManager:
 
     def shutdown(self) -> None:
         """Shut-down by stowing the arm, sitting, powering off, and releasing Spot."""
-        if self.check_control():
+        if self.has_control:
             self.log_info("Shutting down Spot using the controlling SpotManager...")
 
             self.stow_arm()

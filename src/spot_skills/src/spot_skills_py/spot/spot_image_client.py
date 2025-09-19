@@ -10,6 +10,7 @@ import numpy as np
 import rospy
 from bosdyn.api.image_pb2 import Image, ImageCapture, ImageRequest, ImageResponse
 from bosdyn.client.image import ImageClient, build_image_request
+from bosdyn.client.lease import LeaseWallet, add_lease_wallet_processors
 from cv_bridge import CvBridge
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image as ImageMsg
@@ -45,12 +46,14 @@ class ImageFormat(Enum):
 class SpotImageClient:
     """A wrapper for functions related to Spot's image client."""
 
-    def __init__(self, robot: Robot) -> None:
+    def __init__(self, robot: Robot, lease_wallet: LeaseWallet) -> None:
         """Initialize an image client using the given robot.
 
         :param robot: Point of access for Spot's RPC clients
+        :param lease_wallet: Shared lease wallet providing a lease for the robot
         """
         self._image_client = robot.ensure_client(ImageClient.default_service_name)
+        add_lease_wallet_processors(self._image_client, lease_wallet)
 
         # Identify the image sources available from Spot
         image_sources_proto = self._image_client.list_image_sources()

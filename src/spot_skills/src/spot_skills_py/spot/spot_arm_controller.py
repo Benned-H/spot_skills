@@ -192,6 +192,10 @@ class SpotArmController:
         if self._locked:
             return ArmCommandOutcome.ARM_LOCKED
 
+        if not self._manager.has_control:
+            self._manager.log_info("Cannot command Spot's arm; SpotManager doesn't control Spot.")
+            return ArmCommandOutcome.INVALID_START
+
         # Re-sync with Spot to ensure that round-trip times are up-to-date
         self._manager.time_sync.resync()
 
@@ -255,7 +259,7 @@ class SpotArmController:
             self._manager.log_info("Rejected gripper command; Spot's arm remains locked.\n")
             return GripperCommandOutcome.FAILURE
 
-        if not self._manager.check_control():
+        if not self._manager.has_control:
             self._manager.log_info("Rejected gripper command; SpotManager doesn't control Spot.\n")
             return GripperCommandOutcome.FAILURE
 

@@ -122,7 +122,16 @@ class SpotROS1Wrapper:
             Float64Service,
             self.handle_erase_board,
         )
-        self._control_srv = rospy.Service("spot/take_control", Trigger, self.handle_take_control)
+        self._take_control_srv = rospy.Service(
+            "spot/take_control",
+            Trigger,
+            self.handle_take_control,
+        )
+        self._release_control_srv = rospy.Service(
+            "spot/release_control",
+            Trigger,
+            self.handle_release_control,
+        )
         self._pose_lookup_srv = rospy.Service("pose_lookup", PoseLookup, self.handle_pose_lookup)
         self._dock_srv = rospy.Service("spot/dock", Trigger, self.handle_dock)
         self._dock_id = 520
@@ -160,7 +169,13 @@ class SpotROS1Wrapper:
         :param _: Message representing a request for Spot to stand (unused)
         :return: Response conveying whether Spot has successfully stood up
         """
-        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if self._manager is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotManager is None; could not make Spot stand.",
+            )
+
+        has_control = self._manager.has_control  # Only take control of Spot once necessary
         if not has_control:
             has_control = self._manager.take_control()
 
@@ -175,7 +190,13 @@ class SpotROS1Wrapper:
         :param _: ROS message representing a request that Spot sits (unused)
         :return: Response conveying whether Spot has successfully sat down
         """
-        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if self._manager is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotManager is None; could not make Spot sit.",
+            )
+
+        has_control = self._manager.has_control  # Only take control of Spot once necessary
         if not has_control:
             has_control = self._manager.take_control()
 
@@ -190,6 +211,12 @@ class SpotROS1Wrapper:
         :param _: ROS message requesting that Spot be docked (unused)
         :return: Response conveying whether Spot successfully docked
         """
+        if self._manager is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotManager is None; could not make Spot dock.",
+            )
+
         success = self._manager.dock(self._dock_id)
         message = "Spot successfully docked." if success else "Spot failed to dock."
         return TriggerResponse(success, message)
@@ -200,6 +227,12 @@ class SpotROS1Wrapper:
         :param _: ROS message requesting that Spot be shut down (unused)
         :return: Response conveying that shutdown was initiated
         """
+        if self._manager is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotManager is None; could not shut down Spot.",
+            )
+
         self._manager.shutdown()
         rospy.signal_shutdown("Shutting down Spot ROS wrapper...")
 
@@ -211,7 +244,13 @@ class SpotROS1Wrapper:
         :param _: Message representing a request to unlock Spot's arm (unused)
         :return: Response conveying that Spot's arm has been unlocked
         """
-        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if self._manager is None or self._arm_controller is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotManager is not set up; could not unlock Spot's arm.",
+            )
+
+        has_control = self._manager.has_control  # Only take control of Spot once necessary
         if not has_control:
             has_control = self._manager.take_control()
 
@@ -224,21 +263,25 @@ class SpotROS1Wrapper:
 
         return TriggerResponse(has_control, message)
 
-    def handle_stow_arm(self, request_msg: TriggerRequest) -> TriggerResponse:
+    def handle_stow_arm(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to stow Spot's arm.
 
         TODO: If Spot is believed to be holding something, prevent stowing.
 
-        :param request_msg: Message representing a request to stow Spot's arm
+        :param _: Message representing a request to stow Spot's arm
         :return: Response conveying whether Spot's arm has been stowed
         """
-        del request_msg
+        if self._manager is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotManager is not set up; could not stow Spot's arm.",
+            )
 
         if self._arm_locked:
             message = "Spot's arm was not stowed because Spot's arm remains locked."
             return TriggerResponse(success=False, message=message)
 
-        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        has_control = self._manager.has_control  # Only take control of Spot once necessary
         if not has_control:
             has_control = self._manager.take_control()
 
@@ -253,11 +296,17 @@ class SpotROS1Wrapper:
         :param _: Message representing a request to deploy Spot's arm
         :return: Response conveying whether Spot's arm has been deployed
         """
+        if self._manager is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotManager is not set up; could not deploy Spot's arm.",
+            )
+
         if self._arm_locked:
             message = "Spot's arm was not deployed because Spot's arm remains locked."
             return TriggerResponse(success=False, message=message)
 
-        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        has_control = self._manager.has_control  # Only take control of Spot once necessary
         if not has_control:
             has_control = self._manager.take_control()
 
@@ -337,7 +386,13 @@ class SpotROS1Wrapper:
             message = "Could not open door because Spot's arm remains locked."
             return TriggerResponse(success=False, message=message)
 
-        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        if self._manager is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotManager is None; could not open the door.",
+            )
+
+        has_control = self._manager.has_control  # Only take control of Spot once necessary
         if not has_control:
             has_control = self._manager.take_control()
 
@@ -375,6 +430,12 @@ class SpotROS1Wrapper:
         :param request_msg: ROS message specifying a path to a trajectory YAML file
         :return: Response conveying whether Spot was able to play back the trajectory
         """
+        if self._manager is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotManager is None; could not play back a trajectory.",
+            )
+
         yaml_path = Path(request_msg.yaml_path)
         if not yaml_path.exists():
             return PlaybackTrajectoryResponse(
@@ -386,7 +447,7 @@ class SpotROS1Wrapper:
             message = f"Cannot replay trajectory from {yaml_path} because Spot's arm is locked."
             return PlaybackTrajectoryResponse(success=False, message=message)
 
-        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        has_control = self._manager.has_control  # Only take control of Spot once necessary
         if not has_control:
             has_control = self._manager.take_control()
 
@@ -411,13 +472,19 @@ class SpotROS1Wrapper:
         :param request: Message representing a request to erase a board (specifies +x erase plane)
         :return: Response conveying whether the whiteboard was erased
         """
+        if self._manager is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotManager is None; could not erase the board.",
+            )
+
         if self._arm_locked:
             return Float64ServiceResponse(
                 success=False,
                 message="Could not erase whiteboard because Spot's arm remains locked.",
             )
 
-        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        has_control = self._manager.has_control  # Only take control of Spot once necessary
         if not has_control:
             has_control = self._manager.take_control()
 
@@ -435,16 +502,51 @@ class SpotROS1Wrapper:
         :param _: Message representing a request to take control of Spot
         :return: Response conveying whether control was successfully taken
         """
-        has_control = self._manager.check_control()
-        if not has_control:
-            has_control = self._manager.take_control(force=True)
+        if self._manager is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotManager is None; could not take control of Spot.",
+            )
 
+        self._manager.ensure_control(retake_if_lost=True)
+
+        has_control = self._manager.has_control
         message = (
             "SpotManager now controls Spot."
             if has_control
             else "SpotManager could not obtain control of Spot."
         )
         return TriggerResponse(success=has_control, message=message)
+
+    def handle_release_control(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to release control of Spot.
+
+        :param _: Message representing a request to release control of Spot
+        :return: Response conveying whether control was successfully released
+        """
+        if self._manager is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotManager is None; could not release control of Spot.",
+            )
+
+        if not self._manager.has_control:
+            TriggerResponse(success=True, message="SpotManager already doesn't control Spot.")
+
+        self._manager.release_control()
+
+        has_control = self._manager.has_control
+        message = (
+            "SpotManager still controls Spot."
+            if has_control
+            else "SpotManager has released control of Spot."
+        )
+
+        return TriggerResponse(success=(not has_control), message=message)
+
+    # B-Map=0.0786s, Maps update=0.0002s pub=0.0002s (local map=26, WM=26)
+    # [ERROR] [1758231759.279125]: Error processing request: field success is not a bool
+    # ['Traceback (most recent call last):\n', '  File "/opt/ros/noetic/lib/python3/dist-packages/std_srvs/srv/_Trigger.py", line 152, in serialize\n    buff.write(_get_struct_B().pack(_x))\n', 'struct.error: required argument is not an integer\n', '\nDuring handling of the above exception, another exception occurred:\n\n', 'Traceback (most recent call last):\n', '  File "/opt/ros/noetic/lib/python3/dist-packages/rospy/impl/tcpros_service.py", line 637, in _handle_request\n    transport.send_message(response, self.seq)\n', '  File "/opt/ros/noetic/lib/python3/dist-packages/rospy/impl/tcpros_base.py", line 679, in send_message\n    serialize_message(self.write_buff, seq, msg)\n', '  File "/opt/ros/noetic/lib/python3/dist-packages/rospy/msg.py", line 152, in serialize_message\n    msg.serialize(b)\n', '  File "/opt/ros/noetic/lib/python3/dist-packages/std_srvs/srv/_Trigger.py", line 159, in serialize\n    except struct.error as se: self._check_types(struct.error("%s: \'%s\' when writing \'%s\'" % (type(se), str(se), str(locals().get(\'_x\', self)))))\n', '  File "/opt/ros/noetic/lib/python3/dist-packages/genpy/message.py", line 392, in _check_types\n    check_type(n, t, getattr(self, n))\n', '  File "/opt/ros/noetic/lib/python3/dist-packages/genpy/message.py", line 275, in check_type\n    raise SerializationError(\'field %s is not a bool\' % (field_name))\n', 'genpy.message.SerializationError: field success is not a bool\n']
 
     def handle_pose_lookup(self, request: PoseLookupRequest) -> PoseLookupResponse:
         """Handle a request to look up the relative pose between two frames using /tf."""
@@ -508,7 +610,7 @@ class SpotROS1Wrapper:
             self._arm_action_server.set_aborted(result)
             return
 
-        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        has_control = self._manager.has_control  # Only take control of Spot once necessary
         if not has_control:
             has_control = self._manager.take_control()
 
@@ -568,7 +670,7 @@ class SpotROS1Wrapper:
 
         goal_position_rad = goal.command.position  # Ignoring goal.command.max_effort
 
-        has_control = self._manager.check_control()  # Only take control of Spot once necessary
+        has_control = self._manager.has_control  # Only take control of Spot once necessary
         if not has_control:
             has_control = self._manager.take_control()
 

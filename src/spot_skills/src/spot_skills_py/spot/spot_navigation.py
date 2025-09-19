@@ -139,11 +139,9 @@ class SpotNavigationServer:
         :param pose_msg: ROS message representing a target body pose for Spot
         :return: Boolean success indicator (True if action succeeds) and message explaining why
         """
-        has_control = self._manager.check_control()  # Only take control of Spot once necessary
-        if not has_control:
-            has_control = self._manager.take_control(force=True)  # Forcefully take control of Spot
+        self._manager.ensure_control(retake_if_lost=True)  # Forcefully ensure control of Spot
 
-        if not has_control:
+        if not self._manager.has_control:
             return False, "Could not obtain control of Spot using the SpotManager."
 
         target_pose_2d = pose_from_msg(pose_msg).to_2d()
