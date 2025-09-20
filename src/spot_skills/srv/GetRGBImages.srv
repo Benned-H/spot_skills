@@ -1,0 +1,4 @@
+# Request RGB images from the specified cameras on the robot.
+string[] camera_names
+---
+spot_skills/RGBImage[] images

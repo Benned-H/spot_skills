@@ -19,6 +19,7 @@ from bosdyn.api.manipulation_api_pb2 import (
 )
 from bosdyn.api.spot import door_pb2
 from bosdyn.client import frame_helpers
+from robotics_utils.perception.vision import RGBImage
 
 if TYPE_CHECKING:
     from spot_skills_py.spot.spot_manager import SpotManager
@@ -26,21 +27,21 @@ if TYPE_CHECKING:
 PixelXY = Tuple[float, float]
 
 
-def calculate_hinge_side(handle_xy: PixelXY, hinge_xy: PixelXY) -> int:
-    """Calculate whether a door hinge is on the left or right side of the door.
+# def calculate_hinge_side(handle_xy: PixelXY, hinge_xy: PixelXY) -> int:
+#     """Calculate whether a door hinge is on the left or right side of the door.
 
-    :param handle_xy: Pixel coordinate of the door handle
-    :param hinge_xy: Pixel coordinate of the door hinge
-    :return: Integer representing a hinge on the left or right side
-    """
-    handle_x = handle_xy[0]
-    hinge_x = hinge_xy[0]
+#     :param handle_xy: Pixel coordinate of the door handle
+#     :param hinge_xy: Pixel coordinate of the door hinge
+#     :return: Integer representing a hinge on the left or right side
+#     """
+#     handle_x = handle_xy[0]
+#     hinge_x = hinge_xy[0]
 
-    return (
-        door_pb2.DoorCommand.HINGE_SIDE_RIGHT
-        if (handle_x < hinge_x)
-        else door_pb2.DoorCommand.HINGE_SIDE_LEFT
-    )
+#     return (
+#         door_pb2.DoorCommand.HINGE_SIDE_RIGHT
+#         if (handle_x < hinge_x)
+#         else door_pb2.DoorCommand.HINGE_SIDE_LEFT
+#     )
 
 
 class SpotDoorOpener:
@@ -51,12 +52,11 @@ class SpotDoorOpener:
         self.manager = manager
         self.image_dict = None
         self.rgb_image_dict = None
-        self.side_by_side = None  # Combined side-by-side images from Spot's two front cameras
         self.handle_xy = None  # Pixel coordinate of door handle in the side-by-side image
         self.pixel_source_image = None
         self.rotated_pixel = None
 
-    def capture_side_by_side_image(self) -> np.ndarray:
+    def capture_side_by_side_image(self) -> RGBImage:
         """Pitch Spot's body and take a combined image using the two front fisheye cameras.
 
         :return: Combined side-by-side image from Spot's two front cameras
@@ -75,20 +75,20 @@ class SpotDoorOpener:
         fr_fisheye_image = cv2.rotate(fr_fisheye_image, cv2.ROTATE_90_CLOCKWISE)
         fl_fisheye_image = cv2.rotate(fl_fisheye_image, cv2.ROTATE_90_CLOCKWISE)
 
-        self.side_by_side = np.hstack([fr_fisheye_image, fl_fisheye_image])
+        side_by_side_arr = np.hstack([fr_fisheye_image, fl_fisheye_image])
 
-        return self.side_by_side
+        return RGBImage(side_by_side_arr)
 
-    def set_handle_xy(self, handle_xy: PixelXY) -> None:
+    def set_handle_xy(self, handle_xy: PixelXY, side_by_side_image: RGBImage) -> None:
         """Store the given pixel coordinate for the door handle.
 
         :param handle_xy: Estimated pixel coordinate of the door handle
         """
         self.handle_xy = handle_xy
 
-        rospy.loginfo(self.side_by_side.shape)
+        rospy.loginfo(side_by_side_image.data.shape)
 
-        _, width, _rgb = self.side_by_side.shape
+        width = side_by_side_image.width
         is_left: bool = self.handle_xy[0] > width / 2  # Was the image source the left camera?
 
         self.pixel_source_image = (
@@ -98,15 +98,16 @@ class SpotDoorOpener:
             (self.handle_xy[0] - width / 2, self.handle_xy[1]) if is_left else self.handle_xy
         )
 
-    def create_walk_to_object_in_image_request(self) -> ManipulationApiRequest:
+    def create_walk_to_object_in_image_request(
+        self,
+        side_by_side_image: RGBImage,
+    ) -> ManipulationApiRequest:
         """Construct a manipulation API request to make Spot walk to the object at the given pixel.
 
+        :param side_by_side_image: Combined side-by-side images from Spot's two front cameras
         :return: Manipulation API request Protobuf message
         """
-        assert self.side_by_side is not None, "Cannot walk to the door; missing side-by-side image!"
-
-        height, width, _rgb = self.side_by_side.shape
-
+        height, width = side_by_side_image.height_width
         # Undo pixel rotation by rotation 90 deg CCW.
         manipulation_cmd = WalkToObjectInImage()
         th = -np.pi / 2
@@ -162,9 +163,18 @@ class SpotDoorOpener:
 
         raise Exception("Manipulation command timed out. Try repositioning the robot.")
 
-    def open_door(self, open_door_timeout_s: float = 60) -> bool:
+    def open_door(
+        self,
+        side_by_side_image: RGBImage,
+        is_pull: bool,
+        hinge_on_left: bool,
+        open_door_timeout_s: float = 60,
+    ) -> bool:
         """Command the robot to automatically open a door using the Spot SDK.
 
+        :param side_by_side_image: Combined side-by-side images from Spot's two front cameras
+        :param is_pull: Boolean indicating if the door swings open by pulling toward Spot
+        :param hinge_on_left: Boolean indicating if the door hinge is on the left (per Spot's view)
         :param open_door_timeout_s: Timeout (seconds) for the "Open Door" command (defaults to 60)
         :return: True if the door was opened, otherwise False
         """
@@ -173,7 +183,7 @@ class SpotDoorOpener:
         self.manager.log_info("Opening door...")
 
         # Tell the robot to walk through the door
-        request = self.create_walk_to_object_in_image_request()
+        request = self.create_walk_to_object_in_image_request(side_by_side_image)
         manipulation_feedback = self.walk_to_object_in_image(request)
         time.sleep(3.0)
 
@@ -226,11 +236,18 @@ class SpotDoorOpener:
             ),
         )
 
-        hinge_xy = (0, 0)  # TODO: Hardcoded hinge value to enforce door opening LEFT
-        swing_direction = door_pb2.DoorCommand.SWING_DIRECTION_PULL  # TODO: Hardcoded as PULL
+        auto_cmd.hinge_side = (
+            door_pb2.DoorCommand.HINGE_SIDE_LEFT
+            if hinge_on_left
+            else door_pb2.DoorCommand.HINGE_SIDE_RIGHT
+        )
 
-        auto_cmd.hinge_side = calculate_hinge_side(self.handle_xy, hinge_xy)
-        auto_cmd.swing_direction = swing_direction
+        auto_cmd.swing_direction = (
+            door_pb2.DoorCommand.SWING_DIRECTION_PULL
+            if is_pull
+            else door_pb2.DoorCommand.SWING_DIRECTION_PUSH
+        )
+
         door_command = door_pb2.DoorCommand.Request(auto_grasp_command=auto_cmd)
         request = door_pb2.OpenDoorCommandRequest(door_command=door_command)
 

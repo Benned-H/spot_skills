@@ -52,6 +52,7 @@ catkin_python_setup()
 add_message_files(
   FILES
   RGBDPair.msg
+  RGBImage.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -63,6 +64,8 @@ add_service_files(
   PlaybackTrajectory.srv
   PoseLookup.srv
   Float64Service.srv
+  GetRGBImages.srv
+  OpenDoor.srv
 )
 
 ## Generate actions in the 'action' folder

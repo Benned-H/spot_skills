@@ -1,0 +1,6 @@
+# Request that Spot opens a door with the specified properties.
+bool is_pull
+bool hinge_on_left
+---
+bool success
+string message

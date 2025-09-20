@@ -7,10 +7,6 @@
     <arg name="/spot/immediate_control" default="true"/>
     <arg name="real_robot" default="true"/>
 
-    <!-- Ensure that object detection will be available to detect the door handle -->
-    <param name="/spot/object_detection/active" value="true"/>
-
     <include file="$(find spot_skills)/launch/bringup_spot_moveit.launch" pass_all_args="true"/>
-    <include file="$(find spot_skills)/launch/pose_estimation_bringup.launch"/>
 
 </launch>

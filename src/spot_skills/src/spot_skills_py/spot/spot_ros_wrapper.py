@@ -3,6 +3,7 @@
 from copy import deepcopy
 from pathlib import Path
 
+import numpy as np
 import rospy
 from actionlib import SimpleActionServer
 from control_msgs.msg import (
@@ -13,15 +14,16 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
+from robotics_utils.perception.vision import ObjectDetector
 from robotics_utils.ros import TransformManager
 from robotics_utils.ros.msg_conversion import pose_to_stamped_msg
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
-from ros_numpy import msgify
-from sensor_msgs.msg import Image as ImageMsg
+from robotics_utils.visualization import display
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from spot_skills.msg import RGBDPair
+from spot_skills.msg import RGBImage as RGBImageMsg
 from spot_skills.srv import (
     Float64Service,
     Float64ServiceRequest,
@@ -29,6 +31,12 @@ from spot_skills.srv import (
     GetRGBDPairs,
     GetRGBDPairsRequest,
     GetRGBDPairsResponse,
+    GetRGBImages,
+    GetRGBImagesRequest,
+    GetRGBImagesResponse,
+    OpenDoor,
+    OpenDoorRequest,
+    OpenDoorResponse,
     PlaybackTrajectory,
     PlaybackTrajectoryRequest,
     PlaybackTrajectoryResponse,
@@ -37,7 +45,6 @@ from spot_skills.srv import (
     PoseLookupResponse,
 )
 from spot_skills_py.joint_trajectory import JointTrajectory
-from spot_skills_py.perception.object_detection_client import DetectObjectClient
 from spot_skills_py.spot.spot_arm_controller import (
     ArmCommandOutcome,
     GripperCommandOutcome,
@@ -111,7 +118,7 @@ class SpotROS1Wrapper:
         self._unlock_arm_service = rospy.Service("spot/unlock_arm", Trigger, self.handle_unlock_arm)
         self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
         self._deploy_arm_service = rospy.Service("spot/deploy_arm", Trigger, self.handle_deploy_arm)
-        self._open_door_service = rospy.Service("spot/open_door", Trigger, self.handle_open_door)
+        self._open_door_service = rospy.Service("spot/open_door", OpenDoor, self.handle_open_door)
         self._playback_trajectory_service = rospy.Service(
             "spot/playback_trajectory",
             PlaybackTrajectory,
@@ -148,13 +155,11 @@ class SpotROS1Wrapper:
             GetRGBDPairs,
             self.handle_get_rgbd_pairs,
         )
-
-        # If needed, create a client to request object detections
-        detect_objects = get_ros_param("/spot/object_detection/active", bool, default_value=False)
-        if detect_objects:
-            self.detect_object_client = DetectObjectClient(["door handle"])
-        else:
-            rospy.loginfo("Skipping initialization of DetectObjectClient...")
+        self._get_rgb_srv = rospy.Service(
+            "spot/get_rgb_images",
+            GetRGBImages,
+            self.handle_get_rgb_images,
+        )
 
         navigation_active = get_ros_param("/spot/navigation/active", bool, default_value=False)
         if navigation_active:
@@ -376,18 +381,53 @@ class SpotROS1Wrapper:
 
         return response_msg
 
-    def handle_open_door(self, _: TriggerRequest) -> TriggerResponse:
+    def handle_get_rgb_images(self, request_msg: GetRGBImagesRequest) -> GetRGBImagesResponse:
+        """Handle a request to capture RGB images from the specified camera(s) on Spot.
+
+        :param request_msg: Message specifying the name of the RGB camera(s) to be used
+        :return: Response containing the RGB images and corresponding camera info
+        """
+        response_msg = GetRGBImagesResponse()
+        response_msg.images = []
+
+        if self._manager is None:
+            return response_msg
+
+        request_protos = [
+            self._manager.image_client.make_image_request(camera_name, ImageFormat.RGB)
+            for camera_name in request_msg.camera_names
+        ]
+        response_protos = self._manager.image_client.get_images(request_protos)
+
+        assert len(request_msg.camera_names) == len(response_protos)
+        for camera_name, rgb_response in zip(request_msg.camera_names, response_protos):
+            # Find ROS timestamps of the image responses
+            rgb_time_proto = rgb_response.shot.acquisition_time
+            rgb_timestamp = self._manager.time_sync.local_timestamp_from_proto(rgb_time_proto)
+            rgb_time_s = rgb_timestamp.to_time_s()
+            rgb_ros_s = rospy.Time.from_sec(rgb_time_s)
+
+            rgb_camera_info = SpotImageClient.extract_camera_info_msg(rgb_response, rgb_ros_s)
+            rgb_msg = self._manager.image_client.extract_image_msg(rgb_response.shot, rgb_ros_s)
+
+            response_msg.images.append(
+                RGBImageMsg(camera_name=camera_name, camera_info=rgb_camera_info, rgb=rgb_msg),
+            )
+
+        return response_msg
+
+    def handle_open_door(self, request: OpenDoorRequest) -> OpenDoorResponse:
         """Handle a service request to open a door in front of Spot.
 
-        :param _: ROS message representing a request to open a door (unused)
+        :param request: ROS message representing a request to open a door
         :return: Response conveying whether Spot was able to open the door
         """
         if self._arm_locked:
             message = "Could not open door because Spot's arm remains locked."
-            return TriggerResponse(success=False, message=message)
+            return OpenDoorResponse(success=False, message=message)
 
         if self._manager is None:
-            return TriggerResponse(
+            return OpenDoorResponse(
                 success=False,
                 message="SpotManager is None; could not open the door.",
             )
@@ -398,28 +438,46 @@ class SpotROS1Wrapper:
 
         if not has_control:
             message = "Could not open door because SpotManager could not take control of Spot."
-            return TriggerResponse(success=False, message=message)
+            return OpenDoorResponse(success=False, message=message)
 
         # Call the operations needed for door-opening, step-by-step
         side_by_side_image = self._door_opener.capture_side_by_side_image()
-        side_by_side_msg = msgify(ImageMsg, side_by_side_image, encoding="rgb8")
 
-        response_msg = self.detect_object_client.call_on_image(side_by_side_msg)
-        if response_msg is None:
-            message = "Cannot open door because object detection returned None."
-            return TriggerResponse(success=False, message=message)
-        rospy.loginfo("Received response for the door handle photo.")
+        detector = ObjectDetector()
+        detected = detector.detect(image=side_by_side_image, queries=["door handle"])
+        if not detected.detections:
+            return OpenDoorResponse(
+                success=False,
+                message="Cannot open door because the door handle was not detected.",
+            )
 
-        pixel_point_msg = response_msg.pixels[0]
-        handle_xy = (pixel_point_msg.x, pixel_point_msg.y)
-        self._door_opener.set_handle_xy(handle_xy)
+        display(detected, "Door handle detection(s) (press any key to exit)")
+        for i, d in enumerate(detected.detections):
+            cropped = d.bounding_box.crop(side_by_side_image, scale_ratio=1.2)
+            display(cropped, f"Detection {i}/{len(detected.detections)}: '{d.query}'")
+
+        best_score = max(d.score for d in detected.detections)
+        best_detections = [d for d in detected.detections if d.score == best_score]
+
+        handle_xy = tuple(best_detections[0].bounding_box.center_pixel)
+        assert len(handle_xy) == 2, "Expected (x,y) pixel coordinates."
+
+        self._door_opener.set_handle_xy(handle_xy, side_by_side_image)
         rospy.loginfo("Successfully saved door handle pixel in SpotDoorOpener.")
 
-        door_opened = self._door_opener.open_door(open_door_timeout_s=120)
+        is_pull = bool(request.is_pull)
+        hinge_on_left = bool(request.hinge_on_left)
+
+        door_opened = self._door_opener.open_door(
+            side_by_side_image,
+            is_pull=is_pull,
+            hinge_on_left=hinge_on_left,
+            open_door_timeout_s=120,
+        )
 
         message = "Spot opened the door." if door_opened else "Could not open the door."
 
-        return TriggerResponse(door_opened, message)
+        return OpenDoorResponse(door_opened, message)
 
     def handle_playback_trajectory(
         self,
@@ -431,7 +489,7 @@ class SpotROS1Wrapper:
         :return: Response conveying whether Spot was able to play back the trajectory
         """
         if self._manager is None:
-            return TriggerResponse(
+            return PlaybackTrajectoryResponse(
                 success=False,
                 message="SpotManager is None; could not play back a trajectory.",
             )
@@ -473,7 +531,7 @@ class SpotROS1Wrapper:
         :return: Response conveying whether the whiteboard was erased
         """
         if self._manager is None:
-            return TriggerResponse(
+            return Float64ServiceResponse(
                 success=False,
                 message="SpotManager is None; could not erase the board.",
             )
