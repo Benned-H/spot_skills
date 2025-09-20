@@ -63,7 +63,7 @@ def main() -> None:
         action_name="gripper_controller/gripper_action",
     )
     spot_arm = MoveItManipulator(name="arm", base_frame="body", gripper=spot_gripper)
-    planning_scene = PlanningSceneManager(body_frame="body")
+    planning_scene = PlanningSceneManager(move_group_name="arm")
 
     planner = MoveItMotionPlanner(spot_arm, planning_scene)
     trajectory = planner.compute_motion_plan(query)

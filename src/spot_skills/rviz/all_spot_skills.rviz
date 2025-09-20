@@ -73,7 +73,15 @@ Visualization Manager:
           Value: true
         body:
           Value: true
+        dock_520:
+          Value: true
+        eraser1:
+          Value: true
         feet_center:
+          Value: true
+        fiducial_520:
+          Value: true
+        filtered_fiducial_520:
           Value: true
         flat_body:
           Value: true
@@ -158,10 +166,12 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        black_dresser:
-          open_drawer:
-            {}
         map:
+          black_dresser:
+            eraser1:
+              {}
+            open_drawer:
+              {}
           vision:
             body:
               arm0.link_wr1:
@@ -237,6 +247,12 @@ Visualization Manager:
                     {}
               sensor:
                 {}
+            dock_520:
+              {}
+            fiducial_520:
+              {}
+            filtered_fiducial_520:
+              {}
       Update Interval: 0
       Value: true
     - Class: moveit_rviz_plugin/PlanningScene
@@ -249,7 +265,7 @@ Visualization Manager:
         Scene Alpha: 0.5
         Scene Color: 50; 230; 50
         Scene Display Time: 0.009999999776482582
-        Show Scene Geometry: false
+        Show Scene Geometry: true
         Voxel Coloring: Z-Axis
         Voxel Rendering: Occupied Voxels
       Scene Robot:
@@ -635,24 +651,24 @@ Visualization Manager:
           Use Fixed Frame: true
           Use rainbow: true
           Value: false
-      Enabled: true
+      Enabled: false
       Name: PointCloud2 Topics
     - Alpha: 0.699999988079071
       Class: rviz/Map
       Color Scheme: map
       Draw Behind: false
-      Enabled: true
+      Enabled: false
       Name: Map
       Topic: /rtabmap/grid_map
       Unreliable: false
       Use Timestamp: false
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /visualization_marker
       Name: Visualization Markers
       Namespaces:
-        {}
+        basic_shapes: true
       Queue Size: 100
       Value: true
     - Class: rviz/Image
@@ -683,7 +699,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 5.185270309448242
+      Distance: 2.7102558612823486
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -691,17 +707,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -0.1744411438703537
-        Y: 2.3006937503814697
-        Z: 0.8776893019676208
+        X: -0.8289255499839783
+        Y: 3.5927178859710693
+        Z: 0.0902882069349289
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6147962808609009
+      Pitch: -0.014796893112361431
       Target Frame: body
-      Yaw: 1.618618369102478
+      Yaw: 4.784999370574951
     Saved: ~
 Window Geometry:
   Displays:

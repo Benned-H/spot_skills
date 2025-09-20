@@ -12,10 +12,12 @@
     <!-- Require a path specifying a YAML file containing known object poses -->
     <arg name="known_poses_yaml_path" default="$(find spot_skills)/config/known_poses.yaml"/>
 
-    <!-- Marker sizes (cm) -->
-    <arg name="small_marker_size_cm" default="4.4"/>
-    <arg name="medium_marker_size_cm" default="7.62"/>
-    <arg name="large_marker_size_cm" default="18.5"/>
+    <!-- Marker sizes (mm; allows them to be used in ROS topic names) -->
+    <arg name="small_marker_size_mm" default="17"/>
+    <arg name="medium_marker_size_mm" default="44"/>
+
+    <arg name="small_marker_size_cm" value="$(eval 0.1 * arg('small_marker_size_mm'))"/>
+    <arg name="medium_marker_size_cm" value="$(eval 0.1 * arg('medium_marker_size_mm'))"/>
 
     <!-- Tracker parameters -->
     <arg name="max_new_marker_error" default="0.08"/>
@@ -32,31 +34,31 @@
         <param name="output_frame" value="hand_color_image_sensor"/>
         <remap from="camera_image" to="/spot/camera/hand_color/image"/>
         <remap from="camera_info" to="/spot/camera/hand_color/camera_info"/>
-        <remap from="ar_pose_marker" to="/ar_pose_marker/hand"/>
+        <remap from="ar_pose_marker" to="/ar_pose_marker/hand/$(arg small_marker_size_mm)"/>
         <remap from="tf" to="$(arg tf_topic)"/>
     </node>
 
     <!-- =========  FRONT‑LEFT CAMERA  ========= -->
-    <node name="ar_single_frontleft_small" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
-        <param name="marker_size" value="$(arg small_marker_size_cm)" type="double"/>
+    <node name="ar_single_frontleft_medium" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
         <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
         <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
         <param name="output_frame" value="frontleft_fisheye"/>
         <remap from="camera_image" to="/spot/camera/frontleft/image"/>
         <remap from="camera_info" to="/spot/camera/frontleft/camera_info"/>
-        <remap from="ar_pose_marker" to="/ar_pose_marker/frontleft"/>
+        <remap from="ar_pose_marker" to="/ar_pose_marker/frontleft/$(arg medium_marker_size_mm)"/>
         <remap from="tf" to="$(arg tf_topic)"/>
     </node>
 
     <!-- =========  FRONT‑RIGHT CAMERA  ========= -->
-    <node name="ar_single_frontright_small" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
-        <param name="marker_size" value="$(arg small_marker_size_cm)" type="double"/>
+    <node name="ar_single_frontright_medium" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
         <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
         <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
         <param name="output_frame" value="frontright_fisheye"/>
         <remap from="camera_image" to="/spot/camera/frontright/image"/>
         <remap from="camera_info" to="/spot/camera/frontright/camera_info"/>
-        <remap from="ar_pose_marker" to="/ar_pose_marker/frontright"/>
+        <remap from="ar_pose_marker" to="/ar_pose_marker/frontright/$(arg medium_marker_size_mm)"/>
         <remap from="tf" to="$(arg tf_topic)"/>
     </node>
 

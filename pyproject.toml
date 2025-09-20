@@ -25,7 +25,7 @@ dependencies = ["numpy>=1.20", # np.typing was introduced in 1.20
     "spot_wrapper",
     "opencv-python",
     "transforms3d",
-    "robotics_utils"
+    "robotics_utils[vision]"
 ]
 
 

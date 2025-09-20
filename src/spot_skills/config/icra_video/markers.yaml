@@ -16,10 +16,10 @@ markers:
     relative_frames:
       eraser1: [0, 0, -0.032, 0, 0, 0] # Eraser's frame is directly "below" the marker's
 
-cameras:
+cameras: # Specify sizes (cm) of tags that each camera is configured to recognize
   frontleft:
-    recognized_sizes_cm: [4.5] # Sizes (cm) of tags that each camera is configured to recognize
+    recognized_sizes_cm: [4.5]
   frontright:
     recognized_sizes_cm: [4.5]
   hand:
-    recognized_sizes_cm: [4.5]
+    recognized_sizes_cm: [1.7, 4.5]
