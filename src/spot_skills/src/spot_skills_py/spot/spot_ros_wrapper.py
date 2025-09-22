@@ -602,10 +602,6 @@ class SpotROS1Wrapper:
 
         return TriggerResponse(success=(not has_control), message=message)
 
-    # B-Map=0.0786s, Maps update=0.0002s pub=0.0002s (local map=26, WM=26)
-    # [ERROR] [1758231759.279125]: Error processing request: field success is not a bool
-    # ['Traceback (most recent call last):\n', '  File "/opt/ros/noetic/lib/python3/dist-packages/std_srvs/srv/_Trigger.py", line 152, in serialize\n    buff.write(_get_struct_B().pack(_x))\n', 'struct.error: required argument is not an integer\n', '\nDuring handling of the above exception, another exception occurred:\n\n', 'Traceback (most recent call last):\n', '  File "/opt/ros/noetic/lib/python3/dist-packages/rospy/impl/tcpros_service.py", line 637, in _handle_request\n    transport.send_message(response, self.seq)\n', '  File "/opt/ros/noetic/lib/python3/dist-packages/rospy/impl/tcpros_base.py", line 679, in send_message\n    serialize_message(self.write_buff, seq, msg)\n', '  File "/opt/ros/noetic/lib/python3/dist-packages/rospy/msg.py", line 152, in serialize_message\n    msg.serialize(b)\n', '  File "/opt/ros/noetic/lib/python3/dist-packages/std_srvs/srv/_Trigger.py", line 159, in serialize\n    except struct.error as se: self._check_types(struct.error("%s: \'%s\' when writing \'%s\'" % (type(se), str(se), str(locals().get(\'_x\', self)))))\n', '  File "/opt/ros/noetic/lib/python3/dist-packages/genpy/message.py", line 392, in _check_types\n    check_type(n, t, getattr(self, n))\n', '  File "/opt/ros/noetic/lib/python3/dist-packages/genpy/message.py", line 275, in check_type\n    raise SerializationError(\'field %s is not a bool\' % (field_name))\n', 'genpy.message.SerializationError: field success is not a bool\n']
-
     def handle_pose_lookup(self, request: PoseLookupRequest) -> PoseLookupResponse:
         """Handle a request to look up the relative pose between two frames using /tf."""
         relative_pose = TransformManager.lookup_transform(

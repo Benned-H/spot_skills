@@ -8,8 +8,11 @@ from typing import TYPE_CHECKING
 
 import rospy
 from geometry_msgs.msg import Twist
-from robotics_utils.kinematics import DEFAULT_FRAME, Waypoints
-from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
+from robotics_utils.kinematics import DEFAULT_FRAME, Pose2D, Waypoints
+from robotics_utils.motion_planning.navigation import NavigationGoal
+from robotics_utils.robots.mobile_robot import FollowPathCommand, MobileRobot
+from robotics_utils.ros.msg_conversion import pose_from_msg
+from robotics_utils.ros.navigation import compute_navigation_plan
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
 
@@ -23,20 +26,21 @@ from spot_skills.srv import (
 )
 
 if TYPE_CHECKING:
-    from geometry_msgs.msg import PoseStamped
+    from robotics_utils.skills.skill import SkillResult
 
     from spot_skills_py.spot.spot_manager import SpotManager
 
 
-class SpotNavigationServer:
+class SpotNavigationServer(MobileRobot):
     """A wrapper for ROS services controlling Spot's navigation."""
 
-    def __init__(self, manager: SpotManager) -> None:
+    def __init__(self, manager: SpotManager, base_frame: str = "body") -> None:
         """Initialize the ROS services provided by this class.
 
         :param manager: SpotManager object used to control Spot through the Spot SDK
         """
         self._manager = manager
+        self.base_frame = base_frame
 
         self._nav_to_pose_srv = rospy.Service(
             "/spot/navigation/to_pose",
@@ -77,6 +81,14 @@ class SpotNavigationServer:
         self._tf_publisher_thread.daemon = True  # Thread exits when main process does
         self._tf_publisher_thread.start()
 
+    @property
+    def current_base_pose(self) -> Pose2D:
+        """Retrieve the robot's current base pose."""
+        pose_w_r = TransformManager.lookup_transform(self.base_frame, DEFAULT_FRAME, rospy.Time(0))
+        if pose_w_r is None:
+            raise RuntimeError("Unable to find Spot's base pose.")
+        return pose_w_r.to_2d()
+
     def handle_create_waypoint(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a ROS service request to create a new waypoint at Spot's current base pose.
 
@@ -107,7 +119,9 @@ class SpotNavigationServer:
         :return: Response specifying whether the navigation succeeded
         """
         self._manager.log_info("Handling 'NavigateToPose' request...")
-        success, message = self.navigate_to_pose(request.target_base_pose)
+
+        target_base_pose_2d = pose_from_msg(request.target_base_pose).to_2d()
+        success, message = self.navigate_to_pose(target_base_pose_2d, self.timeout_s)
         return NavigateToPoseResponse(success, message)
 
     def handle_waypoint(self, request: NameServiceRequest) -> NameServiceResponse:
@@ -129,24 +143,43 @@ class SpotNavigationServer:
         )
         target_pose = self._waypoints[request.name]
         self._manager.log_info(f"Waypoint '{request.name}' has target pose: {target_pose}.")
-        pose_stamped_msg = pose_to_stamped_msg(target_pose.to_3d())
-        success, message = self.navigate_to_pose(pose_stamped_msg)
+
+        success, message = self.navigate_to_pose(target_pose, self.timeout_s)
         return NameServiceResponse(success, message)
 
-    def navigate_to_pose(self, pose_msg: PoseStamped) -> tuple[bool, str]:
-        """Control Spot to navigate to the given pose (treated as if it were 2D).
+    def navigate_to_pose(self, goal_pose: Pose2D, timeout_s: float) -> SkillResult:
+        """Navigate to the given base pose using global path planning.
 
-        :param pose_msg: ROS message representing a target body pose for Spot
-        :return: Boolean success indicator (True if action succeeds) and message explaining why
+        :param goal_pose: Target base pose for the robot
+        :param timeout_s: Total duration (seconds) after which navigation will time out
+        :return: Tuple containing Boolean success and an outcome message
+        """
+        nav_plan = compute_navigation_plan(self.current_base_pose, goal_pose)
+
+        if nav_plan is None:
+            return False, f"Unable to compute plan from {self.current_base_pose} to {goal_pose}."
+
+        nav_goal = NavigationGoal(goal_pose, reached_distance_m=0.2, reached_abs_angle_rad=0.3)
+        follow_path_command = FollowPathCommand(nav_plan, nav_goal, total_timeout_s=timeout_s)
+
+        success = self.follow_path(follow_path_command)
+        message = "Navigation was successful." if success else "Navigation failed."
+
+        return success, message
+
+    def go_to_pose(self, base_pose: Pose2D, timeout_s: float) -> SkillResult:
+        """Move directly to the specified base pose.
+
+        :param base_pose: Target base pose for the robot
+        :param timeout_s: Timeout (seconds) for the movement command
+        :return: Tuple containing Boolean success and an outcome message
         """
         self._manager.ensure_control(retake_if_lost=True)  # Forcefully ensure control of Spot
 
         if not self._manager.has_control:
             return False, "Could not obtain control of Spot using the SpotManager."
 
-        target_pose_2d = pose_from_msg(pose_msg).to_2d()
-
-        success = self._manager.navigate_to_base_pose(target_pose_2d, self.timeout_s)
+        success = self._manager.move_to_base_pose(base_pose, self, timeout_s)
         message = "Navigation was successful." if success else "Navigation failed."
 
         return success, message

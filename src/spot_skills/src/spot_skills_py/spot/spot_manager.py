@@ -37,7 +37,8 @@ from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from bosdyn.geometry import EulerZXY
-from robotics_utils.ros.navigation import GoalReachedThresholds, check_reached_goal
+from robotics_utils.motion_planning.navigation import NavigationGoal
+from robotics_utils.robots import MobileRobot
 from robotics_utils.ros.transform_manager import TransformManager
 from rospy import loginfo as ros_loginfo
 
@@ -567,22 +568,23 @@ class SpotManager:
         self.log_info("Arm is now stowed.")
         return True
 
-    def navigate_to_base_pose(self, goal_base_pose: Pose2D, timeout_s: float) -> bool:
-        """Send a command to Spot to navigate to the given base pose.
+    def move_to_base_pose(self, pose: Pose2D, spot_base: MobileRobot, timeout_s: float) -> bool:
+        """Send a command to Spot to move directly to a base pose.
 
         Note: By default, the command is converted into the "vision" frame.
 
-        :param goal_base_pose: Target base pose for the navigation
+        :param pose: Target base pose of the movement
+        :param spot_base: General-purpose interface for Spot's mobile base
         :param timeout_s: Duration (seconds) after which the command times out
-        :return: True if the navigation command succeeded, else False
+        :return: True if the Spot reaches the goal, else False
         """
         if not self.has_control:
-            self.log_info("Can't navigate to base pose because SpotManager doesn't control Spot.")
+            self.log_info("Can't move to base pose because SpotManager doesn't control Spot.")
             return False
 
         vision_frame = frame_helpers.VISION_FRAME_NAME
 
-        target_pose_v_b = TransformManager.convert_to_frame(goal_base_pose, vision_frame)
+        target_pose_v_b = TransformManager.convert_to_frame(pose, vision_frame)
         _, _, target_yaw_rad = target_pose_v_b.orientation.to_euler_rpy()
 
         trajectory_command = RobotCommandBuilder.synchro_se2_trajectory_point_command(
@@ -594,23 +596,24 @@ class SpotManager:
         )
 
         # Repeatedly send the trajectory command to Spot until timeout or the goal is reached
-        thresholds = GoalReachedThresholds(distance_m=0.2, abs_angle_rad=0.3)
+        nav_goal = NavigationGoal(pose, reached_distance_m=0.2, reached_abs_angle_rad=0.3)
+
         end_time_s = time.time() + timeout_s
 
-        reached_goal = check_reached_goal(goal_base_pose, thresholds)
+        reached_goal = spot_base.has_reached(nav_goal)
         while not reached_goal and time.time() < end_time_s:
             command_id = self.send_robot_command(trajectory_command, duration_s=5)
             if command_id is None:
-                self.log_info("Navigation attempt returned None instead of a command ID.")
+                self.log_info("Locomotion attempt returned None instead of a command ID.")
                 continue
 
-            reached_goal = check_reached_goal(goal_base_pose, thresholds)
+            reached_goal = spot_base.has_reached(nav_goal)
             time.sleep(0.2)
 
         stop_command = RobotCommandBuilder.stop_command()
         self.send_robot_command(stop_command)
 
-        return check_reached_goal(goal_base_pose, thresholds)
+        return spot_base.has_reached(nav_goal)
 
     def send_velocity_command(
         self,
