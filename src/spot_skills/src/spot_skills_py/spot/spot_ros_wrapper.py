@@ -68,6 +68,8 @@ class SpotROS1Wrapper:
         self._manager = None
         self._arm_controller = None
 
+        TransformManager.init_node()
+
         # Set up all ROS action servers provided by the class (do this early so MoveIt finds them)
         self._arm_action_name = "arm_controller/follow_joint_trajectory"
         self._arm_action_server = SimpleActionServer(

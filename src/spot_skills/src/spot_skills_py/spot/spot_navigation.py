@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import rospy
+from bosdyn.client.math_helpers import Quat, SE3Pose
 from geometry_msgs.msg import Twist
-from robotics_utils.kinematics import DEFAULT_FRAME, Pose2D, Waypoints
+from robotics_utils.kinematics import DEFAULT_FRAME, Pose2D, Pose3D, Quaternion, Waypoints
 from robotics_utils.motion_planning.navigation import NavigationGoal
 from robotics_utils.robots.mobile_robot import FollowPathCommand, MobileRobot
 from robotics_utils.ros.msg_conversion import pose_from_msg
@@ -81,6 +82,12 @@ class SpotNavigationServer(MobileRobot):
         self._tf_publisher_thread.daemon = True  # Thread exits when main process does
         self._tf_publisher_thread.start()
 
+        # Start publishing seed frame TF for graph navigation
+        try:
+            self._manager.start_seed_frame_publisher(rate_hz=10.0)
+        except Exception as e:
+            rospy.logwarn(f"Failed to start seed frame publisher: {e}")
+
     @property
     def current_base_pose(self) -> Pose2D:
         """Retrieve the robot's current base pose."""
@@ -148,24 +155,98 @@ class SpotNavigationServer(MobileRobot):
         return NameServiceResponse(success, message)
 
     def navigate_to_pose(self, goal_pose: Pose2D, timeout_s: float) -> SkillResult:
-        """Navigate to the given base pose using global path planning.
+        """Navigate using graph nav when available, fallback to global path planning.
 
-        :param goal_pose: Target base pose for the robot
+        :param goal_pose: Target base pose for the robot (in DEFAULT_FRAME/"map")
         :param timeout_s: Total duration (seconds) after which navigation will time out
         :return: Tuple containing Boolean success and an outcome message
         """
-        nav_plan = compute_navigation_plan(self.current_base_pose, goal_pose)
+        # Try graph navigation first if available
+        graph_nav_success, graph_nav_message = self._try_graph_navigation(goal_pose, timeout_s)
+        if graph_nav_success:
+            return True, f"Graph navigation successful: {graph_nav_message}"
+        return False, f"Graph Nav unsuccessful: {graph_nav_message}"
 
-        if nav_plan is None:
-            return False, f"Unable to compute plan from {self.current_base_pose} to {goal_pose}."
+        # # Log graph nav failure but continue with fallback
+        # msg = f"Graph navigation not available or failed: {graph_nav_message}. Using fallback navigation."
+        # self._manager.log_info(msg)
 
-        nav_goal = NavigationGoal(goal_pose, reached_distance_m=0.2, reached_abs_angle_rad=0.3)
-        follow_path_command = FollowPathCommand(nav_plan, nav_goal, total_timeout_s=timeout_s)
+        # # Fallback to traditional path planning
+        # nav_plan = compute_navigation_plan(self.current_base_pose, goal_pose)
 
-        success = self.follow_path(follow_path_command)
-        message = "Navigation was successful." if success else "Navigation failed."
+        # if nav_plan is None:
+        #     return False, f"Unable to compute plan from {self.current_base_pose} to {goal_pose}."
 
-        return success, message
+        # nav_goal = NavigationGoal(goal_pose, reached_distance_m=0.2, reached_abs_angle_rad=0.3)
+        # follow_path_command = FollowPathCommand(nav_plan, nav_goal, total_timeout_s=timeout_s)
+
+        # success = self.follow_path(follow_path_command)
+        # message = (
+        #     "Traditional navigation was successful."
+        #     if success
+        #     else "Traditional navigation failed."
+        # )
+
+        # return success, message
+
+    def _try_graph_navigation(self, goal_pose: Pose2D, timeout_s: float) -> SkillResult:
+        """Try to navigate using graph navigation with coordinate transformation.
+
+        :param goal_pose: Target pose in DEFAULT_FRAME ("map")
+        :param timeout_s: Navigation timeout
+        :return: Tuple containing Boolean success and an outcome message
+        """
+        try:
+            # Convert goal pose from map frame to seed frame
+            seed_pose_3d: Optional[Pose3D] = self._transform_map_to_seed(goal_pose)
+            if seed_pose_3d is None:
+                return False, "Could not transform pose from map frame to seed frame."
+
+            # Convert to SE3Pose for graph navigation
+            (x, y, z), (_, _, y_) = seed_pose_3d.to_xyz_rpy()
+            seed_se3_pose = SE3Pose(
+                x=x,
+                y=y,
+                z=z,
+                rot=Quat.from_yaw(y_),
+            )
+
+            # Use SpotManager's graph navigation
+            return self._manager.navigate_to_anchor_pose(seed_se3_pose, timeout_s)
+
+        except Exception as e:
+            return False, f"Graph navigation failed with exception: {e}"
+
+    def _transform_map_to_seed(self, map_pose: Pose2D) -> Pose3D | None:
+        """Transform a pose from map frame to seed frame using TF.
+
+        :param map_pose: Pose in map frame
+        :return: Pose in seed frame, or None if transformation failed
+        """
+        try:
+            # First ensure the SpotManager is publishing the seed frame
+            if not self._manager.publish_seed_frame_tf():
+                return None
+
+            # Transform goal from map frame to seed frame using TF
+            # Path: map -> body -> seed
+            seed_tform_map = TransformManager.lookup_transform(
+                "seed",
+                DEFAULT_FRAME,
+                rospy.Time(0),
+            )
+            if seed_tform_map is None:
+                return None
+
+            # Convert 2D goal to 3D and transform to seed frame
+            map_pose_3d = map_pose.to_3d()
+            seed_pose_3d = seed_tform_map @ map_pose_3d
+
+            return seed_pose_3d
+
+        except Exception as e:
+            rospy.logwarn(f"Failed to transform pose to seed frame: {e}")
+            return None
 
     def go_to_pose(self, base_pose: Pose2D, timeout_s: float) -> SkillResult:
         """Move directly to the specified base pose.
