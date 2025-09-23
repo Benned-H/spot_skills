@@ -470,16 +470,17 @@ class SpotManager:
         self.log_info("Robot sitting.")
         return True
 
-    def pitch_up(self, timeout_s: float) -> bool:
+    def pitch_up(self, pitch_rad: float, timeout_s: float = 60.0) -> bool:
         """Pitch the robot body up to allow looking upwards with the body cameras.
 
-        :param timeout_s: Timeout (seconds) for the pitch up command
+        :param pitch_rad: Pitch angle (radians) used in the command
+        :param timeout_s: Timeout (seconds) for the pitch up command (defaults to one minute)
         :return: True if the body was successfully pitched, else False
         """
         if not self.has_control:
             return False
 
-        body_euler_zxy = EulerZXY(0.0, 0.0, -np.pi / 6.0)
+        body_euler_zxy = EulerZXY(0.0, 0.0, pitch_rad)
         pitch_command = RobotCommandBuilder.synchro_stand_command(footprint_R_body=body_euler_zxy)
         command_id = self.send_robot_command(pitch_command)
 

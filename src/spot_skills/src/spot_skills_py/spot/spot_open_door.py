@@ -50,64 +50,70 @@ class SpotDoorOpener:
     def __init__(self, manager: SpotManager) -> None:
         """Initialize the door-opening class by storing the SpotManager."""
         self.manager = manager
-        self.image_dict = None
-        self.rgb_image_dict = None
+        self.image_dict: dict | None = None
+        self.rgb_image_dict: dict | None = None
         self.handle_xy = None  # Pixel coordinate of door handle in the side-by-side image
-        self.pixel_source_image = None
+        self.pixel_source_image: str | None = None
         self.rotated_pixel = None
 
-    def capture_side_by_side_image(self) -> RGBImage:
-        """Pitch Spot's body and take a combined image using the two front fisheye cameras.
+    def capture_door_handle_image(self, pitch_rad: float = -np.pi / 6.0) -> RGBImage:
+        """Pitch Spot's body to take an image of a door handle in front of Spot."""
+        self.manager.pitch_up(pitch_rad)
+        time.sleep(3.0)  # Let the camera focus
 
-        :return: Combined side-by-side image from Spot's two front cameras
-        """
-        self.manager.pitch_up(timeout_s=60)
-
-        # Capture images from the two front cameras
-        sources = ["frontleft_fisheye_image", "frontright_fisheye_image"]
+        # Try using Spot's gripper camera
+        sources = ["hand_color_image"]
         self.image_dict, self.rgb_image_dict = self.manager.image_client.get_images_as_cv2(sources)
 
-        # Convert CV2 images to numpy for processing.
-        fr_fisheye_image = self.rgb_image_dict["frontright_fisheye_image"][1]
-        fl_fisheye_image = self.rgb_image_dict["frontleft_fisheye_image"][1]
+        hand_image = self.rgb_image_dict["hand_color_image"][1]
+        hand_image = cv2.rotate(hand_image, cv2.ROTATE_90_CLOCKWISE)
 
-        # Rotate the images to align with robot Z axis.
-        fr_fisheye_image = cv2.rotate(fr_fisheye_image, cv2.ROTATE_90_CLOCKWISE)
-        fl_fisheye_image = cv2.rotate(fl_fisheye_image, cv2.ROTATE_90_CLOCKWISE)
+        return RGBImage(hand_image)
 
-        side_by_side_arr = np.hstack([fr_fisheye_image, fl_fisheye_image])
+    # # Capture images from the two front cameras
+    # sources = ["frontleft_fisheye_image", "frontright_fisheye_image"]
+    # self.image_dict, self.rgb_image_dict = self.manager.image_client.get_images_as_cv2(sources)
 
-        return RGBImage(side_by_side_arr)
+    # # Convert CV2 images to numpy for processing.
+    # fr_fisheye_image = self.rgb_image_dict["frontright_fisheye_image"][1]
+    # fl_fisheye_image = self.rgb_image_dict["frontleft_fisheye_image"][1]
 
-    def set_handle_xy(self, handle_xy: PixelXY, side_by_side_image: RGBImage) -> None:
+    # # Rotate the images to align with robot Z axis.
+    # fr_fisheye_image = cv2.rotate(fr_fisheye_image, cv2.ROTATE_90_CLOCKWISE)
+    # fl_fisheye_image = cv2.rotate(fl_fisheye_image, cv2.ROTATE_90_CLOCKWISE)
+
+    # side_by_side_arr = np.hstack([fr_fisheye_image, fl_fisheye_image])
+
+    # return RGBImage(side_by_side_arr)
+
+    def set_handle_xy(self, handle_xy: PixelXY, image: RGBImage) -> None:
         """Store the given pixel coordinate for the door handle.
 
         :param handle_xy: Estimated pixel coordinate of the door handle
         """
         self.handle_xy = handle_xy
 
-        rospy.loginfo(side_by_side_image.data.shape)
+        rospy.loginfo(image.data.shape)
 
-        width = side_by_side_image.width
-        is_left: bool = self.handle_xy[0] > width / 2  # Was the image source the left camera?
+        width = image.width
+        self.pixel_source_image = "hand_color_image"
+        # is_left: bool = self.handle_xy[0] > width / 2  # Was the image source the left camera?
 
-        self.pixel_source_image = (
-            "frontleft_fisheye_image" if is_left else "frontright_fisheye_image"
-        )
-        self.rotated_pixel = (
-            (self.handle_xy[0] - width / 2, self.handle_xy[1]) if is_left else self.handle_xy
-        )
+        # self.pixel_source_image = (
+        #     "frontleft_fisheye_image" if is_left else "frontright_fisheye_image"
+        # )
+        # self.rotated_pixel = (
+        #     (self.handle_xy[0] - width / 2, self.handle_xy[1]) if is_left else self.handle_xy
+        # )
+        self.rotated_pixel = self.handle_xy
 
-    def create_walk_to_object_in_image_request(
-        self,
-        side_by_side_image: RGBImage,
-    ) -> ManipulationApiRequest:
+    def create_walk_to_object_in_image_request(self, image: RGBImage) -> ManipulationApiRequest:
         """Construct a manipulation API request to make Spot walk to the object at the given pixel.
 
-        :param side_by_side_image: Combined side-by-side images from Spot's two front cameras
+        :param image: Image in which Spot has detected a door handle
         :return: Manipulation API request Protobuf message
         """
-        height, width = side_by_side_image.height_width
+        height, width = image.height_width
         # Undo pixel rotation by rotation 90 deg CCW.
         manipulation_cmd = WalkToObjectInImage()
         th = -np.pi / 2
@@ -165,14 +171,14 @@ class SpotDoorOpener:
 
     def open_door(
         self,
-        side_by_side_image: RGBImage,
+        image: RGBImage,
         is_pull: bool,
         hinge_on_left: bool,
         open_door_timeout_s: float = 60,
     ) -> bool:
         """Command the robot to automatically open a door using the Spot SDK.
 
-        :param side_by_side_image: Combined side-by-side images from Spot's two front cameras
+        :param image: Image in which Spot has detected a door handle
         :param is_pull: Boolean indicating if the door swings open by pulling toward Spot
         :param hinge_on_left: Boolean indicating if the door hinge is on the left (per Spot's view)
         :param open_door_timeout_s: Timeout (seconds) for the "Open Door" command (defaults to 60)
@@ -183,7 +189,7 @@ class SpotDoorOpener:
         self.manager.log_info("Opening door...")
 
         # Tell the robot to walk through the door
-        request = self.create_walk_to_object_in_image_request(side_by_side_image)
+        request = self.create_walk_to_object_in_image_request(image)
         manipulation_feedback = self.walk_to_object_in_image(request)
         time.sleep(3.0)
 

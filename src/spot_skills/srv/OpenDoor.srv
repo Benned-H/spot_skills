@@ -1,4 +1,5 @@
 # Request that Spot opens a door with the specified properties.
+float64 body_pitch_rad
 bool is_pull
 bool hinge_on_left
 ---
