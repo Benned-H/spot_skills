@@ -66,9 +66,12 @@ class SpotDoorOpener:
         self.image_dict, self.rgb_image_dict = self.manager.image_client.get_images_as_cv2(sources)
 
         hand_image = self.rgb_image_dict["hand_color_image"][1]
-        hand_image = cv2.rotate(hand_image, cv2.ROTATE_90_CLOCKWISE)
+        hand_image = cv2.cvtColor(hand_image, cv2.COLOR_BGR2RGB)
 
-        return RGBImage(hand_image)
+        rgb = RGBImage(hand_image)
+        rgb.to_file("/docker/spot_skills/1.jpg")
+
+        return rgb
 
     # # Capture images from the two front cameras
     # sources = ["frontleft_fisheye_image", "frontright_fisheye_image"]
