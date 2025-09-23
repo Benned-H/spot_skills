@@ -5498,7 +5498,7 @@ requires-dist = [
     { name = "robotics-utils", extras = ["vision"], marker = "extra == 'realsense'", editable = "src/spot_skills/src/robotics_utils" },
     { name = "torch", marker = "extra == 'vision'" },
     { name = "torchvision", marker = "extra == 'vision'" },
-    { name = "transformers", marker = "extra == 'vision'" },
+    { name = "transformers", marker = "extra == 'vision'", specifier = ">=4.46.3" },
     { name = "trimesh" },
 ]
 provides-extras = ["vision", "realsense", "all"]
@@ -6689,7 +6689,7 @@ dependencies = [
     { name = "opencv-python" },
     { name = "pycollada" },
     { name = "pyglet" },
-    { name = "robotics-utils" },
+    { name = "robotics-utils", extra = ["vision"] },
     { name = "rosnumpy" },
     { name = "scipy", version = "1.10.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "scipy", version = "1.13.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
@@ -6722,7 +6722,7 @@ requires-dist = [
     { name = "opencv-python" },
     { name = "pycollada" },
     { name = "pyglet", specifier = "<2" },
-    { name = "robotics-utils", editable = "src/spot_skills/src/robotics_utils" },
+    { name = "robotics-utils", extras = ["vision"], editable = "src/spot_skills/src/robotics_utils" },
     { name = "rosnumpy" },
     { name = "scipy" },
     { name = "scipy", specifier = ">=1.5" },

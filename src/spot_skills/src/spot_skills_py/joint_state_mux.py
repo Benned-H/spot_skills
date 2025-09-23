@@ -50,7 +50,7 @@ class JointStateMux:
         # Publisher for the multiplexed joint states
         self.pub = rospy.Publisher(self.output_topic, JointState, queue_size=10, latch=True)
         self.mode_pub = rospy.Publisher("~current_mode", String, queue_size=5)
-        self._pub_rate_hz = 10.0  # Frequency (Hz) at which joint state is republished
+        self._pub_rate_hz = 30.0  # Frequency (Hz) at which joint state is republished
 
         # Map the names of joint state modes to their latest configurations
         self.latest_configs: dict[str, Configuration] = {mode: {} for mode in self.valid_modes}

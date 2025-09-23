@@ -1,7 +1,7 @@
 <!-- Launch nodes to load the MoveIt planning scene from a YAML file -->
 <launch>
 
-    <arg name="environment_yaml" default="$(find tmp3)/test_domains/SpotPickAndPlace/Environments/FilingCabinetSkills/open_environment.yaml" />
+    <arg name="environment_yaml" default="$(find tmp3)/test_domains/SpotPickAndPlace/Environments/ICRA-Video/environment.yaml" />
 
     <!-- Launch a node to populate the planning scene -->
     <node name="planning_scene_manager_node" pkg="spot_skills" type="planning_scene_manager_node.py" output="screen" required="true">

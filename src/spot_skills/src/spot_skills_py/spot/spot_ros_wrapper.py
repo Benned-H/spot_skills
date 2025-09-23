@@ -3,6 +3,7 @@
 from copy import deepcopy
 from pathlib import Path
 
+import cv2
 import numpy as np
 import rospy
 from actionlib import SimpleActionServer
@@ -441,10 +442,10 @@ class SpotROS1Wrapper:
             return OpenDoorResponse(success=False, message=message)
 
         # Call the operations needed for door-opening, step-by-step
-        side_by_side_image = self._door_opener.capture_side_by_side_image()
+        door_image = self._door_opener.capture_door_handle_image(request.body_pitch_rad)
 
         detector = ObjectDetector()
-        detected = detector.detect(image=side_by_side_image, queries=["door handle"])
+        detected = detector.detect(door_image, queries=["silver door handle"])
         if not detected.detections:
             return OpenDoorResponse(
                 success=False,
@@ -453,7 +454,7 @@ class SpotROS1Wrapper:
 
         display(detected, "Door handle detection(s) (press any key to exit)")
         for i, d in enumerate(detected.detections):
-            cropped = d.bounding_box.crop(side_by_side_image, scale_ratio=1.2)
+            cropped = d.bounding_box.crop(door_image, scale_ratio=1.2)
             display(cropped, f"Detection {i}/{len(detected.detections)}: '{d.query}'")
 
         best_score = max(d.score for d in detected.detections)
@@ -462,14 +463,14 @@ class SpotROS1Wrapper:
         handle_xy = tuple(best_detections[0].bounding_box.center_pixel)
         assert len(handle_xy) == 2, "Expected (x,y) pixel coordinates."
 
-        self._door_opener.set_handle_xy(handle_xy, side_by_side_image)
+        self._door_opener.set_handle_xy(handle_xy, door_image)
         rospy.loginfo("Successfully saved door handle pixel in SpotDoorOpener.")
 
         is_pull = bool(request.is_pull)
         hinge_on_left = bool(request.hinge_on_left)
 
         door_opened = self._door_opener.open_door(
-            side_by_side_image,
+            door_image,
             is_pull=is_pull,
             hinge_on_left=hinge_on_left,
             open_door_timeout_s=120,

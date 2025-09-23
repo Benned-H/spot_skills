@@ -75,6 +75,7 @@ class SpotImageClient:
 
         if image_source not in self.image_sources:
             rospy.logerr(f"Unrecognized image source: '{image_source}'")
+            rospy.logerr(f"Available image sources: {self.image_sources}")
             return None
 
         return build_image_request(image_source, pixel_format=image_format.pixel_format())
