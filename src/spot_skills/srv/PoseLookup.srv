@@ -1,4 +1,4 @@
-# Request a pose lookup between the two requested frames
+# Request a pose lookup between the two reference frames
 string source_frame
 string target_frame
 ---
