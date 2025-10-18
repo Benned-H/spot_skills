@@ -63,7 +63,6 @@ add_service_files(
   NavigateToPose.srv
   PlaybackTrajectory.srv
   PoseLookup.srv
-  Float64Service.srv
   GetRGBImages.srv
   OpenDoor.srv
 )
@@ -180,7 +179,6 @@ catkin_install_python(PROGRAMS
   scripts/dummy_estimate_pose_server.py
   scripts/joint_state_mux_node.py
   scripts/planning_scene_manager_node.py
-  scripts/call_motion_planning.py
   scripts/skills_selector.py
   src/robotics_utils/scripts/record_transforms.py
   src/robotics_utils/scripts/fiducial_tracker_node.py

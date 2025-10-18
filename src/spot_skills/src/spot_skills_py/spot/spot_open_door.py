@@ -19,29 +19,13 @@ from bosdyn.api.manipulation_api_pb2 import (
 )
 from bosdyn.api.spot import door_pb2
 from bosdyn.client import frame_helpers
-from robotics_utils.perception.vision import RGBImage
+from robotics_utils.perception.vision import ObjectDetector, RGBImage
+from robotics_utils.visualization import display
 
 if TYPE_CHECKING:
     from spot_skills_py.spot.spot_manager import SpotManager
 
 PixelXY = Tuple[float, float]
-
-
-# def calculate_hinge_side(handle_xy: PixelXY, hinge_xy: PixelXY) -> int:
-#     """Calculate whether a door hinge is on the left or right side of the door.
-
-#     :param handle_xy: Pixel coordinate of the door handle
-#     :param hinge_xy: Pixel coordinate of the door hinge
-#     :return: Integer representing a hinge on the left or right side
-#     """
-#     handle_x = handle_xy[0]
-#     hinge_x = hinge_xy[0]
-
-#     return (
-#         door_pb2.DoorCommand.HINGE_SIDE_RIGHT
-#         if (handle_x < hinge_x)
-#         else door_pb2.DoorCommand.HINGE_SIDE_LEFT
-#     )
 
 
 class SpotDoorOpener:
@@ -54,7 +38,6 @@ class SpotDoorOpener:
         self.rgb_image_dict: dict | None = None
         self.handle_xy = None  # Pixel coordinate of door handle in the side-by-side image
         self.pixel_source_image: str | None = None
-        self.rotated_pixel = None
 
     def capture_door_handle_image(self, pitch_rad: float = -np.pi / 6.0) -> RGBImage:
         """Pitch Spot's body to take an image of a door handle in front of Spot."""
@@ -73,42 +56,34 @@ class SpotDoorOpener:
 
         return rgb
 
-    # # Capture images from the two front cameras
-    # sources = ["frontleft_fisheye_image", "frontright_fisheye_image"]
-    # self.image_dict, self.rgb_image_dict = self.manager.image_client.get_images_as_cv2(sources)
+    def detect_handle_xy(self, image: RGBImage) -> PixelXY | None:
+        """Detect the (x,y) coordinate of a door handle in the given image.
 
-    # # Convert CV2 images to numpy for processing.
-    # fr_fisheye_image = self.rgb_image_dict["frontright_fisheye_image"][1]
-    # fl_fisheye_image = self.rgb_image_dict["frontleft_fisheye_image"][1]
-
-    # # Rotate the images to align with robot Z axis.
-    # fr_fisheye_image = cv2.rotate(fr_fisheye_image, cv2.ROTATE_90_CLOCKWISE)
-    # fl_fisheye_image = cv2.rotate(fl_fisheye_image, cv2.ROTATE_90_CLOCKWISE)
-
-    # side_by_side_arr = np.hstack([fr_fisheye_image, fl_fisheye_image])
-
-    # return RGBImage(side_by_side_arr)
-
-    def set_handle_xy(self, handle_xy: PixelXY, image: RGBImage) -> None:
-        """Store the given pixel coordinate for the door handle.
-
-        :param handle_xy: Estimated pixel coordinate of the door handle
+        :param image: RGB image in which a door handle is detected
+        :return: Detected (x,y) pixel coordinate, or None if no door handle was detected
         """
-        self.handle_xy = handle_xy
-
         rospy.loginfo(image.data.shape)
 
-        width = image.width
-        self.pixel_source_image = "hand_color_image"
-        # is_left: bool = self.handle_xy[0] > width / 2  # Was the image source the left camera?
+        detector = ObjectDetector()
+        result = detector.detect(image, queries=["silver door handle"])
+        if not result.detections:
+            return None
 
-        # self.pixel_source_image = (
-        #     "frontleft_fisheye_image" if is_left else "frontright_fisheye_image"
-        # )
-        # self.rotated_pixel = (
-        #     (self.handle_xy[0] - width / 2, self.handle_xy[1]) if is_left else self.handle_xy
-        # )
-        self.rotated_pixel = self.handle_xy
+        display(result, "Door handle detection(s) (press any key to exit)")
+        for i, d in enumerate(result.detections):
+            cropped = d.bounding_box.crop(image, scale_ratio=1.2)
+            display(cropped, f"Detection {i}/{len(result.detections)}: '{d.query}'")
+
+        best_score = max(d.score for d in result.detections)
+        best_detections = [d for d in result.detections if d.score == best_score]
+
+        handle_xy = tuple(best_detections[0].bounding_box.center_pixel)
+        assert len(handle_xy) == 2, "Expected (x,y) pixel coordinates."
+
+        self.handle_xy = handle_xy
+        self.pixel_source_image = "hand_color_image"
+
+        return self.handle_xy
 
     def create_walk_to_object_in_image_request(self, image: RGBImage) -> ManipulationApiRequest:
         """Construct a manipulation API request to make Spot walk to the object at the given pixel.
@@ -116,14 +91,17 @@ class SpotDoorOpener:
         :param image: Image in which Spot has detected a door handle
         :return: Manipulation API request Protobuf message
         """
+        if self.handle_xy is None:
+            raise ValueError("self.handle_xy was None.")
+
         height, width = image.height_width
         # Undo pixel rotation by rotation 90 deg CCW.
         manipulation_cmd = WalkToObjectInImage()
         th = -np.pi / 2
         xm = width / 4
         ym = height / 2
-        x = self.rotated_pixel[0] - xm
-        y = self.rotated_pixel[1] - ym
+        x = self.handle_xy[0] - xm
+        y = self.handle_xy[1] - ym
         manipulation_cmd.pixel_xy.x = np.cos(th) * x - np.sin(th) * y + ym
         manipulation_cmd.pixel_xy.y = np.sin(th) * x + np.cos(th) * y + xm
 

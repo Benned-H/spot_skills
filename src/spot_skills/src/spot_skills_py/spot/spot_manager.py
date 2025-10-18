@@ -3,14 +3,10 @@
 from __future__ import annotations
 
 import contextlib
-import threading
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import numpy as np
-import rospy
-import tf2_ros
 from bosdyn.api.basic_command_pb2 import StandCommand
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.graph_nav import graph_nav_pb2, map_pb2
@@ -30,7 +26,7 @@ from bosdyn.client.lease import (
     add_lease_wallet_processors,
 )
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
-from bosdyn.client.math_helpers import Quat, SE3Pose
+from bosdyn.client.math_helpers import SE3Pose
 from bosdyn.client.robot_command import (
     CommandFailedError,
     RobotCommandBuilder,
@@ -43,10 +39,10 @@ from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from bosdyn.geometry import EulerZXY
-from bosdyn.util import seconds_to_duration
-from geometry_msgs.msg import TransformStamped
+from robotics_utils.kinematics import Configuration, Point3D, Pose2D, Pose3D, Quaternion
 from robotics_utils.motion_planning.navigation import NavigationGoal
-from robotics_utils.robots import MobileRobot
+from robotics_utils.ros.call_loop_thread import CallLoopThread
+from robotics_utils.ros.pose_broadcast_thread import PoseBroadcastThread
 from robotics_utils.ros.transform_manager import TransformManager
 from rospy import loginfo as ros_loginfo
 
@@ -58,8 +54,7 @@ from spot_skills_py.spot.spot_sync import SpotTimeSync
 if TYPE_CHECKING:
     from bosdyn.api.robot_command_pb2 import RobotCommand
     from bosdyn.api.robot_state_pb2 import RobotState
-    from robotics_utils.kinematics import Configuration
-    from robotics_utils.kinematics.poses import Pose2D
+    from robotics_utils.robots import MobileRobot
 
 
 @dataclass(frozen=True)
@@ -157,10 +152,10 @@ class SpotManager:
         add_lease_wallet_processors(self._docking_client, self._lease_wallet)
 
         # Define a client for graph navigation
-        self._graph_nav_client: GraphNavClient = self._robot.ensure_client(
+        self.graph_nav_client: GraphNavClient = self._robot.ensure_client(
             GraphNavClient.default_service_name,
         )
-        add_lease_wallet_processors(self._graph_nav_client, self._lease_wallet)
+        add_lease_wallet_processors(self.graph_nav_client, self._lease_wallet)
 
         # Stores a lease and keeps it alive once obtained
         self._lease_keeper: LeaseKeepAlive | None = None
@@ -169,9 +164,11 @@ class SpotManager:
 
         assert self.wait_while_estopped()  # Wait until Spot isn't e-stopped
 
-        # Initialize TF broadcaster for publishing seed frame
-        self._tf_broadcaster = tf2_ros.TransformBroadcaster()
-        self._last_seed_tf_timestamp = None  # Track last published seed TF timestamp
+        self._last_localization_timestamp = None  # Track most recent localization timestamp
+
+        # Initialize threads to continually 1) broadcast and 2) update the seed frame transform
+        self._seed_frame_broadcaster = PoseBroadcastThread()
+        self._seed_frame_updater = CallLoopThread(self.update_seed_frame)
 
         # Initialize the control status for the SpotManager
         self._control_status: SpotControlStatus = self._compute_status()
@@ -244,7 +241,7 @@ class SpotManager:
             lease_wallet=self._lease_wallet,
             resource=self._resource,
             must_acquire=False,  # Because we've just acquired above
-            return_at_exit=True,
+            return_at_exit=True,  # If True, returns the lease upon shutdown
         )
 
         # 2. If requested and needed, attempt to power on Spot
@@ -259,18 +256,14 @@ class SpotManager:
         """Check that we have a LeaseKeepAlive and that it's alive."""
         return (self._lease_keeper is not None) and self._lease_keeper.is_alive()
 
-    def ensure_control(self, retake_if_lost: bool = True) -> bool:
+    def ensure_control(self, take_by_force: bool = True) -> bool:
         """Idempotent method to guarantee that the SpotManager has control of Spot."""
         self._control_status = self._compute_status()
 
         if self._control_status.ok:
             return True
 
-        # If we lost control and are allowed to retake it, do so
-        if retake_if_lost:
-            return self.take_control(force=True, power_on=True)
-
-        return False
+        return self.take_control(force=take_by_force, power_on=True)
 
     def release_control(self) -> None:
         """Return the lease and stop the LeaseKeepAlive."""
@@ -324,7 +317,8 @@ class SpotManager:
             # Double-check that the KeepAlive thread is up
             has_lease = has_lease and self._holds_live_lease()
 
-        except Exception:
+        except Exception as exc:
+            self.log_info(f"Exception while checking control status of SpotManager: {exc}")
             has_lease = self._holds_live_lease()
 
         return SpotControlStatus(
@@ -668,180 +662,44 @@ class SpotManager:
         self.log_info("Now blocking until the velocity command finishes...")
         return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=duration_s)
 
-    def navigate_to_anchor_pose(
-        self,
-        seed_pose: SE3Pose,
-        timeout_s: float = 30.0,
-    ) -> tuple[bool, str]:
-        """Navigate to a pose in seed frame using graph navigation anchors.
+    def update_seed_frame(self) -> bool:
+        """Update the current transform of the seed frame based on Spot's localization.
 
-        :param seed_pose: Target pose in the seed frame
-        :param timeout_s: Maximum time to wait for navigation to complete
-        :return: Tuple containing Boolean success and an outcome message
+        :return: True if the transform was successfully updated or verified, else False
         """
-        if not self.ensure_control():
-            return False, "SpotManager does not have control of the robot."
-
-        # Check if robot is localized to the graph
-        try:
-            localization_state = self._graph_nav_client.get_localization_state()
+        try:  # Attempt to retrieve the current localization state
+            localization_state = self.graph_nav_client.get_localization_state()
             if not localization_state.localization.waypoint_id:
-                return False, "Robot is not localized to the graph. Cannot use graph navigation."
-        except Exception as e:
-            return False, f"Failed to get localization state: {e}"
-
-        # Ensure robot is powered on
-        if not self._robot.is_powered_on():
-            self.log_info("Powering on Spot for graph navigation...")
-            self._robot.power_on(timeout_sec=20)
-            if not self._robot.is_powered_on():
-                return False, "Failed to power on robot for navigation."
-
-        # Navigate to the destination using graph nav
-        nav_to_cmd_id = None
-        start_time = time.time()
-        is_finished = False
-
-        self.log_info(f"Starting graph navigation to pose: {seed_pose}")
-
-        while not is_finished and (time.time() - start_time) < timeout_s:
-            try:
-                # Issue the navigation command about twice a second
-                nav_to_cmd_id = self._graph_nav_client.navigate_to_anchor(
-                    seed_pose.to_proto(),
-                    1.0,
-                    command_id=nav_to_cmd_id,
-                )
-            except ResponseError as e:
-                return False, f"Error while navigating: {e}"
-
-            # Sleep for half a second to allow for command execution
-            time.sleep(0.5)
-
-            # Poll the robot for feedback to determine if the navigation command is complete
-            is_finished = self._check_graph_nav_success(nav_to_cmd_id)
-
-        if not is_finished:
-            return False, f"Navigation timed out after {timeout_s} seconds."
-
-        # Check final status
-        if nav_to_cmd_id is not None:
-            status = self._graph_nav_client.navigation_feedback(nav_to_cmd_id)
-            if status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_REACHED_GOAL:
-                return True, "Successfully completed graph navigation!"
-            if status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_LOST:
-                return False, "Robot got lost during navigation."
-            if status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_STUCK:
-                return False, "Robot got stuck during navigation."
-            if status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_ROBOT_IMPAIRED:
-                return False, "Robot is impaired."
-            return False, "Navigation command did not complete successfully."
-
-        return False, "Navigation failed for unknown reason."
-
-    def _check_graph_nav_success(self, command_id: int) -> bool:
-        """Check if a graph navigation command has finished."""
-        if command_id is None:
-            return False
-
-        try:
-            status = self._graph_nav_client.navigation_feedback(command_id)
-            return (
-                status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_REACHED_GOAL
-                or status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_LOST
-                or status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_STUCK
-                or status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_ROBOT_IMPAIRED
-            )
-        except Exception:
-            return False
-
-    def publish_seed_frame_tf(self) -> bool:
-        """Publish the seed frame as a TF transform if robot is localized to graph.
-
-        :return: True if seed frame was published, False if not localized or error
-        """
-        try:
-            # Get current localization state
-            localization_state = self._graph_nav_client.get_localization_state()
-            if not localization_state.localization.waypoint_id:
-                # Robot not localized to graph
-                self.log_info("Graph Nav not localized!!")
+                self.log_info("GraphNav not localized!")
                 return False
 
-            # Check if timestamp has changed since last publish
+            # Check if the localization timestamp has changed
             current_timestamp = localization_state.localization.timestamp
-            if self._last_seed_tf_timestamp is not None and current_timestamp == self._last_seed_tf_timestamp:
-                # Same timestamp, no need to republish
-                return True
+            if (
+                self._last_localization_timestamp is not None
+                and current_timestamp == self._last_localization_timestamp
+            ):
+                return True  # Same timestamp; no need to update
 
-            # Get seed_tform_body from localization
             seed_tform_body_proto = localization_state.localization.seed_tform_body
+            b_wrt_s = SE3Pose.from_proto(seed_tform_body_proto)  # Body w.r.t. seed frame
 
-            # Convert to SE3Pose for easier manipulation
-            seed_tform_body = SE3Pose.from_proto(seed_tform_body_proto)
-
-            # Create TF transform message
-            # We have seed_tform_body, but we want to publish body -> seed (body as parent)
-            # So we need the inverse: body_tform_seed = seed_tform_body.inverse()
-            body_tform_seed = seed_tform_body.inverse()
-
-            transform_msg = TransformStamped()
-            transform_msg.header.stamp = (
-                rospy.Time.from_sec(
-                    self.time_sync.local_timestamp_from_proto(
-                        localization_state.localization.timestamp,
-                    ).to_time_s(),
-                )
-                if hasattr(self, "time_sync")
-                else rospy.Time.now()
+            pose_s_b = Pose3D(
+                Point3D(b_wrt_s.x, b_wrt_s.y, b_wrt_s.z),
+                Quaternion(x=b_wrt_s.rot.x, y=b_wrt_s.rot.y, z=b_wrt_s.rot.z, w=b_wrt_s.rot.w),
+                ref_frame="seed",
             )
-            transform_msg.header.frame_id = "body"
-            transform_msg.child_frame_id = "seed"
+            pose_b_s = pose_s_b.inverse(pose_frame="body")  # Pose of seed frame w.r.t. body
 
-            # Set translation (using inverse transform)
-            transform_msg.transform.translation.x = body_tform_seed.x
-            transform_msg.transform.translation.y = body_tform_seed.y
-            transform_msg.transform.translation.z = body_tform_seed.z
-
-            # Set rotation (using inverse transform)
-            transform_msg.transform.rotation.w = body_tform_seed.rot.w
-            transform_msg.transform.rotation.x = body_tform_seed.rot.x
-            transform_msg.transform.rotation.y = body_tform_seed.rot.y
-            transform_msg.transform.rotation.z = body_tform_seed.rot.z
-
-            # Publish the transform
-            self._tf_broadcaster.sendTransform(transform_msg)
-
-            # Update the last published timestamp
-            self._last_seed_tf_timestamp = current_timestamp
-            return True
-
-        except Exception as e:
-            self.log_info(f"Failed to publish seed frame TF: {e}")
+        except Exception as exc:
+            self.log_info(f"Failed to update the seed frame: {exc}")
             return False
 
-    def start_seed_frame_publisher(self, rate_hz: float = 10.0) -> None:
-        """Start a background thread to continuously publish seed frame TF.
+        else:
+            self._seed_frame_broadcaster.poses["seed"] = pose_b_s
+            self._last_localization_timestamp = current_timestamp
 
-        :param rate_hz: Rate at which to publish the transform (default 10 Hz)
-        """
-
-        def publish_loop():
-            rate = rospy.Rate(rate_hz)
-            while not rospy.is_shutdown():
-                try:
-                    self.publish_seed_frame_tf()
-                    rate.sleep()
-                except rospy.ROSInterruptException:
-                    break
-                except Exception as e:
-                    self.log_info(f"Error in seed frame publisher: {e}")
-                    rate.sleep()
-
-        # Start the publishing thread
-        self._seed_frame_thread = threading.Thread(target=publish_loop, daemon=True)
-        self._seed_frame_thread.start()
-        self.log_info("Started seed frame TF publisher")
+            return True
 
     def dock(self, dock_id: int, timeout_s: int = 60) -> bool:
         """Send a docking command to Spot with the given dock ID and block until it finishes.

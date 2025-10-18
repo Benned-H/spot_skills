@@ -3,8 +3,6 @@
 from copy import deepcopy
 from pathlib import Path
 
-import cv2
-import numpy as np
 import rospy
 from actionlib import SimpleActionServer
 from control_msgs.msg import (
@@ -15,20 +13,16 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
-from robotics_utils.perception.vision import ObjectDetector
+from robotics_utils.kinematics import Point3D
 from robotics_utils.ros import TransformManager
 from robotics_utils.ros.msg_conversion import pose_to_stamped_msg
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
-from robotics_utils.visualization import display
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from spot_skills.msg import RGBDPair
 from spot_skills.msg import RGBImage as RGBImageMsg
 from spot_skills.srv import (
-    Float64Service,
-    Float64ServiceRequest,
-    Float64ServiceResponse,
     GetRGBDPairs,
     GetRGBDPairsRequest,
     GetRGBDPairsResponse,
@@ -127,11 +121,7 @@ class SpotROS1Wrapper:
             PlaybackTrajectory,
             self.handle_playback_trajectory,
         )
-        self._erase_service = rospy.Service(
-            "spot/erase_board",
-            Float64Service,
-            self.handle_erase_board,
-        )
+        self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
         self._take_control_srv = rospy.Service(
             "spot/take_control",
             Trigger,
@@ -144,7 +134,6 @@ class SpotROS1Wrapper:
         )
         self._pose_lookup_srv = rospy.Service("pose_lookup", PoseLookup, self.handle_pose_lookup)
         self._dock_srv = rospy.Service("spot/dock", Trigger, self.handle_dock)
-        self._dock_id = 520
 
         traj_config = RelativeTrajectoryConfig(
             ee_frame="arm_link_wr1",
@@ -183,11 +172,10 @@ class SpotROS1Wrapper:
                 message="SpotManager is None; could not make Spot stand.",
             )
 
-        has_control = self._manager.has_control  # Only take control of Spot once necessary
-        if not has_control:
-            has_control = self._manager.take_control()
+        stood_up = False
+        if self._manager.ensure_control(take_by_force=False):
+            stood_up = self._manager.stand_up(20)
 
-        stood_up = self._manager.stand_up(20) if has_control else False
         message = "Spot is now standing." if stood_up else "Could not make Spot stand."
 
         return TriggerResponse(stood_up, message)
@@ -204,11 +192,10 @@ class SpotROS1Wrapper:
                 message="SpotManager is None; could not make Spot sit.",
             )
 
-        has_control = self._manager.has_control  # Only take control of Spot once necessary
-        if not has_control:
-            has_control = self._manager.take_control()
+        sit_success = False
+        if self._manager.ensure_control(take_by_force=False):
+            sit_success = self._manager.sit_down(20)
 
-        sit_success = self._manager.sit_down(20) if has_control else False
         message = "Spot is now sitting." if sit_success else "Spot could not sit."
 
         return TriggerResponse(sit_success, message)
@@ -225,7 +212,8 @@ class SpotROS1Wrapper:
                 message="SpotManager is None; could not make Spot dock.",
             )
 
-        success = self._manager.dock(self._dock_id)
+        dock_id = get_ros_param("spot/dock_id", int, default_value=520)
+        success = self._manager.dock(dock_id)
         message = "Spot successfully docked." if success else "Spot failed to dock."
         return TriggerResponse(success, message)
 
@@ -258,9 +246,8 @@ class SpotROS1Wrapper:
                 message="SpotManager is not set up; could not unlock Spot's arm.",
             )
 
-        has_control = self._manager.has_control  # Only take control of Spot once necessary
-        if not has_control:
-            has_control = self._manager.take_control()
+        # When unlocking the arm, forcibly take control of Spot if necessary
+        has_control = self._manager.ensure_control(take_by_force=True)
 
         if has_control:
             self._arm_locked = False
@@ -289,11 +276,10 @@ class SpotROS1Wrapper:
             message = "Spot's arm was not stowed because Spot's arm remains locked."
             return TriggerResponse(success=False, message=message)
 
-        has_control = self._manager.has_control  # Only take control of Spot once necessary
-        if not has_control:
-            has_control = self._manager.take_control()
+        arm_stowed = False
+        if self._manager.ensure_control(take_by_force=False):
+            arm_stowed = self._manager.stow_arm()
 
-        arm_stowed = self._manager.stow_arm() if has_control else False
         message = "Spot's arm has been stowed." if arm_stowed else "Could not stow Spot's arm."
 
         return TriggerResponse(arm_stowed, message)
@@ -314,11 +300,10 @@ class SpotROS1Wrapper:
             message = "Spot's arm was not deployed because Spot's arm remains locked."
             return TriggerResponse(success=False, message=message)
 
-        has_control = self._manager.has_control  # Only take control of Spot once necessary
-        if not has_control:
-            has_control = self._manager.take_control()
+        deployed = False
+        if self._manager.ensure_control(take_by_force=False):
+            deployed = self._manager.deploy_arm()
 
-        deployed = self._manager.deploy_arm() if has_control else False
         message = "Spot's arm has been deployed." if deployed else "Could not deploy Spot's arm."
 
         return TriggerResponse(success=deployed, message=message)
@@ -435,38 +420,40 @@ class SpotROS1Wrapper:
                 message="SpotManager is None; could not open the door.",
             )
 
-        has_control = self._manager.has_control  # Only take control of Spot once necessary
-        if not has_control:
-            has_control = self._manager.take_control()
-
-        if not has_control:
+        if not self._manager.ensure_control(take_by_force=False):
             message = "Could not open door because SpotManager could not take control of Spot."
             return OpenDoorResponse(success=False, message=message)
 
         # Call the operations needed for door-opening, step-by-step
         door_image = self._door_opener.capture_door_handle_image(request.body_pitch_rad)
 
-        detector = ObjectDetector()
-        detected = detector.detect(door_image, queries=["silver door handle"])
-        if not detected.detections:
+        handle_xy = self._door_opener.detect_handle_xy(door_image)
+        if handle_xy is None:
             return OpenDoorResponse(
                 success=False,
-                message="Cannot open door because the door handle was not detected.",
+                message="Cannot open door because no door handle was detected.",
             )
 
-        display(detected, "Door handle detection(s) (press any key to exit)")
-        for i, d in enumerate(detected.detections):
-            cropped = d.bounding_box.crop(door_image, scale_ratio=1.2)
-            display(cropped, f"Detection {i}/{len(detected.detections)}: '{d.query}'")
+        rospy.loginfo("SpotDoorOpener successfully detected a door handle.")
 
-        best_score = max(d.score for d in detected.detections)
-        best_detections = [d for d in detected.detections if d.score == best_score]
+        # detector = ObjectDetector()
+        # detected = detector.detect(door_image, queries=["silver door handle"])
+        # if not detected.detections:
+        #     return OpenDoorResponse(
+        #         success=False,
+        #         message="Cannot open door because the door handle was not detected.",
+        #     )
 
-        handle_xy = tuple(best_detections[0].bounding_box.center_pixel)
-        assert len(handle_xy) == 2, "Expected (x,y) pixel coordinates."
+        # display(detected, "Door handle detection(s) (press any key to exit)")
+        # for i, d in enumerate(detected.detections):
+        #     cropped = d.bounding_box.crop(door_image, scale_ratio=1.2)
+        #     display(cropped, f"Detection {i}/{len(detected.detections)}: '{d.query}'")
 
-        self._door_opener.set_handle_xy(handle_xy, door_image)
-        rospy.loginfo("Successfully saved door handle pixel in SpotDoorOpener.")
+        # best_score = max(d.score for d in detected.detections)
+        # best_detections = [d for d in detected.detections if d.score == best_score]
+
+        # handle_xy = tuple(best_detections[0].bounding_box.center_pixel)
+        # assert len(handle_xy) == 2, "Expected (x,y) pixel coordinates."
 
         is_pull = bool(request.is_pull)
         hinge_on_left = bool(request.hinge_on_left)
@@ -508,54 +495,48 @@ class SpotROS1Wrapper:
             message = f"Cannot replay trajectory from {yaml_path} because Spot's arm is locked."
             return PlaybackTrajectoryResponse(success=False, message=message)
 
-        has_control = self._manager.has_control  # Only take control of Spot once necessary
-        if not has_control:
-            has_control = self._manager.take_control()
+        if not self._manager.ensure_control(take_by_force=False):
+            message = f"Cannot replay trajectory from {yaml_path} without control of Spot."
+            return PlaybackTrajectoryResponse(success=False, message=message)
 
         relative_poses = self.trajectory_replayer.load_relative_trajectory(yaml_path)
         rospy.loginfo(f"Loaded {len(relative_poses)} poses from YAML file: {yaml_path}.")
         self.trajectory_replayer.execute_hybrid_cartesian_sequence(relative_poses)
 
-        # relative_poses = self.trajectory_replayer.load_relative_trajectory(yaml_path)
-        # cartesian_plan = self.trajectory_replayer.compute_cartesian_plan(relative_poses)
-        # ik_sequence = self.trajectory_replayer.compute_ik_sequence(relative_poses)
-        # for ik in ik_sequence:
-        #     self.trajectory_replayer.go_to(ik.q)
-
-        # self.trajectory_replayer.move_group.execute(cartesian_plan, wait=True)
-
         message = f"Successfully executed trajectory loaded from file: {yaml_path}"
         return PlaybackTrajectoryResponse(success=True, message=message)
 
-    def handle_erase_board(self, request: Float64ServiceRequest) -> Float64ServiceResponse:
+    def handle_erase_board(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to erase a whiteboard.
 
-        :param request: Message representing a request to erase a board (specifies +x erase plane)
+        :param _: Message representing a request to erase a board
         :return: Response conveying whether the whiteboard was erased
         """
         if self._manager is None:
-            return Float64ServiceResponse(
+            return TriggerResponse(
                 success=False,
                 message="SpotManager is None; could not erase the board.",
             )
 
         if self._arm_locked:
-            return Float64ServiceResponse(
+            return TriggerResponse(
                 success=False,
                 message="Could not erase whiteboard because Spot's arm remains locked.",
             )
 
-        has_control = self._manager.has_control  # Only take control of Spot once necessary
-        if not has_control:
-            has_control = self._manager.take_control()
+        if not self._manager.ensure_control(take_by_force=False):
+            return TriggerResponse(success=False, message="Could not erase the whiteboard.")
 
-        if not has_control:
-            return Float64ServiceResponse(success=False, message="Could not erase the whiteboard.")
+        erase_traj_path = get_ros_param(
+            "spot/erase_trajectory_path",
+            Path,
+            Path("/docker/spot_skills/src/spot_skills/config/erase_traj.yaml"),
+        )
+        erase_traj_points = Point3D.load_points(erase_traj_path, collection_name="points")
 
-        x_m = float(request.value)
-        erase_board(self._manager, x_m)
+        erase_board(self._manager, erase_traj_points)
 
-        return Float64ServiceResponse(success=True, message="Erased the whiteboard.")
+        return TriggerResponse(success=True, message="Erased the whiteboard.")
 
     def handle_take_control(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to forcibly take control of Spot.
@@ -569,9 +550,7 @@ class SpotROS1Wrapper:
                 message="SpotManager is None; could not take control of Spot.",
             )
 
-        self._manager.ensure_control(retake_if_lost=True)
-
-        has_control = self._manager.has_control
+        has_control = self._manager.ensure_control(take_by_force=True)
         message = (
             "SpotManager now controls Spot."
             if has_control
@@ -592,7 +571,10 @@ class SpotROS1Wrapper:
             )
 
         if not self._manager.has_control:
-            TriggerResponse(success=True, message="SpotManager already doesn't control Spot.")
+            return TriggerResponse(
+                success=True,
+                message="SpotManager already doesn't control Spot.",
+            )
 
         self._manager.release_control()
 
@@ -667,11 +649,7 @@ class SpotROS1Wrapper:
             self._arm_action_server.set_aborted(result)
             return
 
-        has_control = self._manager.has_control  # Only take control of Spot once necessary
-        if not has_control:
-            has_control = self._manager.take_control()
-
-        if not has_control:
+        if not self._manager.ensure_control(take_by_force=False):
             result.error_string = "Could not obtain control of Spot."
             self._arm_action_server.set_aborted(result)
             return
@@ -727,12 +705,8 @@ class SpotROS1Wrapper:
 
         goal_position_rad = goal.command.position  # Ignoring goal.command.max_effort
 
-        has_control = self._manager.has_control  # Only take control of Spot once necessary
-        if not has_control:
-            has_control = self._manager.take_control()
-
         outcome = GripperCommandOutcome.FAILURE
-        if has_control:
+        if self._manager.ensure_control(take_by_force=False):
             outcome = self._arm_controller.command_gripper(goal_position_rad)
             rospy.sleep(delay_s)
 

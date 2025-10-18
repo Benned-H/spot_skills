@@ -3,6 +3,8 @@
 Note: Adapted from the Spot SDK example "erase.py"
 """
 
+from __future__ import annotations
+
 import time
 
 from bosdyn.api import (
@@ -27,7 +29,7 @@ from robotics_utils.kinematics import Point3D
 from spot_skills_py.spot.spot_manager import SpotManager
 
 
-def erase_board(manager: SpotManager, x_m: float) -> None:
+def erase_board(manager: SpotManager, erase_traj_points: list[Point3D]) -> None:
     """Use the given Spot manager to erase a whiteboard in front of Spot."""
     assert manager.has_arm(), "Robot requires an arm to erase a whiteboard!"
 
@@ -79,22 +81,7 @@ def erase_board(manager: SpotManager, x_m: float) -> None:
     # Hybrid position-force mode and trajectories.
 
     f_x = 10
-    hand_point_coords: list[Point3D] = [
-        Point3D(x_m, 0.2, 0.3),
-        Point3D(x_m, 0.2, 0.7),
-        Point3D(x_m, 0.12, 0.7),
-        Point3D(x_m, 0.12, 0.3),
-        Point3D(x_m, 0.04, 0.3),
-        Point3D(x_m, 0.04, 0.7),
-        Point3D(x_m, -0.04, 0.7),
-        Point3D(x_m, -0.04, 0.3),
-        Point3D(x_m, -0.12, 0.3),
-        Point3D(x_m, -0.12, 0.7),
-        Point3D(x_m, -0.2, 0.7),
-        Point3D(x_m, -0.2, 0.3),
-    ]
-
-    hand_points = [geometry_pb2.Vec3(x=p.x, y=p.y, z=p.z) for p in hand_point_coords]
+    hand_points = [geometry_pb2.Vec3(x=p.x, y=p.y, z=p.z) for p in erase_traj_points]
 
     quat = geometry_pb2.Quaternion(w=1, x=0, y=0, z=0)
 
