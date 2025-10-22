@@ -35,11 +35,11 @@ class SpotTimeSync:
         """Retrieve the robot's live timesync endpoint."""
         return self._robot.time_sync.endpoint
 
-    def resync(self) -> None:
+    def resync(self, timeout_s: float = 10.0) -> None:
         """Re-establish a time-sync with Spot (blocks until robot is synchronized)."""
         start_time = time.time()
 
-        self._robot.time_sync.wait_for_sync()
+        self._robot.time_sync.wait_for_sync(timeout_s)
         self.max_round_trip_s = max(self.max_round_trip_s, self.get_round_trip_s())
 
         end_time = time.time()  # Put as much of this function as possible before this line

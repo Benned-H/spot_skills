@@ -1,0 +1,31 @@
+<!-- Launch all nodes needed to map an environment using GraphNav on Spot -->
+<launch>
+
+    <!-- For safety reasons, do not assume which Spot is being used -->
+    <arg name="spot_name" />
+
+    <!-- We can only run GraphNav on the real robot -->
+    <arg name="real_robot" value="true" />
+
+    <!-- Allow users to specify the import path of the GraphNav map -->
+    <arg name="map_path" default="/docker/spot_skills/maps/GraphNav" />
+
+    <!-- Start the robot in mapping mode (the alternative is localization) -->
+    <arg name="mapping_mode" default="true" />
+
+    <!-- Default: Start a new GraphNav map, rather than loading an existing map -->
+    <arg name="load_map" default="false" />
+
+    <!-- Launch all nodes to control Spot, simulated or real, using MoveIt -->
+    <include file="$(find spot_skills)/launch/bringup_spot_moveit.launch" pass_all_args="true" />
+
+    <!-- Include the Spot GraphNav launch file to populate ROS parameters -->
+    <include file="$(find spot_skills)/launch/bringup_spot_graphnav.launch">
+        <arg name="map_path" value="$(arg map_path)" />
+        <arg name="mapping_mode" value="$(arg mapping_mode)" />
+        <arg name="load_map" value="$(arg load_map)" />
+    </include>
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" />
+
+</launch>

@@ -46,6 +46,7 @@ from spot_skills_py.spot.spot_arm_controller import (
     SpotArmController,
 )
 from spot_skills_py.spot.spot_erase import erase_board
+from spot_skills_py.spot.spot_graph_nav import SpotGraphNav
 from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient
 from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.spot.spot_navigation import SpotNavigationServer
@@ -134,6 +135,9 @@ class SpotROS1Wrapper:
         )
         self._pose_lookup_srv = rospy.Service("pose_lookup", PoseLookup, self.handle_pose_lookup)
         self._dock_srv = rospy.Service("spot/dock", Trigger, self.handle_dock)
+        self._start_map = rospy.Service("spot/start_mapping", Trigger, self.handle_start_mapping)
+        self._stop_map = rospy.Service("spot/stop_mapping", Trigger, self.handle_stop_mapping)
+        self._save_map = rospy.Service("spot/save_map", Trigger, self.handle_save_map)
 
         traj_config = RelativeTrajectoryConfig(
             ee_frame="arm_link_wr1",
@@ -152,6 +156,20 @@ class SpotROS1Wrapper:
             GetRGBImages,
             self.handle_get_rgb_images,
         )
+
+        self._graph_nav: SpotGraphNav | None = None
+        graph_nav_active = get_ros_param("/spot/graph_nav/active", bool, default_value=False)
+        if graph_nav_active:
+            map_path = get_ros_param("/spot/graph_nav/map_path", Path)
+            mapping_mode = get_ros_param("/spot/graph_nav/mapping_mode", bool)
+            load_map = get_ros_param("/spot/graph_nav/load_map", bool)
+
+            self._graph_nav = SpotGraphNav(
+                self._manager,
+                map_path,
+                mapping_mode=mapping_mode,
+                load_map=load_map,
+            )
 
         navigation_active = get_ros_param("/spot/navigation/active", bool, default_value=False)
         if navigation_active:
@@ -307,6 +325,51 @@ class SpotROS1Wrapper:
         message = "Spot's arm has been deployed." if deployed else "Could not deploy Spot's arm."
 
         return TriggerResponse(success=deployed, message=message)
+
+    def handle_start_mapping(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to start mapping using GraphNav.
+
+        :param _: ROS message request to start mapping
+        :return: Response conveying whether mapping was started
+        """
+        if self._graph_nav is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotGraphNav is None; cannot start mapping.",
+            )
+
+        success, message = self._graph_nav.start_mapping()
+        return TriggerResponse(success, message)
+
+    def handle_stop_mapping(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to stop mapping using GraphNav.
+
+        :param _: ROS message request to stop mapping
+        :return: Response conveying whether mapping was stopped
+        """
+        if self._graph_nav is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotGraphNav is None; cannot stop mapping.",
+            )
+
+        success, message = self._graph_nav.stop_mapping()
+        return TriggerResponse(success, message)
+
+    def handle_save_map(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to save the GraphNav map to file.
+
+        :param _: ROS message request to save the map to file
+        :return: Response conveying whether map was successfully saved
+        """
+        if self._graph_nav is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotGraphNav is None; cannot save map to file.",
+            )
+
+        success, message = self._graph_nav.save_map(self._graph_nav.map_path)
+        return TriggerResponse(success, message)
 
     def handle_get_rgbd_pairs(self, request_msg: GetRGBDPairsRequest) -> GetRGBDPairsResponse:
         """Handle a request to capture RGBD image pairs from the specified camera(s) on Spot.

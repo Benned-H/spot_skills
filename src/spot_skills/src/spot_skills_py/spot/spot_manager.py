@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 
 from bosdyn.api.basic_command_pb2 import StandCommand
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
-from bosdyn.api.graph_nav import graph_nav_pb2, map_pb2
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client import create_standard_sdk, frame_helpers
@@ -18,7 +17,6 @@ from bosdyn.client.door import DoorClient
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.exceptions import Error as SDKError
 from bosdyn.client.exceptions import LeaseUseError, ResponseError
-from bosdyn.client.graph_nav import GraphNavClient
 from bosdyn.client.lease import (
     LeaseClient,
     LeaseKeepAlive,
@@ -41,8 +39,6 @@ from bosdyn.client.util import setup_logging
 from bosdyn.geometry import EulerZXY
 from robotics_utils.kinematics import Configuration, Point3D, Pose2D, Pose3D, Quaternion
 from robotics_utils.motion_planning.navigation import NavigationGoal
-from robotics_utils.ros.call_loop_thread import CallLoopThread
-from robotics_utils.ros.pose_broadcast_thread import PoseBroadcastThread
 from robotics_utils.ros.transform_manager import TransformManager
 from rospy import loginfo as ros_loginfo
 
@@ -100,6 +96,7 @@ class SpotManager:
         """
         self._created_time_s = time.time()  # Record when the SpotManager was created
         self._resource = resource
+        self.username = username
 
         setup_logging(verbose=True)  # Use verbose logging for the Spot SDK
 
@@ -114,48 +111,42 @@ class SpotManager:
         for _ in range(5):  # Repeatedly re-sync to hopefully better model network variance
             self.resync_and_log()
 
-        self._lease_wallet = LeaseWallet()
-        self._lease_wallet.set_client_name(self._sdk.client_name)
+        self.lease_wallet = LeaseWallet()
+        self.lease_wallet.set_client_name(self._sdk.client_name)
 
         # Define a client to later obtain control of Spot (i.e., Spot's "lease")
         self._lease_client: LeaseClient = self._robot.ensure_client(
             LeaseClient.default_service_name,
         )
-        add_lease_wallet_processors(self._lease_client, self._lease_wallet)
+        add_lease_wallet_processors(self._lease_client, self.lease_wallet)
 
         # Define a client that can command Spot to move
         self.command_client = self._robot.ensure_client(RobotCommandClient.default_service_name)
-        add_lease_wallet_processors(self.command_client, self._lease_wallet)
+        add_lease_wallet_processors(self.command_client, self.lease_wallet)
 
         # Define a client to query the state of the robot
         self._state_client = self._robot.ensure_client(RobotStateClient.default_service_name)
-        add_lease_wallet_processors(self._state_client, self._lease_wallet)
+        add_lease_wallet_processors(self._state_client, self.lease_wallet)
 
         # Define a client to query Spot's e-stop status
         self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
-        add_lease_wallet_processors(self._estop_client, self._lease_wallet)
+        add_lease_wallet_processors(self._estop_client, self.lease_wallet)
 
         # Define an image client to interface with Spot's cameras
-        self.image_client = SpotImageClient(self._robot, self._lease_wallet)
+        self.image_client = SpotImageClient(self._robot, self.lease_wallet)
 
         # Define clients used to control Spot to open doors
         self.manip_client = self._robot.ensure_client(ManipulationApiClient.default_service_name)
-        add_lease_wallet_processors(self.manip_client, self._lease_wallet)
+        add_lease_wallet_processors(self.manip_client, self.lease_wallet)
 
         self.door_client = self._robot.ensure_client(DoorClient.default_service_name)
-        add_lease_wallet_processors(self.door_client, self._lease_wallet)
+        add_lease_wallet_processors(self.door_client, self.lease_wallet)
 
         # Define a client to allow Spot to dock
         self._docking_client: DockingClient = self._robot.ensure_client(
             DockingClient.default_service_name,
         )
-        add_lease_wallet_processors(self._docking_client, self._lease_wallet)
-
-        # Define a client for graph navigation
-        self.graph_nav_client: GraphNavClient = self._robot.ensure_client(
-            GraphNavClient.default_service_name,
-        )
-        add_lease_wallet_processors(self.graph_nav_client, self._lease_wallet)
+        add_lease_wallet_processors(self._docking_client, self.lease_wallet)
 
         # Stores a lease and keeps it alive once obtained
         self._lease_keeper: LeaseKeepAlive | None = None
@@ -163,12 +154,6 @@ class SpotManager:
         self._mobility_params = RobotCommandBuilder.mobility_params()
 
         assert self.wait_while_estopped()  # Wait until Spot isn't e-stopped
-
-        self._last_localization_timestamp = None  # Track most recent localization timestamp
-
-        # Initialize threads to continually 1) broadcast and 2) update the seed frame transform
-        self._seed_frame_broadcaster = PoseBroadcastThread()
-        self._seed_frame_updater = CallLoopThread(self.update_seed_frame)
 
         # Initialize the control status for the SpotManager
         self._control_status: SpotControlStatus = self._compute_status()
@@ -233,12 +218,12 @@ class SpotManager:
             return False
 
         # Add the lease to the wallet (allows future RPCs to auto-attach)
-        self._lease_wallet.add(lease)
+        self.lease_wallet.add(lease)
 
         # Start background keepalive using the WALLET (not a lease)
         self._lease_keeper = LeaseKeepAlive(
             lease_client=self._lease_client,
-            lease_wallet=self._lease_wallet,
+            lease_wallet=self.lease_wallet,
             resource=self._resource,
             must_acquire=False,  # Because we've just acquired above
             return_at_exit=True,  # If True, returns the lease upon shutdown
@@ -271,7 +256,7 @@ class SpotManager:
         try:
             # Try returning the specific lease that we hold
             with contextlib.suppress(Exception):
-                lease = self._lease_wallet.get_lease(self._resource)
+                lease = self.lease_wallet.get_lease(self._resource)
                 self._lease_client.return_lease(lease)
 
             if self._lease_keeper:
@@ -300,7 +285,7 @@ class SpotManager:
         has_lease = False
 
         try:  # Prefer the wallet as the ground truth for leases
-            state = self._lease_wallet.get_lease_state(self._resource)
+            state = self.lease_wallet.get_lease_state(self._resource)
 
             status_enum = getattr(state, "lease_status", None)
             owner = getattr(state, "lease_owner", None)
@@ -661,45 +646,6 @@ class SpotManager:
 
         self.log_info("Now blocking until the velocity command finishes...")
         return block_for_trajectory_cmd(self.command_client, command_id, timeout_sec=duration_s)
-
-    def update_seed_frame(self) -> bool:
-        """Update the current transform of the seed frame based on Spot's localization.
-
-        :return: True if the transform was successfully updated or verified, else False
-        """
-        try:  # Attempt to retrieve the current localization state
-            localization_state = self.graph_nav_client.get_localization_state()
-            if not localization_state.localization.waypoint_id:
-                self.log_info("GraphNav not localized!")
-                return False
-
-            # Check if the localization timestamp has changed
-            current_timestamp = localization_state.localization.timestamp
-            if (
-                self._last_localization_timestamp is not None
-                and current_timestamp == self._last_localization_timestamp
-            ):
-                return True  # Same timestamp; no need to update
-
-            seed_tform_body_proto = localization_state.localization.seed_tform_body
-            b_wrt_s = SE3Pose.from_proto(seed_tform_body_proto)  # Body w.r.t. seed frame
-
-            pose_s_b = Pose3D(
-                Point3D(b_wrt_s.x, b_wrt_s.y, b_wrt_s.z),
-                Quaternion(x=b_wrt_s.rot.x, y=b_wrt_s.rot.y, z=b_wrt_s.rot.z, w=b_wrt_s.rot.w),
-                ref_frame="seed",
-            )
-            pose_b_s = pose_s_b.inverse(pose_frame="body")  # Pose of seed frame w.r.t. body
-
-        except Exception as exc:
-            self.log_info(f"Failed to update the seed frame: {exc}")
-            return False
-
-        else:
-            self._seed_frame_broadcaster.poses["seed"] = pose_b_s
-            self._last_localization_timestamp = current_timestamp
-
-            return True
 
     def dock(self, dock_id: int, timeout_s: int = 60) -> bool:
         """Send a docking command to Spot with the given dock ID and block until it finishes.

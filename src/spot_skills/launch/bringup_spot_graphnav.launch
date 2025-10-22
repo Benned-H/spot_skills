@@ -1,0 +1,18 @@
+<!-- Populate ROS parameters to configure GraphNav for mapping or localization -->
+<launch>
+
+    <param name="/spot/graph_nav/active" value="true" />
+
+    <!-- Allow users to specify the import path of the GraphNav map -->
+    <arg name="map_path" default="/docker/spot_skills/maps/GraphNav" />
+
+    <!-- Default: Start the robot in localization mode and load in an existing map -->
+    <arg name="mapping_mode" default="false" />
+    <arg name="load_map" default="true" />
+
+    <!-- Save these arguments in the ROS parameter server -->
+    <param name="/spot/graph_nav/map_path" value="$(arg map_path)" />
+    <param name="/spot/graph_nav/mapping_mode" value="$(arg mapping_mode)" />
+    <param name="/spot/graph_nav/load_map" value="$(arg load_map)" />
+
+</launch>
