@@ -79,13 +79,21 @@ Visualization Manager:
           Value: true
         c:
           Value: true
+        close_door:
+          Value: true
         d:
           Value: true
         dock_520:
           Value: true
+        erase:
+          Value: true
         feet_center:
           Value: true
+        fiducial_1:
+          Value: true
         fiducial_520:
+          Value: true
+        filtered_fiducial_1:
           Value: true
         filtered_fiducial_520:
           Value: true
@@ -135,7 +143,11 @@ Visualization Manager:
           Value: true
         odom:
           Value: true
+        open_door:
+          Value: true
         open_drawer:
+          Value: true
+        pick_from_drawer:
           Value: true
         rear_left_foot:
           Value: true
@@ -175,6 +187,8 @@ Visualization Manager:
         black_dresser:
           open_drawer:
             {}
+          pick_from_drawer:
+            {}
         map:
           a:
             {}
@@ -182,7 +196,13 @@ Visualization Manager:
             {}
           c:
             {}
+          close_door:
+            {}
           d:
+            {}
+          erase:
+            {}
+          open_door:
             {}
           vision:
             body:
@@ -261,7 +281,11 @@ Visualization Manager:
                 {}
             dock_520:
               {}
+            fiducial_1:
+              {}
             fiducial_520:
+              {}
+            filtered_fiducial_1:
               {}
             filtered_fiducial_520:
               {}
@@ -695,63 +719,16 @@ Visualization Manager:
       Transport Hint: raw
       Unreliable: false
       Value: true
-    - Class: rviz/Group
-      Displays:
-        - Alpha: 1
-          Class: rviz/Polygon
-          Color: 25; 255; 0
-          Enabled: true
-          Name: Polygon
-          Queue Size: 10
-          Topic: /move_base/global_costmap/footprint
-          Unreliable: false
-          Value: true
-        - Alpha: 0.699999988079071
-          Class: rviz/Map
-          Color Scheme: costmap
-          Draw Behind: true
-          Enabled: true
-          Name: Global Costmap
-          Topic: /move_base/global_costmap/costmap
-          Unreliable: false
-          Use Timestamp: false
-          Value: true
-        - Alpha: 1
-          Buffer Length: 1
-          Class: rviz/Path
-          Color: 25; 255; 0
-          Enabled: true
-          Head Diameter: 0.30000001192092896
-          Head Length: 0.20000000298023224
-          Length: 0.30000001192092896
-          Line Style: Lines
-          Line Width: 0.029999999329447746
-          Name: Path
-          Offset:
-            X: 0
-            Y: 0
-            Z: 0
-          Pose Color: 255; 85; 255
-          Pose Style: None
-          Queue Size: 10
-          Radius: 0.029999999329447746
-          Shaft Diameter: 0.10000000149011612
-          Shaft Length: 0.10000000149011612
-          Topic: /move_base/DWAPlannerROS/global_plan
-          Unreliable: false
-          Value: true
-        - Alpha: 0.5
-          Class: rviz/Map
-          Color Scheme: costmap
-          Draw Behind: true
-          Enabled: true
-          Name: Global Planner Potential
-          Topic: /move_base/GlobalPlanner/potential
-          Unreliable: false
-          Use Timestamp: false
-          Value: true
+    - Class: rviz/MarkerArray
       Enabled: true
-      Name: move_base
+      Marker Topic: /graphnav_markers
+      Name: GraphNav Markers
+      Namespaces:
+        graphnav/edges: true
+        graphnav/labels: true
+        graphnav/waypoints: true
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -768,7 +745,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 15.301925659179688
+      Distance: 9.176494598388672
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -784,9 +761,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.785203218460083
+      Pitch: 0.3302028477191925
       Target Frame: body
-      Yaw: 4.819995403289795
+      Yaw: 4.864995956420898
     Saved: ~
 Window Geometry:
   Displays:
@@ -802,5 +779,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1247
-  X: 66
+  X: 1313
   Y: 32

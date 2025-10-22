@@ -85,7 +85,7 @@ stated, you need to move to the top-level `spot_skills` folder, build the worksp
 
 ```bash
 # In Docker
-uv venv --clear --system-site-packages
+uv venv --clear --system-site-packages --python 3.8
 uv pip install -e .
 source .venv/bin/activate
 

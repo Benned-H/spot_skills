@@ -10,11 +10,11 @@
     <arg name="output_yaml_path" default="$(find spot_skills)/config/object_poses.yaml"/>
 
     <!-- Require a path specifying a YAML file containing known object poses -->
-    <arg name="known_poses_yaml_path" default="$(find spot_skills)/config/known_poses.yaml"/>
+    <arg name="known_poses_yaml_path" default="$(find spot_skills)/config/env.yaml"/>
 
     <!-- Marker sizes (mm; allows them to be used in ROS topic names) -->
     <arg name="small_marker_size_mm" default="17"/>
-    <arg name="medium_marker_size_mm" default="44"/>
+    <arg name="medium_marker_size_mm" default="45"/>
 
     <arg name="small_marker_size_cm" value="$(eval 0.1 * arg('small_marker_size_mm'))"/>
     <arg name="medium_marker_size_cm" value="$(eval 0.1 * arg('medium_marker_size_mm'))"/>
@@ -35,6 +35,17 @@
         <remap from="camera_image" to="/spot/camera/hand_color/image"/>
         <remap from="camera_info" to="/spot/camera/hand_color/camera_info"/>
         <remap from="ar_pose_marker" to="/ar_pose_marker/hand/$(arg small_marker_size_mm)"/>
+        <remap from="tf" to="$(arg tf_topic)"/>
+    </node>
+
+    <node name="ar_single_hand_medium" pkg="ar_track_alvar" type="individualMarkersNoKinect" respawn="true" output="screen">
+        <param name="marker_size" value="$(arg medium_marker_size_cm)" type="double"/>
+        <param name="max_new_marker_error" value="$(arg max_new_marker_error)" type="double"/>
+        <param name="max_track_error" value="$(arg max_track_error)" type="double"/>
+        <param name="output_frame" value="hand_color_image_sensor"/>
+        <remap from="camera_image" to="/spot/camera/hand_color/image"/>
+        <remap from="camera_info" to="/spot/camera/hand_color/camera_info"/>
+        <remap from="ar_pose_marker" to="/ar_pose_marker/hand/$(arg medium_marker_size_mm)"/>
         <remap from="tf" to="$(arg tf_topic)"/>
     </node>
 
@@ -63,11 +74,11 @@
     </node>
 
     <!-- Launch a node to forward transforms from ar_track_alvar to /tf -->
-    <!--<node name="fiducial_tracker_node" pkg="spot_skills" type="fiducial_tracker_node.py" output="screen" required="true">
+    <node name="fiducial_tracker_node" pkg="spot_skills" type="fiducial_tracker_node.py" output="screen" required="true">
         <param name="markers_yaml_path" value="$(arg markers_yaml_path)"/>
         <param name="output_yaml_path" value="$(arg output_yaml_path)"/>
         <param name="marker_topic_prefix" value="/ar_pose_marker"/>
         <param name="known_poses_yaml_path" value="$(arg known_poses_yaml_path)"/>
-    </node>-->
+    </node>
 
 </launch>
