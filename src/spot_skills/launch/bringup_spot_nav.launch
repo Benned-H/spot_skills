@@ -16,7 +16,4 @@
     <!-- Absolute angle (radians) within which Spot is considered "close" to its goal (here, 90 degrees) -->
     <param name="/spot/navigation/close_to_goal_rad" value="1.5708" />
 
-    <!-- Launch Spot's navigation stack using move_base -->
-    <include file="$(find spot_move_base)/launch/move_base.launch"/>
-
 </launch>

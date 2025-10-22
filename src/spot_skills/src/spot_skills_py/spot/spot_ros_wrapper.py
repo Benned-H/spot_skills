@@ -51,6 +51,7 @@ from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient
 from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.spot.spot_navigation import SpotNavigationServer
 from spot_skills_py.spot.spot_open_door import SpotDoorOpener
+from spot_skills_py.visualize_graphnav import GraphNavRViz
 
 
 class SpotROS1Wrapper:
@@ -171,10 +172,12 @@ class SpotROS1Wrapper:
                 load_map=load_map,
             )
 
+            self._graph_nav_rviz = GraphNavRViz(self._graph_nav.graph_nav_client)
+
         navigation_active = get_ros_param("/spot/navigation/active", bool, default_value=False)
         if navigation_active:
             rospy.loginfo("Now initializing the SpotNavigationServer...")
-            self._navigation_server = SpotNavigationServer(manager=self._manager)
+            self._navigation_server = SpotNavigationServer(self._manager, self._graph_nav)
         else:
             rospy.loginfo("Skipping initialization of SpotNavigationServer...")
 

@@ -1,16 +1,25 @@
-<!-- Launch all nodes needed to demonstrate the navigation system on Spot -->
+<!-- Launch all nodes needed to demonstrate navigation using GraphNav on Spot -->
 <launch>
 
     <!-- For safety reasons, do not assume which Spot is being used -->
     <arg name="spot_name" />
 
-    <!-- We can only run the navigation system on the real robot -->
+    <!-- We can only run GraphNav navigation on the real robot -->
     <arg name="real_robot" value="true" />
 
-    <!-- Launch the navigation and SLAM systems using their bringup files -->
-    <include file="$(find spot_skills)/launch/bringup_spot_nav.launch" />
-    <include file="$(find spot_skills)/launch/bringup_spot_slam.launch" pass_all_args="true" />
+    <!-- Allow users to specify the import path of the GraphNav map -->
+    <arg name="map_path" default="/docker/spot_skills/maps/GraphNav" />
 
+    <!-- Activate GraphNav using its bringup file (use localization mode and load the map) -->
+    <include file="$(find spot_skills)/launch/bringup_spot_graphnav.launch">
+        <arg name="map_path" value="$(arg map_path)" />
+        <arg name="mapping_mode" value="false" />
+        <arg name="load_map" value="true" />
+    </include>
+
+    <!-- Load ROS parameters configuring Spot's navigation -->
+    <include file="$(find spot_skills)/launch/bringup_spot_nav.launch" />
+    
     <!-- Launch all nodes to control Spot using MoveIt (this loads the robot description) -->
     <include file="$(find spot_skills)/launch/bringup_spot_moveit.launch" pass_all_args="true" />
 

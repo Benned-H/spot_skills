@@ -33,14 +33,14 @@ if TYPE_CHECKING:
 class SpotNavigationServer(MobileRobot):
     """A wrapper for ROS services controlling Spot's navigation."""
 
-    def __init__(self, manager: SpotManager, base_frame: str = "body") -> None:
+    def __init__(self, manager: SpotManager, graph_nav: SpotGraphNav) -> None:
         """Initialize the ROS services provided by this class.
 
         :param manager: SpotManager object used to control Spot through the Spot SDK
         """
         self._manager = manager
-        self._graph_nav = SpotGraphNav(self._manager)
-        self.base_frame = base_frame
+        self._graph_nav = graph_nav
+        self.base_frame = "body"
 
         self._nav_to_pose_srv = rospy.Service(
             "/spot/navigation/to_pose",
@@ -62,8 +62,8 @@ class SpotNavigationServer(MobileRobot):
         )
 
         # Load waypoint locations from a YAML file specified via ROS param
-        waypoints_yaml_path = get_ros_param("/spot/navigation/waypoints_yaml", Path)
-        self._waypoints = Waypoints.from_yaml(waypoints_yaml_path)
+        self.waypoints_yaml_path = get_ros_param("/spot/navigation/waypoints_yaml", Path)
+        self._waypoints = Waypoints.from_yaml(self.waypoints_yaml_path)
 
         rospy.loginfo(f"Loaded {len(self._waypoints)} named waypoints from YAML.")
 

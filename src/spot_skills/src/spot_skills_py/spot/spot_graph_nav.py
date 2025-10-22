@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from bosdyn.api.graph_nav import graph_nav_pb2, map_pb2, map_processing_pb2, nav_pb2
 from bosdyn.client.exceptions import ResponseError
-from bosdyn.client.frame_helpers import get_odom_tform_body
+from bosdyn.client.frame_helpers import get_odom_tform_body, get_vision_tform_body
 from bosdyn.client.graph_nav import GraphNavClient
 from bosdyn.client.map_processing import MapProcessingServiceClient
 from bosdyn.client.math_helpers import Quat, SE3Pose
@@ -86,6 +86,8 @@ class SpotGraphNav:
             l_ok, l_msg = self.localize_nearest_fiducial()
             self._manager.log_info(f"Localization {'succeeded' if l_ok else 'failed'}: {l_msg}")
 
+            self.log_graph_info()
+
         if self.mapping_mode:
             ok, msg = self.start_mapping()
             self._manager.log_info("Mapping started." if ok else f"Unable to start mapping: {msg}")
@@ -111,13 +113,13 @@ class SpotGraphNav:
 
         with contextlib.suppress(Exception):
             status = self.graph_nav_client.navigation_feedback(command_id).status
-            return status in {
-                graph_nav_pb2.NavigationFeedbackResponse.STATUS_REACHED_GOAL,
-                graph_nav_pb2.NavigationFeedbackResponse.STATUS_LOST,
-                graph_nav_pb2.NavigationFeedbackResponse.STATUS_STUCK,
-                graph_nav_pb2.NavigationFeedbackResponse.STATUS_ROBOT_IMPAIRED,
-                graph_nav_pb2.NavigationFeedbackResponse.STATUS_NO_PATH,
-            }
+            self._manager.log_info(f"GraphNav command status: {status}.")
+
+            return (
+                status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_REACHED_GOAL
+                or status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_STUCK
+                or status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_NO_PATH
+            )
 
         return False
 
@@ -174,30 +176,23 @@ class SpotGraphNav:
             sTb = SE3Pose.from_proto(loc.seed_tform_body)  # Body w.r.t. seed frame
 
             robot_state = self._manager.get_robot_state()
-            oTb = get_odom_tform_body(robot_state.kinematic_state.transforms_snapshot)
-            bTo = SE3Pose(oTb.x, oTb.y, oTb.z, oTb.rot).inverse()
+            vTb = get_vision_tform_body(robot_state.kinematic_state.transforms_snapshot)
+            bTv = SE3Pose(vTb.x, vTb.y, vTb.z, vTb.rot).inverse()
 
-            mTo = sTb * bTo  # Treat GraphNav's seed frame as the map frame in TF
+            mTv = sTb * bTv  # Treat GraphNav's seed frame as the map frame in TF
 
-            pose_o_b = Pose3D(
-                Point3D(oTb.x, oTb.y, oTb.z),
-                Quaternion(x=oTb.rot.x, y=oTb.rot.y, z=oTb.rot.z, w=oTb.rot.w),
-                ref_frame="odom",
-            )
-
-            pose_m_o = Pose3D(
-                Point3D(mTo.x, mTo.y, mTo.z),
-                Quaternion(x=mTo.rot.x, y=mTo.rot.y, z=mTo.rot.z, w=mTo.rot.w),
+            pose_m_v = Pose3D(
+                Point3D(mTv.x, mTv.y, mTv.z),
+                Quaternion(x=mTv.rot.x, y=mTv.rot.y, z=mTv.rot.z, w=mTv.rot.w),
                 ref_frame="map",
             )
 
         except Exception as exc:
-            self.log_info(f"update_odometry failed: {exc}")
+            self._manager.log_info(f"update_odometry failed: {exc}")
             return False
 
         else:
-            self._tf_broadcaster.poses["body"] = pose_o_b  # Body w.r.t. odom
-            self._tf_broadcaster.poses["odom"] = pose_m_o  # Odom w.r.t. map
+            self._tf_broadcaster.poses["vision"] = pose_m_v  # Vision w.r.t. map
             return True
 
     def should_we_start_recording(self) -> bool:
@@ -234,7 +229,7 @@ class SpotGraphNav:
     def stop_mapping(self) -> tuple[bool, str]:
         """Stop recording and attempt to process/anchor/connect the GraphNav map."""
         first_iter = True
-        while True:
+        while self.currently_recording:
             try:
                 self.recording_client.stop_recording()
                 break
@@ -279,6 +274,27 @@ class SpotGraphNav:
             )
 
         return False, "Recording stopped but no processing completed."
+
+    def log_graph_info(self) -> None:
+        """Debugging function that logs information about the current graph.
+
+        Reference: https://dev.bostondynamics.com/protos/bosdyn/api/proto_reference.html#graph
+        """
+        try:
+            graph = self.graph_nav_client.download_graph()
+
+            waypoints = graph.waypoints
+            edges = graph.edges
+            anchoring = graph.anchoring
+            anchors = anchoring.anchors
+
+            self._manager.log_info(
+                f"Downloaded graph with {len(waypoints)} waypoints, "
+                f"{len(edges)} edges, and {len(anchors)} anchors.",
+            )
+
+        except Exception as exc:
+            self._manager.log_info(f"Exception while logging graph info: {exc}")
 
     def save_map(self, output_dir: str | Path) -> tuple[bool, str]:
         """Save the on-robot GraphNav map to the given directory.
@@ -400,18 +416,18 @@ class SpotGraphNav:
         :param timeout_s: Duration (seconds) after which navigation times out, defaults to 30 s
         :return: Tuple containing Boolean success and an outcome message
         """
-        if not self._manager.ensure_control(take_by_force=False):
+        if not self._manager.ensure_control(take_by_force=True):
             return False, "SpotManager doesn't have control of the robot."
 
         if not self.check_localized():
             return False, "Spot is not currently localized."
 
-        curr_pose_s_b = TransformManager.lookup_transform("body", "seed")
+        curr_pose_s_b = TransformManager.lookup_transform("body", "map")
         if curr_pose_s_b is None:
-            return False, "Unable to find current transform from seed frame to body frame."
+            return False, "Unable to find current transform from map frame to body frame."
         curr_z = curr_pose_s_b.position.z
 
-        target_pose = TransformManager.convert_to_frame(target_pose, target_frame="seed").to_2d()
+        target_pose = TransformManager.convert_to_frame(target_pose, target_frame="map").to_2d()
 
         quat = Quat.from_yaw(target_pose.yaw_rad)
         target_proto = SE3Pose(x=target_pose.x, y=target_pose.y, z=curr_z, rot=quat).to_proto()
@@ -434,7 +450,10 @@ class SpotGraphNav:
             time.sleep(0.5)  # Sleep for half a second to allow for command execution
 
             # Poll the robot for feedback to determine if the navigation command is complete
-            if self.check_finished(nav_to_cmd_id):
+            finished = self.check_finished(nav_to_cmd_id)
+            self._manager.log_info(f"Navigation has {'' if finished else 'not '}finished.")
+
+            if finished:
                 break
 
         if nav_to_cmd_id is None:
