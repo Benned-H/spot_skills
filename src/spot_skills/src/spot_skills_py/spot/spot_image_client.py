@@ -12,6 +12,7 @@ from bosdyn.api.image_pb2 import Image, ImageCapture, ImageRequest, ImageRespons
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.lease import LeaseWallet, add_lease_wallet_processors
 from cv_bridge import CvBridge
+from robotics_utils.vision import CameraIntrinsics, RGBCamera, RGBImage
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image as ImageMsg
 
@@ -71,7 +72,7 @@ class SpotImageClient:
         :param image_format: Format of image requested (e.g., RGB or DEPTH)
         :return: Image request Protobuf message, or None if invalid inputs given
         """
-        image_source = self.camera_to_image_source(camera, image_format)
+        image_source = self._camera_to_image_source(camera, image_format)
 
         if image_source not in self.image_sources:
             rospy.logerr(f"Unrecognized image source: '{image_source}'")
@@ -128,7 +129,27 @@ class SpotImageClient:
 
         return image_dict, rgb_image_dict
 
-    def camera_to_image_source(self, camera_name: str, image_format: ImageFormat) -> str:
+    def get_rgb_images(self, camera_names: list[str]) -> dict[str, RGBImage]:
+        """Request images from the robot, output in a NumPy-based format.
+
+        :param camera_names: List of camera names (e.g., "hand")
+        :return: Dictionary mapping camera names to the resulting RGBImage objects
+        """
+        sources = [self._camera_to_image_source(cn, ImageFormat.RGB) for cn in camera_names]
+        image_responses = self._image_client.get_image_from_sources(sources)
+
+        rgb_images = {}
+        for camera_name, response in zip(camera_names, image_responses):
+            raw_data = np.frombuffer(response.shot.image.data, dtype=np.uint8)
+            bgr_data = cv2.imdecode(raw_data, cv2.IMREAD_COLOR)
+            if bgr_data is None:
+                raise RuntimeError(f"Unable to decode image from camera '{camera_name}'.")
+            rgb_data = cv2.cvtColor(bgr_data, cv2.COLOR_BGR2RGB)
+            rgb_images[camera_name] = RGBImage(rgb_data)
+
+        return rgb_images
+
+    def _camera_to_image_source(self, camera_name: str, image_format: ImageFormat) -> str:
         """Convert a camera name and image format into the corresponding image source from Spot.
 
         :param camera_name: Name of a camera on Spot (e.g., "frontright" or "back")
@@ -148,6 +169,21 @@ class SpotImageClient:
             return f"{camera_name}_depth_in_visual_frame"
 
         return f"{camera_name}_fisheye_image"
+
+    def get_intrinsics(self, camera_name: str, image_format: ImageFormat) -> CameraIntrinsics:
+        """Retrieve the camera intrinsics of the specified camera on Spot."""
+        request = self.make_image_request(camera_name, image_format)
+        if request is None:
+            raise RuntimeError(f"Unable to make image request for camera: '{camera_name}'.")
+
+        response = self.get_images([request])[0]
+
+        fx = response.source.pinhole.intrinsics.focal_length.x
+        cx = response.source.pinhole.intrinsics.principal_point.x
+        fy = response.source.pinhole.intrinsics.focal_length.y
+        cy = response.source.pinhole.intrinsics.principal_point.y
+
+        return CameraIntrinsics(fx=fx, fy=fy, x0=cx, y0=cy)
 
     def extract_image_msg(self, image_capture: ImageCapture, capture_time: rospy.Time) -> ImageMsg:
         """Extract a sensor_msgs/Image ROS message from the given Protobuf message.
@@ -246,3 +282,19 @@ class SpotImageClient:
         camera_info_msg.P = [fx, 0, cx, 0, 0, fy, cy, 0, 0, 0, 1, 0]
 
         return camera_info_msg
+
+
+class SpotRGBCamera(RGBCamera):
+    """A generic interface for one of Spot's RGB cameras."""
+
+    def __init__(self, camera_name: str, image_client: SpotImageClient) -> None:
+        """Initialize the camera interface using a client to collect images from Spot."""
+        intrinsics = image_client.get_intrinsics(camera_name, ImageFormat.RGB)
+        super().__init__(name=camera_name, intrinsics=intrinsics)
+
+        self.image_client = image_client
+        self.image_source = self.image_client.get_images
+
+    def get_image(self) -> RGBImage:
+        """Capture and return an image using the camera."""
+        return self.image_client.get_rgb_images([self.name])[self.name]

@@ -46,4 +46,5 @@
         "*.launch": "xml"
     },
     "python-envs.pythonProjects": [],
+    "python-envs.defaultEnvManager": "ms-python.python:venv",
 }

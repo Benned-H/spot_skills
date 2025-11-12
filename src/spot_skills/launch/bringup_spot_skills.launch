@@ -19,8 +19,8 @@
     <!-- Launch nodes to control Spot using MoveIt (this loads the robot description) -->
     <include file="$(find spot_skills)/launch/bringup_spot_moveit.launch" pass_all_args="true" />
 
-    <!-- Launch nodes enabling pose estimation using ar_track_alvar -->
-    <include file="$(find spot_skills)/launch/bringup_alvar.launch" />
+    <!-- Populate ROS parameters to activate AprilTag detection -->
+    <include file="$(find spot_skills)/launch/bringup_tag_tracking.launch" />
 
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/all_spot_skills.rviz" />
 

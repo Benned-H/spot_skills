@@ -182,7 +182,6 @@ catkin_install_python(PROGRAMS
   scripts/skills_selector.py
   src/robotics_utils/scripts/record_transforms.py
   src/robotics_utils/scripts/fiducial_tracker_node.py
-  src/robotics_utils/scripts/run_skills_cli.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

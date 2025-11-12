@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from pathlib import Path
+from typing import Sequence
 
 import rospy
 from actionlib import SimpleActionServer
@@ -14,10 +15,10 @@ from control_msgs.msg import (
     GripperCommandResult,
 )
 from robotics_utils.kinematics import Point3D
-from robotics_utils.ros import TransformManager
+from robotics_utils.ros import TagTracker, TransformManager, get_ros_param
 from robotics_utils.ros.msg_conversion import pose_to_stamped_msg
-from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
+from robotics_utils.vision.fiducials import FiducialSystem
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from spot_skills.msg import RGBDPair
@@ -47,7 +48,7 @@ from spot_skills_py.spot.spot_arm_controller import (
 )
 from spot_skills_py.spot.spot_erase import erase_board
 from spot_skills_py.spot.spot_graph_nav import SpotGraphNav
-from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient
+from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient, SpotRGBCamera
 from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.spot.spot_navigation import SpotNavigationServer
 from spot_skills_py.spot.spot_open_door import SpotDoorOpener
@@ -180,6 +181,17 @@ class SpotROS1Wrapper:
             self._navigation_server = SpotNavigationServer(self._manager, self._graph_nav)
         else:
             rospy.loginfo("Skipping initialization of SpotNavigationServer...")
+
+        apriltags_active = get_ros_param("/tag_tracker/active", bool, default_value=False)
+        if apriltags_active:
+            # Create a thread to continually detect AprilTags from Spot's cameras
+            markers_yaml_path = get_ros_param("/tag_tracker/markers_yaml_path", Path)
+            fiducial_system = FiducialSystem.from_yaml(markers_yaml_path)
+            spot_rgb_cameras = [
+                SpotRGBCamera(camera_name, self._manager.image_client)
+                for camera_name in fiducial_system.camera_names
+            ]
+            self.tag_tracker = TagTracker(fiducial_system, spot_rgb_cameras)
 
     def handle_stand(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to have Spot stand up.
@@ -598,9 +610,9 @@ class SpotROS1Wrapper:
             Path,
             Path("/docker/spot_skills/src/spot_skills/config/erase_traj.yaml"),
         )
-        erase_traj_points = Point3D.load_points(erase_traj_path, collection_name="points")
+        erase_traj = Point3D.load_points_from_yaml(erase_traj_path, collection_name="points")
 
-        erase_board(self._manager, erase_traj_points)
+        erase_board(self._manager, erase_traj)
 
         return TriggerResponse(success=True, message="Erased the whiteboard.")
 

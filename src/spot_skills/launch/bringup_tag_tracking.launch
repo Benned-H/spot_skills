@@ -1,0 +1,21 @@
+<!-- Populate the necessary ROS parameters to enable tracking of AprilTags -->
+<launch>
+
+    <!-- Require the path to a YAML file configuring the fiducial marker system -->
+    <arg name="markers_yaml_path" default="$(find spot_skills)/config/markers.yaml"/>
+
+    <!-- Require a path specifying where estimated object poses are output -->
+    <arg name="output_yaml_path" default="$(find spot_skills)/config/output_object_poses.yaml"/>
+
+    <!-- Require a path specifying a YAML file containing known object poses -->
+    <arg name="known_poses_yaml_path" default="$(find spot_skills)/config/env.yaml"/>
+
+    <!-- Indicate that AprilTag tracking is active using the ROS parameter server -->
+    <param name="/tag_tracker/active" value="true"/>
+
+    <!-- Save these arguments in the ROS parameter server -->
+    <param name="/tag_tracker/markers_yaml_path" value="$(arg markers_yaml_path)"/>
+    <param name="/tag_tracker/output_yaml_path" value="$(arg output_yaml_path)"/>
+    <param name="/tag_tracker/known_poses_yaml_path" value="$(arg known_poses_yaml_path)"/>
+
+</launch>
