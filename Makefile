@@ -59,6 +59,14 @@ build:
 	. $(VENV_DIR)/bin/activate && uv pip install -r RAIL-lsp-dev/modules/requirements.txt
 	. $(VENV_DIR)/bin/activate && uv pip install sknw
 	. $(VENV_DIR)/bin/activate && \
+		pip3 install RAIL-lsp-dev/modules/common && \
+		pip3 install RAIL-lsp-dev/modules/unitybridge && \
+		pip3 install RAIL-lsp-dev/modules/environments && \
+		pip3 install RAIL-lsp-dev/modules/learning && \
+		pip3 install RAIL-lsp-dev/modules/lsp && \
+		pip3 install RAIL-lsp-dev/modules/lsp_accel && \
+		pip3 install RAIL-lsp-dev/modules/gridmap && \
+		pip3 install RAIL-lsp-dev/modules/procthor && \
 		pip3 install RAIL-lsp-dev/modules/taskplan
 
 .PHONY: download-sbert-model

@@ -33,7 +33,7 @@ from rospy import loginfo as ros_loginfo
 from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
 from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
 from spot_skills_py.spot.spot_image_client import SpotImageClient
-from spot_skills_py.spot.spot_navigation import GoalReachedThresholds, check_reached_goal
+
 from spot_skills_py.spot.spot_sync import SpotTimeSync
 
 if TYPE_CHECKING:
@@ -468,7 +468,7 @@ class SpotManager:
         )
 
         # Repeatedly send the trajectory command to Spot until timeout or the goal is reached
-        thresholds = GoalReachedThresholds(distance_m=0.2, abs_angle_rad=0.3)
+        thresholds = GoalReachedThresholds(distance_m=0.4, abs_angle_rad=0.3)
         end_time_s = time.time() + timeout_s
 
         reached_goal = check_reached_goal(goal_base_pose, thresholds)
