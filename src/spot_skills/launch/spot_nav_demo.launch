@@ -15,5 +15,6 @@
     <include file="$(find spot_skills)/launch/bringup_spot_moveit.launch" pass_all_args="true" />
 
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/spot_slam_demo.rviz" />
+    <include file="$(find spot_skills)/launch/bringup_alvar.launch" pass_all_args="true" />
 
 </launch>

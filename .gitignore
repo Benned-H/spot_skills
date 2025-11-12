@@ -22,3 +22,9 @@ maps/
 **/*.egg-info
 .coverage
 .hypothesis/
+resources/
+data/
+venv-spot/
+temp/
+RAIL-lsp-dev/
+pddlstream/

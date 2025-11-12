@@ -3,7 +3,7 @@ GlobalPlanner: # Also see: http://wiki.ros.org/global_planner
   use_quadratic: true # Use the quadratic approximation of the potential. Otherwise, use a simpler calculation, default true
   use_dijkstra: false # Use dijkstra's algorithm. Otherwise, A*, default true
   allow_unknown: false # Allow planner to plan through unknown space, default true. Needs to have track_unknown_space: true in the obstacle / voxel layer (in costmap_commons_param) to work
-  default_tolerance: 0.0 # If goal in obstacle, plan to the closest point in radius default_tolerance, default 0.0
+  default_tolerance: 0.2 # If goal in obstacle, plan to the closest point in radius default_tolerance, default 0.0
   publish_scale: 100 # Scale by which the published potential gets multiplied, default 100
   planner_costmap_publish_frequency: 1.0 # default 0.0
   lethal_cost: 100 # default 253
@@ -11,3 +11,4 @@ GlobalPlanner: # Also see: http://wiki.ros.org/global_planner
   cost_factor: 3.0 # Factor to multiply each cost from costmap by, default 3.0
   orientation_mode: 1 # Positive x-axis points along path
   publish_potential: true # Publish Potential Costmap (this is not like the navfn pointcloud2 potential), default true
+  use_grid_path: false

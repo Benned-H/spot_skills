@@ -196,22 +196,37 @@ class SpotArmController:
         self._manager.time_sync.resync()
 
         # SpotManager outputs joint names based on the Spot SDK's naming conventions
-        arm_configuration = self._manager.get_arm_configuration()
-        self._manager.log_info(f"Spot's arm state: {arm_configuration}\n")
+        max_attempts = 5
+        config_ok = False
+        attempt = 1
+        while attempt <= max_attempts and not config_ok:
+            attempt_ok = True
+            arm_configuration = self._manager.get_arm_configuration()
+            self._manager.log_info(f"Spot's arm state: {arm_configuration}\n")
 
-        # Each JointTrajectory ROS message uses joint names based on Spot's URDF
-        command_start_angles_rad = trajectory.points[0].positions_rad
+            # Each JointTrajectory ROS message uses joint names based on Spot's URDF
+            command_start_angles_rad = trajectory.points[0].positions_rad
 
-        for sdk_joint, curr_rad in arm_configuration.items():
-            urdf_joint = MAP_JOINT_NAMES_SPOT_SDK_TO_URDF[sdk_joint]
-            joint_idx = trajectory.joint_names.index(urdf_joint)
-            cmd_rad = command_start_angles_rad[joint_idx]
+            for sdk_joint, curr_rad in arm_configuration.items():
+                urdf_joint = MAP_JOINT_NAMES_SPOT_SDK_TO_URDF[sdk_joint]
+                joint_idx = trajectory.joint_names.index(urdf_joint)
+                cmd_rad = command_start_angles_rad[joint_idx]
 
-            if abs(curr_rad - cmd_rad) > self.angle_proximity_rad:
-                self._manager.log_info("Commanded trajectory doesn't begin where Spot's arm is!")
-                self._manager.log_info(f"Current joint angle: {curr_rad} radians.")
-                self._manager.log_info(f"Command initial joint angle: {cmd_rad} radians.")
-                return ArmCommandOutcome.INVALID_START
+                if abs(curr_rad - cmd_rad) > self.angle_proximity_rad:
+                    attempt_ok = False
+                    if attempt > max_attempts:
+                        self._manager.log_info("Commanded trajectory doesn't begin where Spot's arm is!")
+                        self._manager.log_info(f"Current joint angle: {curr_rad} radians.")
+                        self._manager.log_info(f"Command initial joint angle: {cmd_rad} radians.")
+                        return ArmCommandOutcome.INVALID_START
+                    self._manager.log_info("Commanded trajectory doesn't begin where Spot's arm is! Trying again...")
+
+                    break
+            
+            if attempt_ok:
+                config_ok = True
+            attempt += 1
+            time.sleep(0.5)
 
         local_start_time_s = time.time() + self._future_proof_s
         trajectory.reference_timestamp = TimeStamp.from_time_s(local_start_time_s)

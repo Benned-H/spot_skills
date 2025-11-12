@@ -1,0 +1,21 @@
+markers:
+  marker_0:
+    size_cm: 4.5 # Size (cm) along one side of the marker's black square
+    relative_frames: # Relative transforms (expressed w.r.t. marker frame)
+      cellphone: [0, 0, -0.03, 0, 0, 0] # [x, y, z, roll, pitch, yaw] (angles in radians)
+  marker_1:
+    size_cm: 4.5
+    relative_frames:
+      waterbottle: [0, 0, -0.14, 0, 0, 0]
+  marker_2:
+    size_cm: 4.5
+    relative_frames:
+      waterbottle: [0, 0, -0.14, 0, 0, 0]
+
+cameras:
+  frontleft:
+    recognized_sizes_cm: [4.5] # Sizes (cm) of tags that the camera is configured to recognize
+  frontright:
+    recognized_sizes_cm: [4.5]
+  hand:
+    recognized_sizes_cm: [4.5]

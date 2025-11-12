@@ -1,0 +1,441 @@
+[{frame: map, xyz_rpy: [0, 0, 0, !!python/object/apply:numpy.core.multiarray.scalar [
+        &id001 !!python/object/apply:numpy.dtype {args: [f8, false, true], state: !!python/tuple [
+            3, <, null, null, null, -1, -1, 0]}, !!binary "AAAAAAAAAAA=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "AAAAAAAAAIA=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "AAAAAAAAAAA=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.600552783815218e-07,
+      1.3077146301467045e-06, -5.832366725078142e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "I7/gajwc274=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "wkl/125C4z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "EA/HvlWb074=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-5.370370061985597e-07,
+      -3.5151873599426064e-10, -8.55605129782e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "r56PycRhwL4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Wc8Wt7ITAz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "rXoOyU+30L4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [2.8383880790183724e-06,
+      -2.115635024807494e-09, -1.0306134173854176e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "yHbaYWUuzj4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "nVEAoTbz1r4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Gqe2pp624b4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-1.8327297542919396e-06,
+      3.843707373579969e-06, -7.075312852905524e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "hRkVm7aQfL4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Z8FQA5QD7z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "OwGbRcyD3j4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-2.478569431252353e-06,
+      1.454117675879149e-09, -3.678300104725807e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "2bAWd1V+8j4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "dzVMNqTv6j4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "zGHM+Jtvyb4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.0602608486731668e-06,
+      -1.0500852022773607e-09, -3.409100250983954e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Z8SoA2Xo5z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "PG3CJwn/8b4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "uq4/FOu94b4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.1710799113773263e-06,
+      -8.562690876441278e-10, -2.318431644166008e-07, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "MSEVBn0d8D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "3DLPuq/3674=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Omnp8cjuub4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-2.056591598131874e-06,
+      2.37581286384144e-06, -5.873021018676372e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "bSHFXBC2wz4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "y9N0l7jP7D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "gIAhhoB3w74=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.0755787970273545e-06,
+      -8.118476564839341e-10, -5.086741019788565e-07, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "XIiVoDWl3r4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "SCFCipj6874=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "ECZnlAUDxL4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.422188499361937e-07,
+      3.591800948462773e-10, -1.9891748895828343e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "nymkOQRF9T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "k4ggyKG15b4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "9Bmidnc+5L4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-1.189542780943853e-07,
+      5.683044880635049e-07, -4.52479120963134e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "XLrcIiCazT4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Kf9LzUCQ9D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "MMpihrEFxL4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [3.147759280341944e-06,
+      -2.56729768726479e-09, -3.7161828089493643e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "06kiq6x92L4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "I+dIhBcQ3T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Zvs8DNI7zD4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.422188498251714e-07,
+      3.5918009473785706e-10, -1.9891748895828343e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "lPaOHxSI4z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "ci1YFk774j4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "NRPtnLQjxL4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.1343536580055158e-06,
+      3.8419051900796634e-06, -3.6435782453936305e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "98fSQhso2D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "8l5CNmF78z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "jkYoldIhw74=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.028282034298833e-06,
+      3.841969617049174e-06, -3.766262219373484e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "lDjGzCOAzT4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "N1oPL+TSz74=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "zvIelBJBsL4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-3.18018439582346e-07,
+      3.5410328781595307e-10, 1.4780926022861518e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "X14d5TYQ4z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "iQ2G3T0o6r4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "xl9wRqsL574=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.59500870084473e-07,
+      6.74951803432064e-11, -5.52805647160981e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "fZJ3kvKQtL4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "ytggnCbq5b4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "+pwziPz/w74=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.6374630508802e-07,
+      -3.842969879994562e-06, -5.831924261512356e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "2avZXAMj174=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "+51n+DZW9z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "AFStR9Rz0r4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [3.137883216597359e-06,
+      -2.354624266940643e-09, -1.322760313449134e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "M4YeMihq7j4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "/iWKJu+q4b4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "RtS/wx+yyz4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [8.325219338356504e-07,
+      -8.925480117364173e-10, -3.468549760687889e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "l1YVHJuqmj4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "i3Tsf/YJ8T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "UaVkcAyN8L4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-1.0138931290093467e-06,
+      -4.934321799613707e-07, -2.3029465838764196e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "zHJaA6QG6T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "I0BgF9pC774=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "JW493UNF5L4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-4.4053628645013276e-07,
+      -5.335808177971135e-07, -1.6397566329484636e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "A5WVaniT7j4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "U4GD31g+xL4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "mtYfi2mxzL4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-2.8688449599245658e-06,
+      1.3917411777067748e-09, -7.648708858942754e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "EaXeJXWcvT4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "8nrzFSuBAz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "8XCAlhs6xL4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.577537646241694e-07,
+      9.696347772012587e-11, -5.170521424763264e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "pPTDVepS8z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "uzv5Pqn/9D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "zyJwh8cV2b4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-4.972581592044278e-07,
+      4.904829363841512e-10, 1.5755409176199109e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "T9hY6DZQzj4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "fvwXEwiV374=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "8GKLyJmiyj4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.346294512711182e-07,
+      4.874075860798743e-10, -4.3351457473805866e-07, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "6q/3gXx72j4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "TcKpXLj30b4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "EPRW4XtB5L4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.417335012860349e-07,
+      3.4415604112435303e-06, -2.391255735506581e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "ry4QlTZS8T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "U1xm+JHm2z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "1GYxizbN1D4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.0917556789724614e-06,
+      -2.702685843389177e-06, -3.1194061325401368e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "i2HZGwP6ub4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "k+sZJWwhy74=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Jp963VS70j4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-9.898798754015559e-07,
+      -3.4306002417891198e-06, -6.093849021032716e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "4IKN54x3/T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Jsa5/OWY4D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "LZG+aFgM8b4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.609875354308571e-07,
+      4.24231069110631e-11, -5.832254377752255e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "KjnrDRNY6j4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "dmBOTriQ2T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "KJkF+Lsw8L4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.4319436382193018e-06,
+      -9.527939838609991e-07, 5.263852264070223e-07, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Fk+BURsC174=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "ixclje5H7b4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "K0C8dB2Isj4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [2.232535747381803e-07,
+      -5.626948631435452e-10, -4.693878422640241e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "lsKZD8375T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "iFi0Meth2z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "ZeX4Jw/76r4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-2.5287177392030458e-06,
+      1.1821384725057768e-09, -7.261023088123153e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "EFh1k98q8j4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "etGubYK+/T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "3F66cLl+6b4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [2.6983029816074477e-06,
+      7.794807860575731e-07, 1.9895265451208566e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Ty2LBwso8T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "IUnMIe9d9r4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "6s9QQfz9274=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-4.939848184948303e-07,
+      -1.2173200804582035e-10, -5.523439140536768e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "S5VHaMdn9T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "2rQQrIjj4b4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "THs/3G9OwT4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.4489134386730385e-06,
+      3.412137111845912e-06, 3.371175761018863e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Y90LAbsctb4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "kNuWzZFl/74=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "KEhkePaI0T4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.4138741751823503e-06,
+      -1.2946953447485685e-09, -3.316792104718358e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "A7ukT6AE4z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "y85DLFcz1T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "DtHxLPYexL4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-5.149076851562739e-07,
+      -3.0247829082646026e-06, -2.1302168248527042e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "XPPeeXlg7L4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "vOf3qDgh4D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Qk2S3g088L4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-5.353547065656272e-07,
+      -6.25299832529222e-11, -5.178232954927697e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "X6f1D04hkr4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "njhjd4mF/j4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "gq2IIdE4xL4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.61280729344449e-07,
+      -4.102680006839868e-07, -5.832219128310001e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "KLy5KlgLxD4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "grFQ9tAt574=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "cihfBXOt4r4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.422188499361937e-07,
+      3.591800948462773e-10, -1.9891748895828343e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "169cAo+VtL4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Nu1KMROWrT4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "GG+4845g4z4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-4.6490167437962526e-07,
+      3.3531234524804363e-06, -2.1587523860167046e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "QWUByefB+D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "xOZmk8f4jr4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "KiPeXmK+4b4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.7690631485267616e-06,
+      -3.2313791061897154e-06, 3.089527798316727e-07, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "jQ+hMD40w74=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "16304Kff4L4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "HwStsKbA574=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.160219878948432e-06,
+      -4.4878804103000696e-07, -3.60976434729543e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "9mzzbqPs4D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "FlRyiM3H4D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "QKc6/sRay74=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.0380583331803805e-06,
+      -8.524468686271422e-10, -1.2931557117901171e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "kQ1bimYn6r4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Vu8LtCtkzz4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "pGCKMyaQ6b4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.4349185302187095e-06,
+      3.2255211899811847e-06, 5.260262399831017e-07, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "51ZrTgff4D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "TfgzTXBg8T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "4PFoP3bVzz4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.272312815276294e-07,
+      6.124831203194528e-10, 1.0838672332980082e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "yqz4Agip5j4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "6202Q9eXzD4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "+NHubAtF5L4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.73671544052057e-07,
+      -2.9988018679596605e-06, -7.98635573334705e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "gWwB0fij7j4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "H2V96LOn6T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "AbXAhhcC7b4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.0675419349626125e-06,
+      -7.53469606910688e-10, 1.0403715355877807e-07, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "xt1tuU683L4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "GO9zhXCyxT4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "YUGfnsUq1L4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [6.594002629478624e-07,
+      -1.3323222568379072e-06, -4.18821108189027e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "ibRWS2Rysz4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "eIBVFrnt9j4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "e8/JqMj/lr4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.422188499361937e-07,
+      3.591800948462773e-10, -1.9891748895828343e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Fop1jvn22L4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "zEuPrys6+D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "+xcv4bxczT4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-1.933568166356814e-06,
+      -8.411634821763785e-07, -7.1876847688168155e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "eqAGJ5Ut5j4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "ktrxmGfK4T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "BoiSPEtQ5L4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-1.3017433675432954e-06,
+      -1.0077573498905095e-06, -3.638104953573862e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "7+nduqBnzr4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "RlkmuSgL8T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "6RrDO0lY5L4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-1.3941404651829359e-06,
+      7.599852641735488e-10, -2.7431958268819834e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "igYDnjShwj4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "xCT0A5MJsz4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "SF77il+E7r4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.4349825409043504e-06,
+      -9.380466543503288e-10, 1.0100770728715958e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "axwLvoSA4j4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "NzkTvGE3tb4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "0yxxC6gezL4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-2.219240514689247e-07,
+      -2.0832177291801174e-10, -4.2697146798720276e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "1xmaLqcw0z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "4wnukHNI874=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "omgivJU65L4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-1.335123816281758e-06,
+      -1.0772940606675703e-06, -2.6739521988561332e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "KNxVe6j16L4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "/eJCRuMWzT4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "vi/aDVz61z4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [1.6345981046494984e-07,
+      -5.259332805417419e-10, -4.763036294624934e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "3MQMCQ8Sfr4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "QS2MIfiR6D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "pP9d4nP81r4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-7.451747180420298e-07,
+      2.8258700722524465e-06, -3.006853138753929e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "hmDTcc901z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "UzJd7kT6sr4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "6w8z8uuCyT4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-3.533098501540266e-07,
+      4.3513827285325546e-10, 2.1279649240202314e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "4hKZdjTq9D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "iJctSvFf1r4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "R7+iHMkmzT4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-5.658420119125651e-07,
+      -3.496796173362666e-06, -5.259030831539224e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "6NypAsOP0T4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "iJ13yubH0z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "m8H1TDkh1T4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-2.6245030969596073e-06,
+      -3.841483860177381e-06, -4.162718108852159e-06, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "sfR5TgbP6z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "W8gjf/GW/z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "FuQ+o3cP8b4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.0035325933389163122,
+      -0.00015981436813551002, -0.004466023300273708, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "86HH2Xqp9D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "+kk3KPo5cD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "AhBp3lOqM78=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.03973704221238206,
+      -0.0002860801299829196, -0.02199143333191425, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "lad5TtxD9D4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "cbASJe+LlT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "ZJlNLURyQL8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.10858118437861353,
+      -0.0004741524271692743, -0.031299455601754345, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "FwP32F7DDL8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "8wdSaDQJjj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "a3rwDyb0SL8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.16520484179013306,
+      -0.0005479848608748848, -0.03380424418962033, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "LB3nJxQ9Hb8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "0dDh8mUthT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "cxlnGzf+S78=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.1816670486017633,
+      -0.00018582505039205417, -0.033792278487118355, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "2s0RZzoUE78=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "6Pmfa7o3gT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "qBIAKTWUOb8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.1808113754171521,
+      0.00010018417161616861, -0.02986069719867604, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "xp8hhx8S3z4=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "e8yNACN+cz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "GZDZlkUTDr8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.14430811483059736,
+      6.0967618893567783e-05, -0.020499415952691336, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "qfGXnUyRLj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "QQUH78J2UT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "rO+nT4UcM78=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.08439093479723436,
+      0.00016626567218216667, -0.015096023985418344, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "VyrfU0z/Mz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "U9nwv0v+d78=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "X9VxvcujKL8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.02325320168924838,
+      0.00013978865689016174, -0.017628510772242895, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "PNhSulqKND8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "VIfkvA17Yr8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "UlgtFJHTLr8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.03687433104257265,
+      0.00020202860736058596, -0.027341128445893426, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "uuFesKIgOD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "nppHjrLYeT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "x+B0slKdI78=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.17146216938075565,
+      7.711775241053473e-05, -0.058533171128410694, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "GOy+9RCmPz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "RvZsIXmfqj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Aq6goMo1RL8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.17787176684502548,
+      -8.458919173119596e-06, -0.06081883533268789, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "m+1xVoBLPj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "tE9nD+7cqT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Bihg80GJTb8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.17172924181048854,
+      0.00031775841679637044, 0.05568054090735158, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "bL5y4mZQPz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "wOuthQDaqj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "S8nJOBse/b4=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.17035029250052047,
+      0.00047218889264728916, 0.12136230516282559, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "IjRY9eSoQj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "9T9IWkTWqj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "4d7+4ZfvMD8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.16751348655455078,
+      0.0006118317575787951, 0.1671696463891832, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Iajw99F4ZD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "oGw+L5GcqD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "YCFD6JHeRL8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.16441401864716076,
+      0.0008536828968372435, 0.2228296209185403, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "v0sYmhItcD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "yD1TR8brpz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Rp+r+lFmNb8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.16031938608425422,
+      0.0008401317143924289, 0.26088590020462016, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "hezgHQN1cj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "5TW4XW1Omz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "zrb3V+4vM78=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.1559867235998058,
+      0.0007574196686083033, 0.2021533123051099, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "qaEICSYRcD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "yvhC3lggmT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "kTnxsRZHT78=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.16987628359500162,
+      0.0006000540804988935, 0.12710681376439148, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "u61/o8UrbT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "rx5rokutsD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "fONyjm27Xr8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.17197465708549897,
+      0.0003031881017238215, -0.031517810773089794, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "qu8rtPLcYT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "uXDGojnYpD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "FuoN5p/DbL8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.17448917955178855,
+      0.00023780603509054903, -0.06125066802824908, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "PhIJz3d5YD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "I2PQgLLHoT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "M1JuqabUbr8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.168989225758144,
+      7.688736875715034e-05, -0.052802330510846374, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "BvOxt4hYYT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "PnOA+1ADpD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "oAoqMXu8cL8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.0967439619298065,
+      4.7530698997269084e-05, -0.04887647728095271, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "R2cJaVKPZD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "laHk10mkmj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "C0qvMSKtb78=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.03156603338311004,
+      2.1821240101965538e-05, -0.05168558995699421, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "R3AmMViCZj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "mtX57xlDmz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "NNqv7WUjbb8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.029774475167287595,
+      3.4026016489495685e-05, -0.0586277072009421, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "/PKQXDJSaT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "j8QcssKaoj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "gxTYNmCkar8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.0952594520047092,
+      6.763383287857426e-05, -0.06207358481100404, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "o3Kdr2tWbT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "A3ncRfZWpD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "daoijVxOZ78=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.12265749365536205,
+      8.898936929120681e-06, -0.057292714137017364, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "kIOrPwfiaz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "OjguPh+8lT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "MhBmIfGpZL8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.11681392641255317,
+      0.00012171767406510568, -0.0456233820664283, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "1WQOD0QXbT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "pkMWvZa5lz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "WZ+lVge4Y78=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.06966087632844842,
+      0.0001926539554701721, -0.03003630009528946, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "vqwihWxdaz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "DYv9yPh6gj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "zte4eXzpY78=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [0.009348326305981702,
+      0.0002157868567985332, -0.025877606814757953, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "12+PYy2ZaT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "i3c5iFdmez8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "w3OlEEtDZb8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.05481210293952987,
+      0.0002935664553296095, -0.030887202491019256, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "GptwgInUZz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Ik7Q1+q6hT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "v3/GxSGOZb8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.1235466889984439,
+      0.00030539713256024653, -0.0422301162992873, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "b7k8GKCGZT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "5863P0xKlT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "CI/wSosJZ78=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.17973956899569954,
+      0.0001460338835126465, -0.04958600564532209, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "8rxvClKCYz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "bOQKtOqLnz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "rLtBSwkba78=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.2130482938583771,
+      -0.0007447571140146162, -0.05279799870787244, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "c20fmeu8Yj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "AUxNiZtXsD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "l++fbY+Wdr8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.19954813762480006,
+      -0.0006979682352852389, 0.08641775590196704, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "vw6ZbnHYez8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "jHl/6SoKqz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "BL1g5GGScr8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.19747490504598564,
+      -0.0007286639403083628, 0.13410353462037278, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "xGi0Qdf3fD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "cvebJx5Eqj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "WtDOaHj+cb8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.19390880592243176,
+      -0.000702181180255699, 0.19453056348310727, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "atDm5zR6ez8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "3lbKgAigqD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "bBFQnkNDbr8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.1833703956529692,
+      -0.0006923091554404739, 0.22458858957210692, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "vcyq/MNzcz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "O5sejg0rnj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "nnOGOgC/ZL8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.18842174168371573,
+      -0.0007681537945695515, 0.16073510937713686, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "4JOUIactdD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "RWi9XM4OrT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "Jgbga4WCZL8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.19371097258741654,
+      -0.0007647060428122829, 0.09915376391194586, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "qJ3LulrydD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "KPBcQLh+rj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "B9uDjtSzYr8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.19645473754806975,
+      -0.000934711634290155, -0.0378570814545498, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "/266mswqdz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "n1nuu4RroD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "zhyeG0kOZL8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.19630462165614382,
+      -0.0009750519077309985, -0.03948141354139326, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "75FfviFFdz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "MA00KLvRoj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "3J6LuqjlZL8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.1964243403860897,
+      -0.0011688412306462628, -0.040875944876025166, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "m07SnLlcdz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "o3QOTyX9pD8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "atPZdLf+ab8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.19647186185785337,
+      -0.0012398438243911539, -0.04187409214335411, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "adVUA0ROdz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "EaEQElGApj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "CdWPGKqha78=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.1965197192562551,
+      -0.0013263031577034376, -0.04406617419466918, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "iRjdwttMdz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "CuJQsLnDqT8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "KVnBRGK9bb8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.19652369189926355,
+      -0.001343662219433302, -0.04435950079334225, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "b0P/1yBUdz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "BTFx9r4xqj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "mlYg6EE6br8=\n"]]}, {frame: arm_link_wr1, xyz_rpy: [-0.1964978445988279,
+      -0.0013263313619254805, -0.04439058216374328, !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "tyAga0JRdz8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "2hprGbE3qj8=\n"], !!python/object/apply:numpy.core.multiarray.scalar [
+        *id001, !!binary "D3GrReiybb8=\n"]]}]
