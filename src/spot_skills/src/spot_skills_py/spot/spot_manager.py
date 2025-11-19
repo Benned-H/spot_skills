@@ -16,7 +16,6 @@ from bosdyn.client.docking import DockingClient, blocking_dock_robot
 from bosdyn.client.door import DoorClient
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.exceptions import Error as SDKError
-from bosdyn.client.exceptions import LeaseUseError, ResponseError
 from bosdyn.client.lease import (
     LeaseClient,
     LeaseKeepAlive,
@@ -24,7 +23,6 @@ from bosdyn.client.lease import (
     add_lease_wallet_processors,
 )
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
-from bosdyn.client.math_helpers import SE3Pose
 from bosdyn.client.robot_command import (
     CommandFailedError,
     RobotCommandBuilder,
@@ -37,8 +35,7 @@ from bosdyn.client.robot_command import block_until_arm_arrives as bd_block_arm_
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.util import setup_logging
 from bosdyn.geometry import EulerZXY
-from robotics_utils.kinematics import Configuration, Point3D, Pose2D, Pose3D, Quaternion
-from robotics_utils.motion_planning.navigation import NavigationGoal
+from robotics_utils.motion_planning.navigation_goal import NavigationGoal
 from robotics_utils.ros.transform_manager import TransformManager
 from rospy import loginfo as ros_loginfo
 
@@ -50,6 +47,7 @@ from spot_skills_py.spot.spot_sync import SpotTimeSync
 if TYPE_CHECKING:
     from bosdyn.api.robot_command_pb2 import RobotCommand
     from bosdyn.api.robot_state_pb2 import RobotState
+    from robotics_utils.kinematics import Configuration, Pose2D
     from robotics_utils.robots import MobileRobot
 
 
@@ -598,20 +596,20 @@ class SpotManager:
 
         end_time_s = time.time() + timeout_s
 
-        reached_goal = spot_base.has_reached(nav_goal)
+        reached_goal = spot_base.goal_reached(nav_goal, change_frames=True)
         while not reached_goal and time.time() < end_time_s:
             command_id = self.send_robot_command(trajectory_command, duration_s=5)
             if command_id is None:
                 self.log_info("Locomotion attempt returned None instead of a command ID.")
                 continue
 
-            reached_goal = spot_base.has_reached(nav_goal)
+            reached_goal = spot_base.goal_reached(nav_goal, change_frames=True)
             time.sleep(0.2)
 
         stop_command = RobotCommandBuilder.stop_command()
         self.send_robot_command(stop_command)
 
-        return spot_base.has_reached(nav_goal)
+        return spot_base.goal_reached(nav_goal, change_frames=True)
 
     def send_velocity_command(
         self,

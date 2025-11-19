@@ -19,8 +19,9 @@ from bosdyn.api.manipulation_api_pb2 import (
 )
 from bosdyn.api.spot import door_pb2
 from bosdyn.client import frame_helpers
-from robotics_utils.perception.vision import ObjectDetector, RGBImage
-from robotics_utils.visualization import display
+from robotics_utils.vision import RGBImage
+from robotics_utils.vision.vlms.gemini_keypoint_bridge import GeminiKeypointBridge
+from robotics_utils.visualization import display_in_window  # TODO: Was this ever used?
 
 if TYPE_CHECKING:
     from spot_skills_py.spot.spot_manager import SpotManager
@@ -59,31 +60,34 @@ class SpotDoorOpener:
     def detect_handle_xy(self, image: RGBImage) -> PixelXY | None:
         """Detect the (x,y) coordinate of a door handle in the given image.
 
+        Uses Gemini Robotics-ER for keypoint detection via a subprocess bridge.
+
         :param image: RGB image in which a door handle is detected
         :return: Detected (x,y) pixel coordinate, or None if no door handle was detected
         """
-        rospy.loginfo(image.data.shape)
+        rospy.loginfo(f"Image shape: {image.data.shape}")
 
-        detector = ObjectDetector()
-        result = detector.detect(image, queries=["silver door handle"])
-        if not result.detections:
+        # Use Gemini keypoint detection via bridge to newer Python environment
+        try:
+            detector = GeminiKeypointBridge()
+            handle_xy = detector.detect_handle_keypoint(
+                image,
+                handle_query="silver door handle",
+            )
+        except Exception as e:
+            rospy.logerr(f"Gemini keypoint detection failed: {e}")
             return None
 
-        display(result, "Door handle detection(s) (press any key to exit)")
-        for i, d in enumerate(result.detections):
-            cropped = d.bounding_box.crop(image, scale_ratio=1.2)
-            display(cropped, f"Detection {i}/{len(result.detections)}: '{d.query}'")
+        if handle_xy is None:
+            rospy.logwarn("No door handle detected in image")
+            return None
 
-        best_score = max(d.score for d in result.detections)
-        best_detections = [d for d in result.detections if d.score == best_score]
-
-        handle_xy = tuple(best_detections[0].bounding_box.center_pixel)
-        assert len(handle_xy) == 2, "Expected (x,y) pixel coordinates."
+        rospy.loginfo(f"Detected door handle at pixel: {handle_xy}")
 
         self.handle_xy = handle_xy
         self.pixel_source_image = "hand_color_image"
 
-        return self.handle_xy
+        return handle_xy
 
     def create_walk_to_object_in_image_request(self, image: RGBImage) -> ManipulationApiRequest:
         """Construct a manipulation API request to make Spot walk to the object at the given pixel.

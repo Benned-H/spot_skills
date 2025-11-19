@@ -15,8 +15,10 @@ from control_msgs.msg import (
     GripperCommandResult,
 )
 from robotics_utils.kinematics import Point3D
+from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import TagTracker, TransformManager, get_ros_param
 from robotics_utils.ros.msg_conversion import pose_to_stamped_msg
+from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
 from robotics_utils.vision.fiducials import FiducialSystem
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
@@ -53,6 +55,9 @@ from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.spot.spot_navigation import SpotNavigationServer
 from spot_skills_py.spot.spot_open_door import SpotDoorOpener
 from spot_skills_py.visualize_graphnav import GraphNavRViz
+
+SPOT_GRIPPER_OPEN_RAD = -1.5707
+SPOT_GRIPPER_CLOSED_RAD = 0.0
 
 
 class SpotROS1Wrapper:
@@ -141,12 +146,22 @@ class SpotROS1Wrapper:
         self._stop_map = rospy.Service("spot/stop_mapping", Trigger, self.handle_stop_mapping)
         self._save_map = rospy.Service("spot/save_map", Trigger, self.handle_save_map)
 
-        traj_config = RelativeTrajectoryConfig(
-            ee_frame="arm_link_wr1",
-            body_frame="body",
-            move_group_name="arm",
+        gripper = ROSAngularGripper(
+            limits=GripperAngleLimits(
+                open_rad=SPOT_GRIPPER_OPEN_RAD,
+                closed_rad=SPOT_GRIPPER_CLOSED_RAD,
+            ),
+            grasping_group="gripper",
+            action_name="gripper_controller/gripper_action",
         )
-        self.trajectory_replayer = TrajectoryPlayback(traj_config)
+        manipulator = MoveItManipulator(name="arm", base_frame="body", gripper=gripper)
+
+        traj_config = RelativeTrajectoryConfig(
+            min_pose_diff_m=0.02,
+            min_pose_diff_deg=5,
+            plan_ee_step_m=0.015,
+        )
+        self.trajectory_replayer = TrajectoryPlayback(traj_config, manipulator)
 
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
@@ -514,25 +529,6 @@ class SpotROS1Wrapper:
 
         rospy.loginfo("SpotDoorOpener successfully detected a door handle.")
 
-        # detector = ObjectDetector()
-        # detected = detector.detect(door_image, queries=["silver door handle"])
-        # if not detected.detections:
-        #     return OpenDoorResponse(
-        #         success=False,
-        #         message="Cannot open door because the door handle was not detected.",
-        #     )
-
-        # display(detected, "Door handle detection(s) (press any key to exit)")
-        # for i, d in enumerate(detected.detections):
-        #     cropped = d.bounding_box.crop(door_image, scale_ratio=1.2)
-        #     display(cropped, f"Detection {i}/{len(detected.detections)}: '{d.query}'")
-
-        # best_score = max(d.score for d in detected.detections)
-        # best_detections = [d for d in detected.detections if d.score == best_score]
-
-        # handle_xy = tuple(best_detections[0].bounding_box.center_pixel)
-        # assert len(handle_xy) == 2, "Expected (x,y) pixel coordinates."
-
         is_pull = bool(request.is_pull)
         hinge_on_left = bool(request.hinge_on_left)
 
@@ -579,10 +575,14 @@ class SpotROS1Wrapper:
 
         relative_poses = self.trajectory_replayer.load_relative_trajectory(yaml_path)
         rospy.loginfo(f"Loaded {len(relative_poses)} poses from YAML file: {yaml_path}.")
-        self.trajectory_replayer.execute_hybrid_cartesian_sequence(relative_poses)
+        success = self.trajectory_replayer.execute_hybrid_cartesian_sequence(relative_poses)
+        message = (
+            f"Successfully executed trajectory loaded from file: {yaml_path}"
+            if success
+            else f"Unable to execute trajectory loaded from file: {yaml_path}"
+        )
 
-        message = f"Successfully executed trajectory loaded from file: {yaml_path}"
-        return PlaybackTrajectoryResponse(success=True, message=message)
+        return PlaybackTrajectoryResponse(success, message)
 
     def handle_erase_board(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to erase a whiteboard.
