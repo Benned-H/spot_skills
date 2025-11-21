@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
@@ -19,22 +19,25 @@ from bosdyn.api.manipulation_api_pb2 import (
 )
 from bosdyn.api.spot import door_pb2
 from bosdyn.client import frame_helpers
-from robotics_utils.vision import RGBImage
-from robotics_utils.vision.vlms.gemini_keypoint_bridge import GeminiKeypointBridge
+from robotics_utils.vision import PixelXY, RGBImage
+from robotics_utils.vision.vlms.gemini import GeminiRoboticsBridge
 from robotics_utils.visualization import display_in_window  # TODO: Was this ever used?
 
 if TYPE_CHECKING:
     from spot_skills_py.spot.spot_manager import SpotManager
 
-PixelXY = Tuple[float, float]
-
 
 class SpotDoorOpener:
     """A utility class to store shared data across multiple door-opening functions."""
 
-    def __init__(self, manager: SpotManager) -> None:
-        """Initialize the door-opening class by storing the SpotManager."""
+    def __init__(self, manager: SpotManager, gemini_api_key: str | None) -> None:
+        """Initialize the door-opening class by storing the SpotManager.
+
+        :param manager: Interface used to control Spot through the Spot SDK
+        :param gemini_api_key: API key used to call Gemini Robotics-ER 1.5 (RuntimeError if None)
+        """
         self.manager = manager
+        self.api_key = gemini_api_key
         self.image_dict: dict | None = None
         self.rgb_image_dict: dict | None = None
         self.handle_xy = None  # Pixel coordinate of door handle in the side-by-side image
@@ -65,29 +68,29 @@ class SpotDoorOpener:
         :param image: RGB image in which a door handle is detected
         :return: Detected (x,y) pixel coordinate, or None if no door handle was detected
         """
+        if self.api_key is None:
+            raise RuntimeError("Cannot call Gemini Robotics-ER 1.5; no API key provided.")
+
         rospy.loginfo(f"Image shape: {image.data.shape}")
 
         # Use Gemini keypoint detection via bridge to newer Python environment
+        queries = ["silver door handle"]
         try:
-            detector = GeminiKeypointBridge()
-            handle_xy = detector.detect_handle_keypoint(
-                image,
-                handle_query="silver door handle",
-            )
+            detections = GeminiRoboticsBridge.detect_keypoints(self.api_key, image, queries)
         except Exception as e:
             rospy.logerr(f"Gemini keypoint detection failed: {e}")
             return None
 
-        if handle_xy is None:
-            rospy.logwarn("No door handle detected in image")
+        if not detections.detections:
+            rospy.logwarn("No door handle detected in image.")
             return None
 
-        rospy.loginfo(f"Detected door handle at pixel: {handle_xy}")
-
-        self.handle_xy = handle_xy
+        self.handle_xy = detections.detections[0].keypoint
         self.pixel_source_image = "hand_color_image"
 
-        return handle_xy
+        rospy.loginfo(f"Detected door handle at pixel: {self.handle_xy}")
+
+        return self.handle_xy
 
     def create_walk_to_object_in_image_request(self, image: RGBImage) -> ManipulationApiRequest:
         """Construct a manipulation API request to make Spot walk to the object at the given pixel.
@@ -104,8 +107,8 @@ class SpotDoorOpener:
         th = -np.pi / 2
         xm = width / 4
         ym = height / 2
-        x = self.handle_xy[0] - xm
-        y = self.handle_xy[1] - ym
+        x = self.handle_xy.x - xm
+        y = self.handle_xy.y - ym
         manipulation_cmd.pixel_xy.x = np.cos(th) * x - np.sin(th) * y + ym
         manipulation_cmd.pixel_xy.y = np.sin(th) * x + np.cos(th) * y + xm
 

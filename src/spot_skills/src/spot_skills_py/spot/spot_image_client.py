@@ -12,6 +12,7 @@ from bosdyn.api.image_pb2 import Image, ImageCapture, ImageRequest, ImageRespons
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.lease import LeaseWallet, add_lease_wallet_processors
 from cv_bridge import CvBridge
+from robotics_utils.kinematics import Pose3D
 from robotics_utils.vision import CameraIntrinsics, RGBCamera, RGBImage
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image as ImageMsg
@@ -42,6 +43,14 @@ class ImageFormat(Enum):
         if self is ImageFormat.DEPTH:
             return Image.PIXEL_FORMAT_DEPTH_U16
         return Image.PIXEL_FORMAT_UNKNOWN
+
+
+CAMERA_FRAMES = {
+    "frontleft": "frontleft",
+    "frontright": "frontright",
+    "hand": "hand_color_image_sensor",
+}
+"""Map human-friendly camera names to their TF frame names."""
 
 
 class SpotImageClient:
@@ -185,6 +194,10 @@ class SpotImageClient:
 
         return CameraIntrinsics(fx=fx, fy=fy, x0=cx, y0=cy)
 
+    def get_frame_name(self, camera_name: str) -> str:
+        """Retrieve the name of the reference frame corresponding to the given camera."""
+        return CAMERA_FRAMES[camera_name]
+
     def extract_image_msg(self, image_capture: ImageCapture, capture_time: rospy.Time) -> ImageMsg:
         """Extract a sensor_msgs/Image ROS message from the given Protobuf message.
 
@@ -290,7 +303,9 @@ class SpotRGBCamera(RGBCamera):
     def __init__(self, camera_name: str, image_client: SpotImageClient) -> None:
         """Initialize the camera interface using a client to collect images from Spot."""
         intrinsics = image_client.get_intrinsics(camera_name, ImageFormat.RGB)
-        super().__init__(name=camera_name, intrinsics=intrinsics)
+        frame_name = image_client.get_frame_name(camera_name)
+
+        super().__init__(camera_name, intrinsics, frame_name)
 
         self.image_client = image_client
         self.image_source = self.image_client.get_images

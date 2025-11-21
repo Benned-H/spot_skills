@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import rospy
 from geometry_msgs.msg import Twist
 from robotics_utils.kinematics import DEFAULT_FRAME, Pose2D, Waypoints
+from robotics_utils.motion_planning.navigation_goal import NavigationGoal
 from robotics_utils.robots.mobile_robot import MobileRobot
 from robotics_utils.ros.msg_conversion import pose_from_msg
 from robotics_utils.ros.params import get_ros_param
@@ -155,6 +156,17 @@ class SpotNavigationServer(MobileRobot):
         :return: Tuple containing Boolean success and an outcome message
         """
         success, message = self._graph_nav.navigate_to_pose(goal_pose, timeout_s)
+
+        # If the Spot SDK thought Spot was stuck, but we're close enough, mark as successful
+        nav_goal = NavigationGoal(
+            goal_pose,
+            self._manager.goal_reached_m,
+            self._manager.goal_yaw_tolerance_rad,
+        )
+        if self.goal_reached(nav_goal, change_frames=True):
+            success = True
+            message = "Spot has reached the navigation goal."
+
         meta_message = "GraphNav successful: " if success else "GraphNav unsuccessful: "
         return success, f"{meta_message}{message}"
 

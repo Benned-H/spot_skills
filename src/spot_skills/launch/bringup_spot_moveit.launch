@@ -17,6 +17,9 @@
     <!-- If we're actively running TAMP, give the planner control over the robot joint states -->
     <arg name="tamp_controls_robot" default="false"/>
 
+    <!-- Load an API key for Gemini Robotics-ER 1.5 from YAML -->
+    <arg name="gemini_api_yaml" value="$(find spot_skills)/secrets/gemini_api_key.yaml" />
+
     <!-- Launch the core nodes MoveIt uses to control a robot (simulated or real) -->
     <include file="$(dirname)/moveit_core.launch">
         <!-- Load/override the robot description (URDF) using MoveIt -->
@@ -45,7 +48,9 @@
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
 
         <!-- Launch a wrapper providing an interface to Spot for ROS and MoveIt -->
-        <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen" required="true"/>
+        <node name="spot_wrapper_node" pkg="spot_skills" type="spot_wrapper_node.py" output="screen" required="true">
+            <rosparam file="$(arg gemini_api_yaml)" command="load" />
+        </node>
 
     </group>
 </launch>

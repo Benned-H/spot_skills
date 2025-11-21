@@ -2,7 +2,6 @@
 
 from copy import deepcopy
 from pathlib import Path
-from typing import Sequence
 
 import rospy
 from actionlib import SimpleActionServer
@@ -14,7 +13,7 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
-from robotics_utils.kinematics import Point3D
+from robotics_utils.kinematics import Point3D, Pose3D
 from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import TagTracker, TransformManager, get_ros_param
 from robotics_utils.ros.msg_conversion import pose_to_stamped_msg
@@ -108,7 +107,10 @@ class SpotROS1Wrapper:
         max_segment_len = 30  # Limit the points/segment in ArmController trajectories
         self._arm_controller = SpotArmController(self._manager, max_segment_len)
 
-        self._door_opener = SpotDoorOpener(self._manager)
+        gemini_api_key = get_ros_param("gemini_api_key", str, "NOT SPECIFIED")
+        if gemini_api_key == "NOT SPECIFIED":
+            gemini_api_key = None
+        self._door_opener = SpotDoorOpener(self._manager, gemini_api_key)
 
         # Only take immediate control of Spot if requested via rosparam
         immediate_control = get_ros_param("/spot/immediate_control", bool, default_value=False)
@@ -142,6 +144,7 @@ class SpotROS1Wrapper:
         )
         self._pose_lookup_srv = rospy.Service("pose_lookup", PoseLookup, self.handle_pose_lookup)
         self._dock_srv = rospy.Service("spot/dock", Trigger, self.handle_dock)
+        self._undock_srv = rospy.Service("spot/undock", Trigger, self.handle_undock)
         self._start_map = rospy.Service("spot/start_mapping", Trigger, self.handle_start_mapping)
         self._stop_map = rospy.Service("spot/stop_mapping", Trigger, self.handle_stop_mapping)
         self._save_map = rospy.Service("spot/save_map", Trigger, self.handle_save_map)
@@ -264,6 +267,21 @@ class SpotROS1Wrapper:
         success = self._manager.dock(dock_id)
         message = "Spot successfully docked." if success else "Spot failed to dock."
         return TriggerResponse(success, message)
+
+    def handle_undock(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to undock Spot.
+
+        :param _: ROS message requesting that Spot be undocked
+        :return: Response conveying whether Spot successfully undocked
+        """
+        if self._manager is None:
+            return TriggerResponse(
+                success=False,
+                message="SpotManager is None; could not undock Spot.",
+            )
+
+        outcome = self._manager.undock()
+        return TriggerResponse(outcome.success, outcome.message)
 
     def handle_shutdown(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to shut down the Spot wrapper and manager.
@@ -407,6 +425,9 @@ class SpotROS1Wrapper:
         :param request_msg: Message specifying the name of the RGBD camera(s) to be used
         :return: Response containing the RGB and depth images, alongside camera info
         """
+        if self._manager is None:
+            raise RuntimeError("Cannot capture RGBD image pair when SpotManager is None!")
+
         request_protos = []
 
         for camera_name in request_msg.camera_names:
@@ -520,8 +541,7 @@ class SpotROS1Wrapper:
         # Call the operations needed for door-opening, step-by-step
         door_image = self._door_opener.capture_door_handle_image(request.body_pitch_rad)
 
-        handle_xy = self._door_opener.detect_handle_xy(door_image)
-        if handle_xy is None:
+        if self._door_opener.detect_handle_xy(door_image) is None:
             return OpenDoorResponse(
                 success=False,
                 message="Cannot open door because no door handle was detected.",

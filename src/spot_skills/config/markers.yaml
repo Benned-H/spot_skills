@@ -1,25 +1,19 @@
-# Fiducial marker configuration for the SciLi experiment for ICRA 2026
-
+# Fiducial marker configuration for the SciLi Spot experiment
 markers:
+  marker_42:
+    size_cm: 7.6
+    relative_frames:
+      black_dresser: [0.330, -0.194, 0.697, 3.14159, 0, 1.5708]
+
+cameras:
+  [frontleft, frontright, hand]
+
   # marker_3: # Attached to the top-right of the filing cabinet
   #   size_cm: 4.5 # Size (cm) along one side of the marker's black square
   #   relative_frames: # Relative transforms (expressed w.r.t. marker frame)
   #     filing_cabinet1: [-0.149, -0.560, -0.228, 0, -1.5708, -1.5708]
 
-  marker_6:
-    size_cm: 4.5
-    relative_frames:
-      black_dresser: [-0.194, 0.330, -0.697, 0, 0, 0]
-
-  marker_42:
-    size_cm: 1.7
-    relative_frames:
-      eraser1: [0, 0, -0.032, 0, 0, 0] # Eraser's frame is directly "below" the marker's
-
-cameras: # Specify sizes (cm) of tags that each camera is configured to recognize
-  frontleft:
-    recognized_sizes_cm: [4.5]
-  frontright:
-    recognized_sizes_cm: [4.5]
-  hand:
-    recognized_sizes_cm: [1.7, 4.5]
+  # marker_42:
+  #   size_cm: 1.7
+  #   relative_frames:
+  #     eraser1: [0, 0, -0.032, 0, 0, 0] # Eraser's frame is directly "below" the marker's
