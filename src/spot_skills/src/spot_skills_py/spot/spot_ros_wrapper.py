@@ -107,7 +107,7 @@ class SpotROS1Wrapper:
         max_segment_len = 30  # Limit the points/segment in ArmController trajectories
         self._arm_controller = SpotArmController(self._manager, max_segment_len)
 
-        gemini_api_key = get_ros_param("gemini_api_key", str, "NOT SPECIFIED")
+        gemini_api_key = get_ros_param("~gemini_api_key", str, "NOT SPECIFIED")
         if gemini_api_key == "NOT SPECIFIED":
             gemini_api_key = None
         self._door_opener = SpotDoorOpener(self._manager, gemini_api_key)

@@ -21,7 +21,7 @@ from bosdyn.api.spot import door_pb2
 from bosdyn.client import frame_helpers
 from robotics_utils.vision import PixelXY, RGBImage
 from robotics_utils.vision.vlms.gemini import GeminiRoboticsBridge
-from robotics_utils.visualization import display_in_window  # TODO: Was this ever used?
+from robotics_utils.visualization import display_in_window
 
 if TYPE_CHECKING:
     from spot_skills_py.spot.spot_manager import SpotManager
@@ -56,7 +56,7 @@ class SpotDoorOpener:
         hand_image = cv2.cvtColor(hand_image, cv2.COLOR_BGR2RGB)
 
         rgb = RGBImage(hand_image)
-        rgb.to_file("/docker/spot_skills/1.jpg")
+        rgb.to_file("/docker/spot_skills/images/open_door_image.jpg")
 
         return rgb
 
@@ -88,6 +88,7 @@ class SpotDoorOpener:
         self.handle_xy = detections.detections[0].keypoint
         self.pixel_source_image = "hand_color_image"
 
+        display_in_window(detections, "Detected Door Handle")
         rospy.loginfo(f"Detected door handle at pixel: {self.handle_xy}")
 
         return self.handle_xy
@@ -101,7 +102,7 @@ class SpotDoorOpener:
         if self.handle_xy is None:
             raise ValueError("self.handle_xy was None.")
 
-        height, width = image.height_width
+        height, width = image.resolution
         # Undo pixel rotation by rotation 90 deg CCW.
         manipulation_cmd = WalkToObjectInImage()
         th = -np.pi / 2

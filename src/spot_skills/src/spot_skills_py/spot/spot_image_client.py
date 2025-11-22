@@ -13,7 +13,8 @@ from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.lease import LeaseWallet, add_lease_wallet_processors
 from cv_bridge import CvBridge
 from robotics_utils.kinematics import Pose3D
-from robotics_utils.vision import CameraIntrinsics, RGBCamera, RGBImage
+from robotics_utils.ros.transform_manager import TransformManager
+from robotics_utils.vision import CameraIntrinsics, DepthImage, RGBCamera, RGBImage
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image as ImageMsg
 
@@ -157,6 +158,108 @@ class SpotImageClient:
             rgb_images[camera_name] = RGBImage(rgb_data)
 
         return rgb_images
+
+    def get_rgb_images_with_poses(
+        self,
+        camera_names: list[str],
+        target_frame: str = "body",
+    ) -> dict[str, tuple[RGBImage, CameraIntrinsics, Pose3D]]:
+        """Request RGB images with camera poses from the robot.
+
+        :param camera_names: List of camera names (e.g., ["hand", "frontleft"])
+        :param target_frame: Reference frame for returned poses (defaults to "body")
+        :return: Dict mapping camera names to (RGBImage, CameraIntrinsics, Pose3D) tuples
+        """
+        rgb_images = self.get_rgb_images(camera_names)
+        results: dict[str, tuple[RGBImage, CameraIntrinsics, Pose3D]] = {}
+
+        for camera_name, rgb_image in rgb_images.items():
+            intrinsics = self.get_intrinsics(camera_name, ImageFormat.RGB)
+            camera_frame = CAMERA_FRAMES.get(camera_name, camera_name)
+
+            pose = TransformManager.lookup_transform(camera_frame, target_frame)
+            if pose is None:
+                pose = Pose3D.identity(target_frame)
+
+            results[camera_name] = (rgb_image, intrinsics, pose)
+
+        return results
+
+    def get_depth_images(self, camera_names: list[str]) -> dict[str, DepthImage]:
+        """Request depth images from the robot.
+
+        Depth values are returned in meters as float64.
+
+        :param camera_names: List of camera names (e.g., ["hand", "frontleft"])
+        :return: Dictionary mapping camera names to DepthImage objects
+        """
+        depth_images: dict[str, DepthImage] = {}
+
+        for camera_name in camera_names:
+            request = self.make_image_request(camera_name, ImageFormat.DEPTH)
+            if request is None:
+                continue
+
+            responses = self.get_images([request])
+            if not responses:
+                continue
+
+            response = responses[0]
+            rows, cols = response.shot.image.rows, response.shot.image.cols
+
+            # Spot sends DEPTH_U16 in millimeters; convert to meters as float64
+            raw_depth = np.frombuffer(response.shot.image.data, dtype=np.uint16)
+            raw_depth = raw_depth.reshape((rows, cols))
+            depth_meters = raw_depth.astype(np.float64) / 1000.0
+
+            depth_images[camera_name] = DepthImage(depth_meters)
+
+        return depth_images
+
+    def get_depth_images_with_poses(
+        self,
+        camera_names: list[str],
+        target_frame: str = "body",
+    ) -> dict[str, tuple[DepthImage, CameraIntrinsics, Pose3D]]:
+        """Request depth images with camera poses from the robot.
+
+        Depth values are returned in meters as float64.
+
+        :param camera_names: List of camera names (e.g., ["hand", "frontleft"])
+        :param target_frame: Reference frame for returned poses (defaults to "body")
+        :return: Dict mapping camera names to (DepthImage, CameraIntrinsics, Pose3D) tuples
+        """
+        results: dict[str, tuple[DepthImage, CameraIntrinsics, Pose3D]] = {}
+
+        for camera_name in camera_names:
+            request = self.make_image_request(camera_name, ImageFormat.DEPTH)
+            if request is None:
+                continue
+
+            responses = self.get_images([request])
+            if not responses:
+                continue
+
+            response = responses[0]
+            rows, cols = response.shot.image.rows, response.shot.image.cols
+
+            # Spot sends DEPTH_U16 in millimeters; convert to meters as float64
+            raw_depth = np.frombuffer(response.shot.image.data, dtype=np.uint16)
+            raw_depth = raw_depth.reshape((rows, cols))
+            depth_meters = raw_depth.astype(np.float64) / 1000.0
+
+            depth_image = DepthImage(depth_meters)
+            intrinsics = self.get_intrinsics(camera_name, ImageFormat.DEPTH)
+
+            # Get camera pose via TF
+            camera_frame = response.shot.frame_name_image_sensor
+            pose = TransformManager.lookup_transform(camera_frame, target_frame)
+            if pose is None:
+                pose = Pose3D.identity(target_frame)
+
+            results[camera_name] = (depth_image, intrinsics, pose)
+
+        return results
 
     def _camera_to_image_source(self, camera_name: str, image_format: ImageFormat) -> str:
         """Convert a camera name and image format into the corresponding image source from Spot.

@@ -22,3 +22,5 @@ maps/
 **/*.egg-info
 .coverage
 .hypothesis/
+
+images/

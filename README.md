@@ -144,7 +144,7 @@ roslaunch spot_skills moveit_spot_demo.launch
 
 RViz should open, showing a simulated Spot, as shown below.
 
-![Simulated Spot moving its arm to an end-effector target (shown as RGB axes).](images/sim-moveit-spot.png "Spot's Arm Moving to an End-Effector Target")
+![Simulated Spot moving its arm to an end-effector target (shown as RGB axes).](docs/images/sim-moveit-spot.png "Spot's Arm Moving to an End-Effector Target")
 
 A target pose for Spot's end-effector should soon be displayed as RGB axes. As this target pose moves
 back-and-forth, MoveIt creates motion plans to the target, which are then used to
