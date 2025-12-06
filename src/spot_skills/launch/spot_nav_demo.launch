@@ -16,9 +16,6 @@
         <arg name="mapping_mode" value="false" />
         <arg name="load_map" value="true" />
     </include>
-
-    <!-- Load ROS parameters configuring Spot's navigation -->
-    <include file="$(find spot_skills)/launch/bringup_spot_nav.launch" />
     
     <!-- Launch all nodes to control Spot using MoveIt (this loads the robot description) -->
     <include file="$(find spot_skills)/launch/bringup_spot_moveit.launch" pass_all_args="true" />

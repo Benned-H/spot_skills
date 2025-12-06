@@ -157,14 +157,19 @@ class SpotROS1Wrapper:
             grasping_group="gripper",
             action_name="gripper_controller/gripper_action",
         )
-        manipulator = MoveItManipulator(name="arm", base_frame="body", gripper=gripper)
+        self.manipulator = MoveItManipulator(
+            name="arm",
+            robot_name="Spot",
+            base_frame="body",
+            gripper=gripper,
+        )
 
         traj_config = RelativeTrajectoryConfig(
             min_pose_diff_m=0.02,
             min_pose_diff_deg=5,
             plan_ee_step_m=0.015,
         )
-        self.trajectory_replayer = TrajectoryPlayback(traj_config, manipulator)
+        self.trajectory_replayer = TrajectoryPlayback(traj_config, self.manipulator)
 
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
@@ -192,13 +197,9 @@ class SpotROS1Wrapper:
             )
 
             self._graph_nav_rviz = GraphNavRViz(self._graph_nav.graph_nav_client)
-
-        navigation_active = get_ros_param("/spot/navigation/active", bool, default_value=False)
-        if navigation_active:
-            rospy.loginfo("Now initializing the SpotNavigationServer...")
             self._navigation_server = SpotNavigationServer(self._manager, self._graph_nav)
-        else:
-            rospy.loginfo("Skipping initialization of SpotNavigationServer...")
+
+            rospy.loginfo("Now initializing the SpotNavigationServer...")
 
         apriltags_active = get_ros_param("/tag_tracker/active", bool, default_value=False)
         if apriltags_active:
@@ -410,12 +411,16 @@ class SpotROS1Wrapper:
         :param _: ROS message request to save the map to file
         :return: Response conveying whether map was successfully saved
         """
+        if self._manager is None:
+            return TriggerResponse(success=False, message="Cannot save map; SpotManager is None.")
+
         if self._graph_nav is None:
             return TriggerResponse(
                 success=False,
                 message="SpotGraphNav is None; cannot save map to file.",
             )
 
+        self._manager.log_info("Saving GraphNav map (this may take some time)...")
         success, message = self._graph_nav.save_map(self._graph_nav.map_path)
         return TriggerResponse(success, message)
 
@@ -538,7 +543,19 @@ class SpotROS1Wrapper:
             message = "Could not open door because SpotManager could not take control of Spot."
             return OpenDoorResponse(success=False, message=message)
 
+        if self.manipulator.gripper is None:
+            return OpenDoorResponse(
+                success=False,
+                message="Cannot open the door because Spot's gripper was None.",
+            )
+
+        # Navigate to the "open_door" waypoint, if Spot has one
+        if "open_door" in self._navigation_server.waypoints:
+            open_door_waypoint = self._navigation_server.waypoints["open_door"]
+            self._navigation_server.navigate_to_pose(open_door_waypoint, timeout_s=15.0)
+
         # Call the operations needed for door-opening, step-by-step
+        self.manipulator.gripper.open()
         door_image = self._door_opener.capture_door_handle_image(request.body_pitch_rad)
 
         if self._door_opener.detect_handle_xy(door_image) is None:
@@ -553,10 +570,10 @@ class SpotROS1Wrapper:
         hinge_on_left = bool(request.hinge_on_left)
 
         door_opened = self._door_opener.open_door(
-            door_image,
             is_pull=is_pull,
             hinge_on_left=hinge_on_left,
-            open_door_timeout_s=120,
+            door_offset_m=request.door_offset_m,
+            ray_search_dist_m=request.ray_search_dist_m,
         )
 
         message = "Spot opened the door." if door_opened else "Could not open the door."
@@ -688,8 +705,8 @@ class SpotROS1Wrapper:
     def handle_pose_lookup(self, request: PoseLookupRequest) -> PoseLookupResponse:
         """Handle a request to look up the relative pose between two frames using /tf."""
         relative_pose = TransformManager.lookup_transform(
-            request.source_frame,
-            request.target_frame,
+            request.child_frame,
+            request.parent_frame,
         )
 
         if relative_pose is not None:

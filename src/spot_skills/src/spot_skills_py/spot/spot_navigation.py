@@ -64,9 +64,9 @@ class SpotNavigationServer(MobileRobot):
 
         # Load waypoint locations from a YAML file specified via ROS param
         self.waypoints_yaml_path = get_ros_param("/spot/navigation/waypoints_yaml", Path)
-        self._waypoints = Waypoints.from_yaml(self.waypoints_yaml_path)
+        self.waypoints = Waypoints.from_yaml(self.waypoints_yaml_path)
 
-        rospy.loginfo(f"Loaded {len(self._waypoints)} named waypoints from YAML.")
+        rospy.loginfo(f"Loaded {len(self.waypoints)} named waypoints from YAML.")
 
         # Load thresholds for when Spot is considered "close to a goal" from ROS params
         self.close_to_goal_m = get_ros_param("/spot/navigation/close_to_goal_m", float)
@@ -103,9 +103,9 @@ class SpotNavigationServer(MobileRobot):
 
         new_name: str = request.name
         curr_2d_pose = curr_base_pose.to_2d()
-        self._waypoints[new_name] = curr_2d_pose
+        self.waypoints[new_name] = curr_2d_pose
 
-        success = new_name in self._waypoints
+        success = new_name in self.waypoints
         if success:
             message = f"Added waypoint named '{new_name}' at {curr_2d_pose}."
         else:
@@ -131,8 +131,8 @@ class SpotNavigationServer(MobileRobot):
         :param request: Request specifying a waypoint to navigate to
         :return: Response specifying whether the navigation succeeded
         """
-        if request.name not in self._waypoints:
-            available_waypoints = list(self._waypoints.keys())
+        if request.name not in self.waypoints:
+            available_waypoints = list(self.waypoints.keys())
             message = (
                 f"Cannot navigate to unknown waypoint '{request.name}'.\n "
                 f"Available waypoints: {available_waypoints}"
@@ -142,7 +142,7 @@ class SpotNavigationServer(MobileRobot):
         self._manager.log_info(
             f"Handling 'NavigateToWaypoint' request for waypoint '{request.name}'...",
         )
-        target_pose = self._waypoints[request.name]
+        target_pose = self.waypoints[request.name]
         self._manager.log_info(f"Waypoint '{request.name}' has target pose: {target_pose}.")
 
         success, message = self.navigate_to_pose(target_pose, self.timeout_s)
@@ -204,7 +204,7 @@ class SpotNavigationServer(MobileRobot):
         try:
             rate_hz = rospy.Rate(TransformManager.LOOP_HZ)
             while not rospy.is_shutdown():
-                for name, pose in self._waypoints.items():
+                for name, pose in self.waypoints.items():
                     TransformManager.broadcast_transform(name, pose.to_3d())
 
                 rate_hz.sleep()

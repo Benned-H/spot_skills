@@ -162,12 +162,12 @@ class SpotImageClient:
     def get_rgb_images_with_poses(
         self,
         camera_names: list[str],
-        target_frame: str = "body",
+        ref_frame: str = "body",
     ) -> dict[str, tuple[RGBImage, CameraIntrinsics, Pose3D]]:
         """Request RGB images with camera poses from the robot.
 
         :param camera_names: List of camera names (e.g., ["hand", "frontleft"])
-        :param target_frame: Reference frame for returned poses (defaults to "body")
+        :param ref_frame: Reference frame for returned poses (defaults to "body")
         :return: Dict mapping camera names to (RGBImage, CameraIntrinsics, Pose3D) tuples
         """
         rgb_images = self.get_rgb_images(camera_names)
@@ -177,9 +177,9 @@ class SpotImageClient:
             intrinsics = self.get_intrinsics(camera_name, ImageFormat.RGB)
             camera_frame = CAMERA_FRAMES.get(camera_name, camera_name)
 
-            pose = TransformManager.lookup_transform(camera_frame, target_frame)
+            pose = TransformManager.lookup_transform(camera_frame, ref_frame)
             if pose is None:
-                pose = Pose3D.identity(target_frame)
+                pose = Pose3D.identity(ref_frame)
 
             results[camera_name] = (rgb_image, intrinsics, pose)
 
@@ -219,14 +219,14 @@ class SpotImageClient:
     def get_depth_images_with_poses(
         self,
         camera_names: list[str],
-        target_frame: str = "body",
+        ref_frame: str = "body",
     ) -> dict[str, tuple[DepthImage, CameraIntrinsics, Pose3D]]:
         """Request depth images with camera poses from the robot.
 
         Depth values are returned in meters as float64.
 
         :param camera_names: List of camera names (e.g., ["hand", "frontleft"])
-        :param target_frame: Reference frame for returned poses (defaults to "body")
+        :param ref_frame: Reference frame for returned poses (defaults to "body")
         :return: Dict mapping camera names to (DepthImage, CameraIntrinsics, Pose3D) tuples
         """
         results: dict[str, tuple[DepthImage, CameraIntrinsics, Pose3D]] = {}
@@ -253,9 +253,9 @@ class SpotImageClient:
 
             # Get camera pose via TF
             camera_frame = response.shot.frame_name_image_sensor
-            pose = TransformManager.lookup_transform(camera_frame, target_frame)
+            pose = TransformManager.lookup_transform(camera_frame, ref_frame)
             if pose is None:
-                pose = Pose3D.identity(target_frame)
+                pose = Pose3D.identity(ref_frame)
 
             results[camera_name] = (depth_image, intrinsics, pose)
 

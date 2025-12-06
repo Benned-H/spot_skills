@@ -40,7 +40,7 @@ from bosdyn.client.util import setup_logging
 from bosdyn.geometry import EulerZXY
 from robotics_utils.motion_planning.navigation_goal import NavigationGoal
 from robotics_utils.ros.transform_manager import TransformManager
-from robotics_utils.skills import SkillOutcome
+from robotics_utils.skills import Outcome
 from rospy import loginfo as ros_loginfo
 
 from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
@@ -81,6 +81,7 @@ class SpotManager:
         username: str,
         password: str,
         resource: str = "body",
+        debug_mode: bool = False,
     ) -> None:
         """Initialize the Spot manager by connecting to Spot.
 
@@ -88,16 +89,17 @@ class SpotManager:
             - A DNS name (e.g., spot.intranet.example.com)
             - An IP literal (e.g., 10.0.63.1)
 
-        :param      client_name     Name to use for the created Spot SDK client
-        :param      hostname        Network address of the robot to connect to
-        :param      username        Username used to authenticate with Spot
-        :param      password        Password used to authenticate with Spot
+        :param client_name: Name to use for the created Spot SDK client
+        :param hostname: Network address of the robot to connect to
+        :param username: Username used to authenticate with Spot
+        :param password: Password used to authenticate with Spot
 
         Reference: spot-sdk/python/examples/hello_spot/hello_spot.py
         """
         self._created_time_s = time.time()  # Record when the SpotManager was created
         self._resource = resource
         self.username = username
+        self.debug_mode = debug_mode
 
         setup_logging(verbose=True)  # Use verbose logging for the Spot SDK
 
@@ -106,9 +108,10 @@ class SpotManager:
         self._robot = self._sdk.create_robot(hostname)
         self._robot.authenticate(username=username, password=password)
 
-        # Check whether the Spot SDK and robot are using the same client name
-        self.log_info(f"DEBUG: SDK client name: {self._sdk.client_name}")
-        self.log_info(f"DEBUG: Robot client name: {self._robot.client_name}")
+        if self.debug_mode:
+            # Check whether the Spot SDK and robot are using the same client name
+            self.log_info(f"DEBUG: SDK client name: {self._sdk.client_name}")
+            self.log_info(f"DEBUG: Robot client name: {self._robot.client_name}")
 
         # Establish a time-sync with Spot, which enables local-robot time conversion
         self.time_sync = SpotTimeSync(self._robot)
@@ -240,7 +243,8 @@ class SpotManager:
             self._control_status = self._compute_status()
             return False
 
-        self.log_info(f"DEBUG: Acquired lease owner: {lease.lease_proto.client_names}")
+        if self.debug_mode:
+            self.log_info(f"DEBUG: Acquired lease owner: {lease.lease_proto.client_names}")
 
         # Add the lease to the wallet (allows future RPCs to auto-attach)
         self.lease_wallet.add(lease)
@@ -313,26 +317,31 @@ class SpotManager:
         try:  # Prefer the wallet as the ground truth for leases
             state: LeaseState = self.lease_wallet.get_lease_state(self._resource)
 
-            # DEBUG: what's going on in the lease state?
-            self.log_info(
-                f"DEBUG: lease_status={state.lease_status}, SELF_OWNER={LeaseState.Status.SELF_OWNER}",
-            )
-            self.log_info(f"DEBUG: _holds_live_lease={self._holds_live_lease()}")
+            if self.debug_mode:
+                self.log_info(
+                    f"DEBUG: lease_status={state.lease_status}, "
+                    f"SELF_OWNER={LeaseState.Status.SELF_OWNER}",
+                )
+                self.log_info(f"DEBUG: _holds_live_lease={self._holds_live_lease()}")
 
             has_lease = state.lease_status == LeaseState.Status.SELF_OWNER
             # Double-check that the KeepAlive thread is up
             has_lease = has_lease and self._holds_live_lease()
 
             lease_owner = state.lease_owner.client_name if state.lease_owner else None
-            self.log_info(
-                f"DEBUG: lease_owner={lease_owner} SDK client name: {self._sdk.client_name}",
-            )
+
+            if self.debug_mode:
+                self.log_info(
+                    f"DEBUG: lease_owner={lease_owner} SDK client name: {self._sdk.client_name}",
+                )
 
         except Exception as exc:
             self.log_info(f"Exception while checking control status of SpotManager: {exc}")
             has_lease = self._holds_live_lease()
 
-        self.log_info(f"DEBUG: has_lease={has_lease}, powered_on={powered_on}")
+        if self.debug_mode:
+            self.log_info(f"DEBUG: has_lease={has_lease}, powered_on={powered_on}")
+
         return SpotControlStatus(
             has_lease=bool(has_lease),
             powered_on=bool(powered_on),
@@ -693,33 +702,33 @@ class SpotManager:
             self.log_info(f"Docking succeeded at dock #{dock_id}.")
             return True
 
-    def undock(self, timeout_s: int = 20) -> SkillOutcome:
+    def undock(self, timeout_s: int = 20) -> Outcome:
         """Send an undocking command to Spot and block until it finishes.
 
         :param timeout_s: Maximum duration (seconds) to wait for undocking (defaults to 60)
         :return: Boolean success indicator and outcome message
         """
         if not self.has_control:
-            return SkillOutcome(
+            return Outcome(
                 success=False,
                 message="Cannot undock because SpotManager doesn't control Spot.",
             )
 
         docking_status = self._docking_client.get_docking_state().status
         if docking_status == DockState.DockedStatus.DOCK_STATUS_UNKNOWN:
-            return SkillOutcome(
+            return Outcome(
                 success=False,
                 message="Spot's docking status is unknown; cannot undock.",
             )
         if docking_status == DockState.DockedStatus.DOCK_STATUS_DOCKING:
-            return SkillOutcome(
+            return Outcome(
                 success=False,
                 message="Spot is in the process of docking; cannot undock.",
             )
         if docking_status == DockState.DockedStatus.DOCK_STATUS_UNDOCKED:
-            return SkillOutcome(success=True, message="Spot is already undocked.")
+            return Outcome(success=True, message="Spot is already undocked.")
         if docking_status == DockState.DockedStatus.DOCK_STATUS_UNDOCKING:
-            return SkillOutcome(
+            return Outcome(
                 success=False,
                 message="Spot is in the process of undocking; cannot undock.",
             )
@@ -730,9 +739,21 @@ class SpotManager:
         try:
             blocking_undock(self._robot, timeout=timeout_s)
         except CommandFailedError as undock_err:
-            return SkillOutcome(success=False, message=f"Undocking failed: {undock_err}")
+            return Outcome(success=False, message=f"Undocking failed: {undock_err}")
 
-        return SkillOutcome(success=True, message="Successfully undocked Spot.")
+        return Outcome(success=True, message="Successfully undocked Spot.")
+
+    def stop_robot(self, *, stow_arm: bool) -> None:
+        """Issue a stop command to gently halt Spot's current motion.
+
+        :param stow_arm: Boolean indicating if Spot's arm should also be stowed
+        """
+        stop_cmd = RobotCommandBuilder.stop_command()
+        self.send_robot_command(stop_cmd)
+        self.log_info("Sent stop command to halt robot motion.")
+
+        if stow_arm and self.has_arm():
+            self.stow_arm()
 
     def safely_power_off(self) -> None:
         """Power Spot off by issuing a "safe power off" command."""

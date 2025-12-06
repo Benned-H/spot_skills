@@ -19,6 +19,8 @@ from bosdyn.api.manipulation_api_pb2 import (
 )
 from bosdyn.api.spot import door_pb2
 from bosdyn.client import frame_helpers
+from robotics_utils.kinematics import Point3D
+from robotics_utils.ros import TransformManager
 from robotics_utils.vision import PixelXY, RGBImage
 from robotics_utils.vision.vlms.gemini import GeminiRoboticsBridge
 from robotics_utils.visualization import display_in_window
@@ -88,30 +90,32 @@ class SpotDoorOpener:
         self.handle_xy = detections.detections[0].keypoint
         self.pixel_source_image = "hand_color_image"
 
-        display_in_window(detections, "Detected Door Handle")
+        detections_visualized = RGBImage(data=detections.convert_for_visualization())
+        detections_visualized.to_file("/docker/spot_skills/images/detected_door_handle.jpg")
+
+        cv2.destroyAllWindows()
+        display_in_window(detections, "Detected Door Handle", wait=True)  # DO NOT REMOVE (SAFETY)
         rospy.loginfo(f"Detected door handle at pixel: {self.handle_xy}")
 
         return self.handle_xy
 
-    def create_walk_to_object_in_image_request(self, image: RGBImage) -> ManipulationApiRequest:
+    def create_walk_to_object_in_image_request(
+        self,
+        handle_xy: PixelXY,
+        door_offset_m: float,
+    ) -> ManipulationApiRequest:
         """Construct a manipulation API request to make Spot walk to the object at the given pixel.
 
-        :param image: Image in which Spot has detected a door handle
+        :param handle_xy: (x,y) pixel coordinates of the detected door handle
+        :param door_offset_m: Spot will stand this offset (m) from the door
         :return: Manipulation API request Protobuf message
         """
         if self.handle_xy is None:
             raise ValueError("self.handle_xy was None.")
 
-        height, width = image.resolution
-        # Undo pixel rotation by rotation 90 deg CCW.
         manipulation_cmd = WalkToObjectInImage()
-        th = -np.pi / 2
-        xm = width / 4
-        ym = height / 2
-        x = self.handle_xy.x - xm
-        y = self.handle_xy.y - ym
-        manipulation_cmd.pixel_xy.x = np.cos(th) * x - np.sin(th) * y + ym
-        manipulation_cmd.pixel_xy.y = np.sin(th) * x + np.cos(th) * y + xm
+        manipulation_cmd.pixel_xy.x = handle_xy.x
+        manipulation_cmd.pixel_xy.y = handle_xy.y
 
         # Populate the rest of the Manip API request.
         clicked_image_proto = self.image_dict[self.pixel_source_image][0]
@@ -120,9 +124,7 @@ class SpotDoorOpener:
             clicked_image_proto.shot.transforms_snapshot,
         )
         manipulation_cmd.camera_model.CopyFrom(clicked_image_proto.source.pinhole)
-
-        door_search_dist_m = 1.25  # Distance to the door in meters
-        manipulation_cmd.offset_distance.value = door_search_dist_m
+        manipulation_cmd.offset_distance.value = door_offset_m
 
         return ManipulationApiRequest(walk_to_object_in_image=manipulation_cmd)
 
@@ -160,39 +162,61 @@ class SpotDoorOpener:
 
     def open_door(
         self,
-        image: RGBImage,
+        *,
         is_pull: bool,
         hinge_on_left: bool,
-        open_door_timeout_s: float = 60,
+        door_offset_m: float = 1.0,
+        ray_search_dist_m: float = 0.5,
+        timeout_s: float = 60.0,
+        phase_timeout_s: float = 15.0,
     ) -> bool:
         """Command the robot to automatically open a door using the Spot SDK.
 
         :param image: Image in which Spot has detected a door handle
         :param is_pull: Boolean indicating if the door swings open by pulling toward Spot
         :param hinge_on_left: Boolean indicating if the door hinge is on the left (per Spot's view)
-        :param open_door_timeout_s: Timeout (seconds) for the "Open Door" command (defaults to 60)
+        :param door_offset_m: Spot will stand this offset (m) from the door
+        :param ray_search_dist_m: Distance (m) searched along the ray to the door handle
+        :param timeout_s: Timeout (seconds) for the "Open Door" command (defaults to 60)
+        :param phase_timeout_s: Timeout (seconds) for any single phase of the door-opening
         :return: True if the door was opened, otherwise False
         """
         assert self.handle_xy is not None, "Cannot open door without the door handle pixel!"
 
         self.manager.log_info("Opening door...")
 
+        # Store the initial transform of the vision frame w.r.t. Spot's body frame
+        initial_pose_b_v = TransformManager.lookup_transform("vision", "body")
+        if initial_pose_b_v is None:
+            self.manager.log_info("Cannot open door because pose lookup failed.")
+            return False
+
         # Tell the robot to walk through the door
-        request = self.create_walk_to_object_in_image_request(image)
+        request = self.create_walk_to_object_in_image_request(self.handle_xy, door_offset_m)
         manipulation_feedback = self.walk_to_object_in_image(request)
         time.sleep(3.0)
 
         assert self.pixel_source_image is not None, "Expected pixel image source to be known."
 
         # The ManipulationApiResponse for the WalkToObjectInImage command returns a transform
-        # snapshot that contains where the door handle pixel intersects the world. We use this
-        # intersection point to execute the door command.
+        # snapshot that contains where the door handle pixel intersects the vision frame. We use
+        # this intersection point to execute the door command.
         snapshot = manipulation_feedback.transforms_snapshot_manipulation_data
 
         vision_tform_raycast = frame_helpers.get_a_tform_b(
             snapshot,
             frame_helpers.VISION_FRAME_NAME,
             frame_helpers.RAYCAST_FRAME_NAME,
+        )
+        raycast_point_wrt_vision = vision_tform_raycast.get_translation()
+
+        position_v_dh = Point3D.from_array(raycast_point_wrt_vision)  # Door handle w.r.t. vision
+
+        initial_position_b_dh = initial_pose_b_v @ position_v_dh  # Door handle w.r.t. body
+        handle_x_wrt_body = initial_position_b_dh.x  # Initial forward distance from body
+
+        self.manager.log_info(
+            f"Door handle estimated as {handle_x_wrt_body:.2f} m in front of Spot.",
         )
 
         clicked_image_proto = self.image_dict[self.pixel_source_image][0]
@@ -204,15 +228,13 @@ class SpotDoorOpener:
             frame_name_image_sensor,
         )
 
-        raycast_point_wrt_vision = vision_tform_raycast.get_translation()
         ray_from_camera_to_obj = raycast_point_wrt_vision - vision_tform_sensor.get_translation()
         ray_from_camera_to_obj_norm = np.sqrt(np.sum(ray_from_camera_to_obj**2))
         ray_from_camera_normalized = ray_from_camera_to_obj / ray_from_camera_to_obj_norm
 
         auto_cmd = door_pb2.DoorCommand.AutoGraspCommand()
         auto_cmd.frame_name = frame_helpers.VISION_FRAME_NAME
-        search_dist_meters = 0.25
-        search_ray = search_dist_meters * ray_from_camera_normalized
+        search_ray = ray_search_dist_m * ray_from_camera_normalized
         search_ray_start_in_frame = raycast_point_wrt_vision - search_ray
         auto_cmd.search_ray_start_in_frame.CopyFrom(
             geometry_pb2.Vec3(
@@ -246,23 +268,71 @@ class SpotDoorOpener:
         door_command = door_pb2.DoorCommand.Request(auto_grasp_command=auto_cmd)
         request = door_pb2.OpenDoorCommandRequest(door_command=door_command)
 
+        safety_margin_m = 0.3  # Allow small distance (meters) past estimated door handle
+
         # Command the robot to open the door.
         response = self.manager.door_client.open_door(request)
 
         feedback_request = door_pb2.OpenDoorFeedbackRequest()
         feedback_request.door_command_id = response.door_command_id
 
-        end_time = time.time() + open_door_timeout_s
+        end_time = time.time() + timeout_s
+        last_status = None
+        last_status_change_time = time.time()
+
+        success = None  # True = Door was opened, False = Failure case, None = Timed out
+
         while time.time() < end_time:
             feedback_response = self.manager.door_client.open_door_feedback(feedback_request)
+            current_door_status = feedback_response.feedback.status
+
             if feedback_response.status != RobotCommandFeedbackStatus.STATUS_PROCESSING:
                 self.manager.log_info(f"Door command reported status {feedback_response.status}")
-                return False
+                success = False
+                break
 
-            if feedback_response.feedback.status == door_pb2.DoorCommand.Feedback.STATUS_COMPLETED:
+            # Check Spot's current position relative to its initial pose
+            curr_v_b = TransformManager.lookup_transform(child_frame="body", parent_frame="vision")
+            if curr_v_b is None:
+                self.manager.log_info("Cannot open door because pose lookup failed.")
+                success = False
+                break
+
+            curr_wrt_initial_body = initial_pose_b_v @ curr_v_b
+            past_door_m = curr_wrt_initial_body.position.x - handle_x_wrt_body
+
+            if past_door_m > safety_margin_m:
+                self.manager.log_info(f"Moved {past_door_m:.2f} m past the door, now halting...")
+                success = True
+                break
+
+            # Track status changes
+            if current_door_status != last_status:
+                self.manager.log_info(f"Door opening phase: {current_door_status}")
+                last_status = current_door_status
+                last_status_change_time = time.time()
+
+            # Check if we've been stuck in this phase for too long
+            in_phase_for = time.time() - last_status_change_time
+            if in_phase_for > phase_timeout_s:
+                self.manager.log_info(
+                    f"Stuck in phase {current_door_status} for {in_phase_for:.2f} s, aborting.",
+                )
+                success = False
+                break
+
+            if current_door_status == door_pb2.DoorCommand.Feedback.STATUS_COMPLETED:
                 self.manager.log_info("Opened door.")
-                return True
+                success = True
+                break
 
             time.sleep(0.5)
 
-        return False
+        if success is None:
+            self.manager.log_info(f"Door opening timed out after {timeout_s} total seconds.")
+            success = False
+
+        # Regardless of the outcome, make sure to freeze the robot
+        self.manager.stop_robot(stow_arm=True)
+
+        return success

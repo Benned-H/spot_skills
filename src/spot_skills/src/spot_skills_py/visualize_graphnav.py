@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import rospy
 from bosdyn.api.graph_nav.map_pb2 import Graph as GraphProto
@@ -110,10 +109,10 @@ class GraphNavRViz:
         m.type = Marker.TEXT_VIEW_FACING
         m.action = Marker.ADD
 
-        pose_copy = deepcopy(pose)
-        pose_copy.position.z += 0.25
+        text_position = replace(pose.position, z=pose.position.z + 0.25)
+        text_pose = replace(pose, position=text_position)
 
-        m.pose = pose_to_msg(pose_copy)
+        m.pose = pose_to_msg(text_pose)
         m.scale.z = 0.03
         m.color = self._label_color
         m.text = text
@@ -138,6 +137,7 @@ class GraphNavRViz:
         graph = self.get_updated_graph()
 
         markers = MarkerArray()
+        markers.markers = []
         marker_id = 0
         for wp_name, wp_pose in graph.waypoints.items():
             markers.markers.append(self._waypoint_marker(marker_id, wp_pose))
