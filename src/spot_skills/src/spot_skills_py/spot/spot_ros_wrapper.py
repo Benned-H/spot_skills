@@ -13,7 +13,7 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
-from robotics_utils.kinematics import Point3D, Pose3D
+from robotics_utils.kinematics import DEFAULT_FRAME, Point3D
 from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import TagTracker, TransformManager, get_ros_param
 from robotics_utils.ros.msg_conversion import pose_to_stamped_msg
@@ -31,6 +31,9 @@ from spot_skills.srv import (
     GetRGBImages,
     GetRGBImagesRequest,
     GetRGBImagesResponse,
+    NameService,
+    NameServiceRequest,
+    NameServiceResponse,
     OpenDoor,
     OpenDoorRequest,
     OpenDoorResponse,
@@ -149,6 +152,17 @@ class SpotROS1Wrapper:
         self._stop_map = rospy.Service("spot/stop_mapping", Trigger, self.handle_stop_mapping)
         self._save_map = rospy.Service("spot/save_map", Trigger, self.handle_save_map)
 
+        self._pause_est_srv = rospy.Service(
+            "spot/pose_estimation/pause",
+            NameService,
+            self.handle_pause_pose_estimation,
+        )
+        self._resumse_est_srv = rospy.Service(
+            "spot/pose_estimation/resume",
+            NameService,
+            self.handle_resume_pose_estimation,
+        )
+
         gripper = ROSAngularGripper(
             limits=GripperAngleLimits(
                 open_rad=SPOT_GRIPPER_OPEN_RAD,
@@ -161,6 +175,7 @@ class SpotROS1Wrapper:
             name="arm",
             robot_name="Spot",
             base_frame="body",
+            planning_frame=DEFAULT_FRAME,
             gripper=gripper,
         )
 
@@ -210,7 +225,12 @@ class SpotROS1Wrapper:
                 SpotRGBCamera(camera_name, self._manager.image_client)
                 for camera_name in fiducial_system.camera_names
             ]
+
             self.tag_tracker = TagTracker(fiducial_system, spot_rgb_cameras)
+
+            # Initialize all objects in the planning scene, then begin syncing in a loop
+            self.manipulator.planning_scene.synchronize_state(self.tag_tracker.kinematic_state)
+            self.tag_tracker.simulators.append(self.manipulator.planning_scene)
 
     def handle_stand(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to have Spot stand up.
@@ -720,6 +740,46 @@ class SpotROS1Wrapper:
         response.success = False
         response.message = "Relative pose was None."
         return response
+
+    def handle_pause_pose_estimation(self, request: NameServiceRequest) -> NameServiceResponse:
+        """Handle a request to pause pose estimation for a specified object."""
+        object_name = request.name
+
+        # Retrieve the object's current pose estimate and set it as the object's known pose
+        curr_pose = self.tag_tracker.get_object_pose(object_name)
+        if curr_pose is None:
+            return NameServiceResponse(
+                success=False,
+                message=(
+                    f"Unable to pause pose estimation for '{object_name}' "
+                    "because no pose estimate is currently available."
+                ),
+            )
+
+        self.tag_tracker.kinematic_state.object_names.add(object_name)
+        self.tag_tracker.kinematic_state.set_object_pose(obj_name=object_name, new_pose=curr_pose)
+
+        return NameServiceResponse(
+            success=True,
+            message=f"Successfully paused pose estimation for '{object_name}'.",
+        )
+
+    def handle_resume_pose_estimation(self, request: NameServiceRequest) -> NameServiceResponse:
+        """Handle a request to resume pose estimation for a specified object."""
+        object_name = request.name
+
+        self.tag_tracker.pose_averager.reset_frame(frame_name=object_name)
+
+        # If the object's pose is known, initialize its estimate accordingly
+        if object_name in self.tag_tracker.kinematic_state.object_names:
+            known_pose = self.tag_tracker.kinematic_state.get_object_pose(object_name)
+            self.tag_tracker.kinematic_state.remove_object(object_name)
+            self.tag_tracker.pose_averager.update(object_name, known_pose)
+
+        return NameServiceResponse(
+            success=True,
+            message=f"Successfully resumed pose estimation for '{object_name}'.",
+        )
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.

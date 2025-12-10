@@ -1,19 +1,15 @@
 # Fiducial marker configuration for the SciLi Spot experiment
+# AprilTag frame convention: x right, y down, z through
+
 markers:
   marker_42:
     size_cm: 7.6
     relative_frames:
       black_dresser: [0.330, -0.194, 0.697, 3.14159, 0, 1.5708]
 
-cameras:
-  [frontleft, frontright, hand]
+  marker_500: # Attached on top of the eraser
+    size_cm: 3.6
+    relative_frames: # Eraser frame is "behind" (+z) and roll 180° to flip the y- and z-axes
+      eraser1: [0, 0, 0.035, 3.14159, 0, 0]
 
-  # marker_3: # Attached to the top-right of the filing cabinet
-  #   size_cm: 4.5 # Size (cm) along one side of the marker's black square
-  #   relative_frames: # Relative transforms (expressed w.r.t. marker frame)
-  #     filing_cabinet1: [-0.149, -0.560, -0.228, 0, -1.5708, -1.5708]
-
-  # marker_42:
-  #   size_cm: 1.7
-  #   relative_frames:
-  #     eraser1: [0, 0, -0.032, 0, 0, 0] # Eraser's frame is directly "below" the marker's
+cameras: [frontleft, frontright, hand]
