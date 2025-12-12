@@ -1,0 +1,11 @@
+# Request that Spot probes for a surface using its gripper
+geometry_msgs/Vector3 direction
+float64 max_distance_m
+float64 velocity_mps
+float64 force_threshold_n
+float64 force_check_hz
+int32 num_probes
+float64 probe_interval_s
+---
+bool success
+string message

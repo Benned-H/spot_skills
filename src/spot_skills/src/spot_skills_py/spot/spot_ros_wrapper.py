@@ -16,7 +16,10 @@ from control_msgs.msg import (
 from robotics_utils.kinematics import DEFAULT_FRAME, Point3D
 from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import TagTracker, TransformManager, get_ros_param
-from robotics_utils.ros.msg_conversion import pose_to_stamped_msg
+from robotics_utils.ros.msg_conversion import (
+    point_from_vector3_msg,
+    pose_to_stamped_msg,
+)
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
 from robotics_utils.vision.fiducials import FiducialSystem
@@ -43,6 +46,9 @@ from spot_skills.srv import (
     PoseLookup,
     PoseLookupRequest,
     PoseLookupResponse,
+    ProbeSurface,
+    ProbeSurfaceRequest,
+    ProbeSurfaceResponse,
 )
 from spot_skills_py.joint_trajectory import JointTrajectory
 from spot_skills_py.spot.spot_arm_controller import (
@@ -135,6 +141,7 @@ class SpotROS1Wrapper:
             self.handle_playback_trajectory,
         )
         self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
+        self._probe_service = rospy.Service("spot/probe_surface", ProbeSurface, self.handle_probe)
         self._take_control_srv = rospy.Service(
             "spot/take_control",
             Trigger,
@@ -672,6 +679,43 @@ class SpotROS1Wrapper:
         erase_board(self._manager, erase_traj)
 
         return TriggerResponse(success=True, message="Erased the whiteboard.")
+
+    def handle_probe(self, request: ProbeSurfaceRequest) -> ProbeSurfaceResponse:
+        """Handle a service request to probe for a surface using Spot's gripper.
+
+        :param request: Message configuring the surface probe attempt
+        :return: Response with a Boolean success indicator and outcome message
+        """
+        if self._manager is None or self._arm_controller is None:
+            return ProbeSurfaceResponse(
+                success=False,
+                message="Cannot probe for surface; SpotManager or arm controller was None.",
+            )
+
+        if not self._manager.has_control:
+            return ProbeSurfaceResponse(
+                success=False,
+                message="Cannot probe for surface; SpotManager doesn't control Spot.",
+            )
+
+        plane_result = self._arm_controller.force_controller.probe_surface(
+            direction=point_from_vector3_msg(request.direction),
+            max_distance_m=request.max_distance_m,
+            velocity_mps=request.velocity_mps,
+            force_threshold_n=request.force_threshold_n,
+            force_check_hz=request.force_check_hz,
+            num_probes=request.num_probes,
+            probe_interval_s=request.probe_interval_s,
+        )
+
+        success = plane_result is not None
+        message = (
+            f"Found surface: {plane_result}"
+            if success
+            else "Probed for surface but no surface was found."
+        )
+
+        return ProbeSurfaceResponse(success, message)
 
     def handle_take_control(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to forcibly take control of Spot.

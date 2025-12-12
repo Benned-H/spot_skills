@@ -12,11 +12,17 @@ from bosdyn.api.docking.docking_pb2 import DockState
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
-from bosdyn.client import create_standard_sdk, frame_helpers
+from bosdyn.client import create_standard_sdk
 from bosdyn.client.docking import DockingClient, blocking_dock_robot, blocking_undock
 from bosdyn.client.door import DoorClient
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.exceptions import Error as SDKError
+from bosdyn.client.frame_helpers import (
+    HAND_FRAME_NAME,
+    ODOM_FRAME_NAME,
+    VISION_FRAME_NAME,
+    get_a_tform_b,
+)
 from bosdyn.client.lease import (
     LeaseClient,
     LeaseKeepAlive,
@@ -26,6 +32,7 @@ from bosdyn.client.lease import (
     add_lease_wallet_processors,
 )
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
+from bosdyn.client.math_helpers import SE3Pose
 from bosdyn.client.robot_command import (
     CommandFailedError,
     RobotCommandBuilder,
@@ -415,6 +422,17 @@ class SpotManager:
         """
         return self._state_client.get_robot_state()
 
+    def get_hand_pose(self, *, ref_frame: str = ODOM_FRAME_NAME) -> SE3Pose:
+        """Query and return the pose of Spot's hand in the specified Spot SDK frame."""
+        robot_state = self.get_robot_state()
+        pose = get_a_tform_b(
+            robot_state.kinematic_state.transforms_snapshot,
+            ref_frame,
+            HAND_FRAME_NAME,
+        )
+        assert isinstance(pose, SE3Pose)
+        return pose
+
     def send_robot_command(
         self,
         command: RobotCommand,
@@ -615,16 +633,14 @@ class SpotManager:
             self.log_info("Can't move to base pose because SpotManager doesn't control Spot.")
             return False
 
-        vision_frame = frame_helpers.VISION_FRAME_NAME
-
-        target_pose_v_b = TransformManager.convert_to_frame(pose, vision_frame)
+        target_pose_v_b = TransformManager.convert_to_frame(pose, VISION_FRAME_NAME)
         _, _, target_yaw_rad = target_pose_v_b.orientation.to_euler_rpy()
 
         trajectory_command = RobotCommandBuilder.synchro_se2_trajectory_point_command(
             goal_x=target_pose_v_b.position.x,
             goal_y=target_pose_v_b.position.y,
             goal_heading=target_yaw_rad,
-            frame_name=vision_frame,
+            frame_name=VISION_FRAME_NAME,
             params=self._mobility_params,
         )
 

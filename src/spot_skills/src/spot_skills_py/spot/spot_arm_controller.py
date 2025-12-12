@@ -11,6 +11,7 @@ from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import duration_to_seconds
 
 from spot_skills_py.spot.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
+from spot_skills_py.spot.spot_force_controller import SpotForceController
 from spot_skills_py.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
@@ -51,6 +52,7 @@ class SpotArmController:
         assert spot_manager.has_arm(), "Cannot control Spot's arm if Spot has no arm!"
 
         self._manager = spot_manager
+        self.force_controller = SpotForceController(self._manager)
 
         # Declare member variable to store the ID of the most recent robot command
         self._command_id: int | None = None

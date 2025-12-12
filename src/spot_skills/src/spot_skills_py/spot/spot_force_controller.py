@@ -6,318 +6,205 @@ import time
 from typing import TYPE_CHECKING
 
 import numpy as np
-from bosdyn.api import (
-    arm_command_pb2,
-    geometry_pb2,
-    robot_command_pb2,
-    synchronized_command_pb2,
-    trajectory_pb2,
-)
-from bosdyn.client.frame_helpers import HAND_FRAME_NAME, ODOM_FRAME_NAME, get_a_tform_b
-from bosdyn.client.robot_command import block_until_arm_arrives
-from bosdyn.util import seconds_to_duration
-from robotics_utils.kinematics.planes import Plane3D
+from bosdyn.client.frame_helpers import ODOM_FRAME_NAME
+from bosdyn.client.math_helpers import SE3Pose
+from bosdyn.client.robot_command import RobotCommandBuilder
+from bosdyn.util import seconds_to_timestamp
+from robotics_utils.kinematics import Plane3D, Point3D
+from robotics_utils.ros import PoseBroadcastThread
+
+from spot_skills_py.spot.spot_conversion import HAND_T_FINGERTIP, pose_from_sdk
 
 if TYPE_CHECKING:
-    from numpy.typing import NDArray
-
     from spot_skills_py.spot.spot_manager import SpotManager
 
 
 class SpotForceController:
     """A controller for Spot's arm that uses force sensing for surface detection."""
 
-    def __init__(self, spot_manager: SpotManager):
-        """Initialize the force controller for Spot's arm.
+    def __init__(self, manager: SpotManager) -> None:
+        """Initialize the force controller with an interface to control Spot."""
+        assert manager.has_arm(), "Cannot force-control Spot's arm if Spot has no arm!"
+        self._manager = manager
 
-        :param spot_manager: Manager of the connection to Spot
-        """
-        assert spot_manager.has_arm(), "Cannot control Spot's arm if Spot has no arm!"
-        self._manager = spot_manager
+        self._pose_broadcaster = PoseBroadcastThread()
 
     def probe_surface(
         self,
-        direction: NDArray[np.float64] | None = None,
+        direction: Point3D = Point3D(1, 0, 0),  # noqa: B008
         max_distance_m: float = 0.2,
-        velocity_m_per_s: float = 0.02,
-        force_threshold_n: float = 15.0,
+        velocity_mps: float = 0.02,
+        force_threshold_n: float = 8.0,
+        force_check_hz: float = 50.0,
         num_probes: int = 3,
         probe_interval_s: float = 0.5,
-    ) -> Plane3D:
-        """Probe forward to detect a surface using force sensing.
+    ) -> Plane3D | None:
+        """Probe forward with Spot's gripper to detect a surface using force sensing.
 
         Moves the gripper forward (relative to the end-effector frame) until contact
-        is detected via force threshold. Re-probes multiple times to build confidence
-        in the surface location, then returns a plane representation.
+        is detected. Re-probes multiple times to build confidence in the surface
+        location, then returns a plane representation.
 
-        :param direction: Direction vector in hand frame (defaults to [1, 0, 0] = forward)
+        :param direction: Direction vector in end-effector frame (defaults to (1, 0, 0) = forward)
         :param max_distance_m: Maximum distance to probe forward (meters)
-        :param velocity_m_per_s: Probing velocity (meters per second)
+        :param velocity_mps: Probing velocity (meters per second)
         :param force_threshold_n: Force threshold to detect contact (Newtons)
+        :param force_check_hz: Frequency (Hz) to check force sensor during probing
         :param num_probes: Number of probes to perform for averaging
         :param probe_interval_s: Time to wait between probes (seconds)
-        :return: Plane3D representation of the detected surface
+        :return: Plane3D representation of the detected surface, or None if no surface was detected
         """
         if not self._manager.has_control:
             raise RuntimeError("Cannot probe; SpotManager doesn't control Spot.")
 
-        # Default to probing forward in the hand frame (X-axis)
-        if direction is None:
-            direction = np.array([1.0, 0.0, 0.0])
-        else:
-            # Normalize the direction vector
-            direction = np.asarray(direction, dtype=np.float64)
-            direction = direction / np.linalg.norm(direction)
+        direction = direction.normalized()  # Normalize the direction vector
 
         self._manager.log_info(f"Starting surface probe with {num_probes} probes...")
 
-        # Collect contact points from multiple probes
         contact_points = []
         for i in range(num_probes):
             self._manager.log_info(f"Probe {i + 1}/{num_probes}...")
             contact_point = self._single_probe(
                 direction=direction,
                 max_distance_m=max_distance_m,
-                velocity_m_per_s=velocity_m_per_s,
+                velocity_mps=velocity_mps,
                 force_threshold_n=force_threshold_n,
+                force_check_hz=force_check_hz,
             )
-            contact_points.append(contact_point)
+            if contact_point is not None:
+                contact_points.append(contact_point.to_array())
 
             # Wait between probes (except after the last one)
             if i < num_probes - 1:
                 time.sleep(probe_interval_s)
 
-        # Average the contact points to get a more reliable surface point
-        contact_points_array = np.array(contact_points)
-        avg_contact_point = contact_points_array.mean(axis=0)
+        if not contact_points:
+            self._manager.log_info("All probes failed to find contact; returning None...")
+            return None
+
+        avg_contact_point = np.asarray(contact_points).mean(axis=0)
 
         self._manager.log_info(f"Surface detected at: {avg_contact_point}")
 
-        # The surface normal is opposite to the probing direction
-        # (we probed forward, so the surface faces backward toward us)
-        surface_normal = -direction
+        # Assume that the surface normal is opposite our probing direction
+        surface_normal = -direction.to_array()
 
         return Plane3D(point=avg_contact_point, normal=surface_normal)
 
     def _single_probe(
         self,
-        direction: NDArray[np.float64],
+        direction: Point3D,
         max_distance_m: float,
-        velocity_m_per_s: float,
+        velocity_mps: float,
         force_threshold_n: float,
-    ) -> NDArray[np.float64]:
+        force_check_hz: float,
+    ) -> Point3D | None:
         """Perform a single probing motion and return the contact point.
 
-        Uses incremental movements to probe forward, checking force after each step.
-
-        :param direction: Normalized direction vector in hand frame
-        :param max_distance_m: Maximum distance to probe
-        :param velocity_m_per_s: Probing velocity
-        :param force_threshold_n: Force threshold for contact detection
-        :return: Contact point in odom frame (shape: (3,))
+        :param direction: Direction vector in end-effector frame
+        :param max_distance_m: Maximum distance to probe forward (meters)
+        :param velocity_mps: Probing velocity (meters per second)
+        :param force_threshold_n: Force threshold to detect contact (Newtons)
+        :param force_check_hz: Frequency (Hz) to check force sensor during probing
+        :return: Contact position of Spot's hand in the odom frame (or None if no contact detected)
         """
-        # Use small incremental steps for better control
-        step_size_m = 0.01  # 1 cm steps
-        step_duration_s = step_size_m / velocity_m_per_s
-        num_steps = int(max_distance_m / step_size_m)
-
-        distance_traveled = 0.0
-        contact_detected = False
-        contact_position = None
-
-        for step in range(num_steps):
-            # Get current robot state and hand pose
-            robot_state = self._manager.get_robot_state()
-
-            # Check force before moving (in case we're already in contact)
-            if robot_state.manipulator_state.HasField("estimated_end_effector_force_in_hand"):
-                force_in_hand = robot_state.manipulator_state.estimated_end_effector_force_in_hand
-                force_magnitude = np.linalg.norm(
-                    [force_in_hand.x, force_in_hand.y, force_in_hand.z],
-                )
-
-                if force_magnitude > force_threshold_n:
-                    # Contact detected!
-                    odom_t_hand = get_a_tform_b(
-                        robot_state.kinematic_state.transforms_snapshot,
-                        ODOM_FRAME_NAME,
-                        HAND_FRAME_NAME,
-                    )
-                    contact_position = np.array([odom_t_hand.x, odom_t_hand.y, odom_t_hand.z])
-                    contact_detected = True
-                    self._manager.log_info(f"Contact detected! Force: {force_magnitude:.2f} N")
-                    break
-
-            # No contact yet, take another step forward
-            odom_t_hand = get_a_tform_b(
-                robot_state.kinematic_state.transforms_snapshot,
-                ODOM_FRAME_NAME,
-                HAND_FRAME_NAME,
-            )
-
-            # Transform direction vector to odom frame
-            direction_in_odom = odom_t_hand.rotation.transform_point(
-                direction[0],
-                direction[1],
-                direction[2],
-            )
-            direction_in_odom = np.array(direction_in_odom)
-
-            # Compute next target position
-            current_position = np.array([odom_t_hand.x, odom_t_hand.y, odom_t_hand.z])
-            target_position = current_position + direction_in_odom * step_size_m
-
-            # Build a short Cartesian trajectory for this step
-            start_pose = odom_t_hand.to_proto()
-            target_pose_proto = geometry_pb2.SE3Pose(
-                position=geometry_pb2.Vec3(
-                    x=target_position[0],
-                    y=target_position[1],
-                    z=target_position[2],
-                ),
-                rotation=start_pose.rotation,  # Keep same orientation
-            )
-
-            traj_points = [
-                trajectory_pb2.SE3TrajectoryPoint(
-                    pose=start_pose,
-                    time_since_reference=seconds_to_duration(0.0),
-                ),
-                trajectory_pb2.SE3TrajectoryPoint(
-                    pose=target_pose_proto,
-                    time_since_reference=seconds_to_duration(step_duration_s),
-                ),
-            ]
-
-            hand_trajectory = trajectory_pb2.SE3Trajectory(points=traj_points)
-
-            # Create arm cartesian command (pure position control)
-            arm_cartesian_command = arm_command_pb2.ArmCartesianCommand.Request(
-                pose_trajectory_in_task=hand_trajectory,
-                root_frame_name=ODOM_FRAME_NAME,
-                x_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
-                y_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
-                z_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
-                rx_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
-                ry_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
-                rz_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
-            )
-
-            arm_command = arm_command_pb2.ArmCommand.Request(
-                arm_cartesian_command=arm_cartesian_command,
-            )
-            synchronized_command = synchronized_command_pb2.SynchronizedCommand.Request(
-                arm_command=arm_command,
-            )
-            robot_command = robot_command_pb2.RobotCommand(
-                synchronized_command=synchronized_command,
-            )
-
-            # Send the command and wait for completion
-            command_id = self._manager.send_robot_command(robot_command)
-            block_until_arm_arrives(self._manager.command_client, command_id, step_duration_s + 1.0)
-
-            distance_traveled += step_size_m
-
-        if not contact_detected:
-            self._manager.log_info("No contact detected; reached max distance.")
-            # Return the final position
-            robot_state = self._manager.get_robot_state()
-            odom_t_hand = get_a_tform_b(
-                robot_state.kinematic_state.transforms_snapshot,
-                ODOM_FRAME_NAME,
-                HAND_FRAME_NAME,
-            )
-            contact_position = np.array([odom_t_hand.x, odom_t_hand.y, odom_t_hand.z])
-
-        return contact_position
-
-    def retract_after_probe(
-        self,
-        retract_distance_m: float = 0.05,
-        direction: NDArray[np.float64] | None = None,
-    ) -> None:
-        """Retract the gripper after probing (move backward from contact).
-
-        :param retract_distance_m: Distance to retract (meters)
-        :param direction: Direction to retract in hand frame (defaults to [-1, 0, 0] = backward)
-        """
-        # Default to retracting backward in the hand frame (opposite of probe direction)
-        if direction is None:
-            direction = np.array([-1.0, 0.0, 0.0])
-        else:
-            direction = np.asarray(direction, dtype=np.float64)
-            direction = direction / np.linalg.norm(direction)
-
-        self._manager.log_info(f"Retracting {retract_distance_m:.3f} m...")
-
-        # Get current robot state and hand pose
-        robot_state = self._manager.get_robot_state()
-        odom_t_hand = get_a_tform_b(
-            robot_state.kinematic_state.transforms_snapshot,
-            ODOM_FRAME_NAME,
-            HAND_FRAME_NAME,
+        # Capture initial end-effector pose to return to after contact
+        initial_pose = self._manager.get_hand_pose(ref_frame=ODOM_FRAME_NAME)
+        self._pose_broadcaster.poses["probe_initial_pose"] = pose_from_sdk(
+            initial_pose,
+            ref_frame=ODOM_FRAME_NAME,
         )
 
-        # Transform direction vector to odom frame
-        direction_in_odom = odom_t_hand.rotation.transform_point(
-            direction[0],
-            direction[1],
-            direction[2],
-        )
-        direction_in_odom = np.array(direction_in_odom)
-
-        # Compute target position
-        current_position = np.array([odom_t_hand.x, odom_t_hand.y, odom_t_hand.z])
-        target_position = current_position + direction_in_odom * retract_distance_m
-
-        # Build retraction trajectory (relatively fast)
-        retract_duration_s = 1.0
-        start_pose = odom_t_hand.to_proto()
-        target_pose_proto = geometry_pb2.SE3Pose(
-            position=geometry_pb2.Vec3(
-                x=target_position[0],
-                y=target_position[1],
-                z=target_position[2],
-            ),
-            rotation=start_pose.rotation,
+        # Pre-construct the return-to-initial-pose command for immediate execution on contact
+        return_command = RobotCommandBuilder.arm_pose_command_from_pose(
+            hand_pose=initial_pose.to_proto(),
+            frame_name=ODOM_FRAME_NAME,
+            seconds=1,  # Quick return to minimize contact time
         )
 
-        traj_points = [
-            trajectory_pb2.SE3TrajectoryPoint(
-                pose=start_pose,
-                time_since_reference=seconds_to_duration(0.0),
-            ),
-            trajectory_pb2.SE3TrajectoryPoint(
-                pose=target_pose_proto,
-                time_since_reference=seconds_to_duration(retract_duration_s),
-            ),
-        ]
+        # Calculate the target pose (max_distance_m in the probing direction)
+        direction_in_odom = np.asarray(
+            initial_pose.rotation.transform_point(direction.x, direction.y, direction.z),
+        )
+        initial_xyz = np.asarray([initial_pose.x, initial_pose.y, initial_pose.z])
+        target_xyz = Point3D.from_array(initial_xyz + direction_in_odom * max_distance_m)
+        target_pose = SE3Pose(
+            x=target_xyz.x,
+            y=target_xyz.y,
+            z=target_xyz.z,
+            rot=initial_pose.rotation,
+        )
+        self._pose_broadcaster.poses["probe_target_pose"] = pose_from_sdk(
+            target_pose,
+            ref_frame=ODOM_FRAME_NAME,
+        )
 
-        hand_trajectory = trajectory_pb2.SE3Trajectory(points=traj_points)
+        # Build a two-pose Cartesian trajectory with proper timing
+        # Based on: spot-sdk/python/examples/arm_trajectory/arm_long_cartesian_trajectory.py
+        total_duration_s = max_distance_m / velocity_mps
+        start_time = time.time() + 0.5  # Push the trajectory reference time into the future
+        ref_time = seconds_to_timestamp(start_time)
 
-        # Create arm cartesian command
-        arm_cartesian_command = arm_command_pb2.ArmCartesianCommand.Request(
-            pose_trajectory_in_task=hand_trajectory,
+        self._manager.log_info(f"Probing with a {total_duration_s:.2f}-second trajectory...")
+        arm_cartesian_command = RobotCommandBuilder.arm_cartesian_move_helper(
+            se3_poses=[initial_pose.to_proto(), target_pose.to_proto()],
+            times=[-0.1, total_duration_s],  # Start in the past for smooth execution!
             root_frame_name=ODOM_FRAME_NAME,
-            x_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
-            y_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
-            z_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
-            rx_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
-            ry_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
-            rz_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
+            ref_time=ref_time,
         )
 
-        arm_command = arm_command_pb2.ArmCommand.Request(
-            arm_cartesian_command=arm_cartesian_command,
+        # Send the trajectory (non-blocking)
+        command_id = self._manager.send_robot_command(
+            arm_cartesian_command,
+            duration_s=total_duration_s + 3.0,
         )
-        synchronized_command = synchronized_command_pb2.SynchronizedCommand.Request(
-            arm_command=arm_command,
-        )
-        robot_command = robot_command_pb2.RobotCommand(synchronized_command=synchronized_command)
+        if command_id is None:
+            self._manager.log_info("Received None instead of command ID when probing!")
+            return None
 
-        # Send the command and wait for completion
-        command_id = self._manager.send_robot_command(robot_command)
-        block_until_arm_arrives(self._manager.command_client, command_id, retract_duration_s + 1.0)
+        # Monitor force at the specified frequency
+        check_period_s = 1.0 / force_check_hz
+        contact_point = None
+        return_id = None
 
-        self._manager.log_info("Retraction complete.")
+        end_time = time.time() + total_duration_s
+        while time.time() < end_time:
+            robot_state = self._manager.get_robot_state()
+            wrench = robot_state.manipulator_state.estimated_end_effector_wrench_in_end_effector
+            force_n = np.linalg.norm(np.asarray([wrench.force.x, wrench.force.y, wrench.force.z]))
+
+            if force_n > force_threshold_n:  # Contact detected!
+                # Record current pose as contact location, then IMMEDIATELY retract
+                touch_pose = self._manager.get_hand_pose(ref_frame=ODOM_FRAME_NAME)
+
+                # Send pre-built return command immediately!
+                return_id = self._manager.send_robot_command(return_command)
+
+                # NOW calculate the contact point for return value (using recorded touch_pose)
+                self._manager.log_info(f"Contact detected! Force: {force_n:.2f} N.")
+                contact_xyz_odom_hand = np.asarray([touch_pose.x, touch_pose.y, touch_pose.z])
+
+                # Transform hand-to-fingertip offset from hand frame to odom frame
+                fingertip_offset_expressed_in_odom = np.asarray(
+                    touch_pose.rotation.transform_point(*HAND_T_FINGERTIP.position.to_tuple()),
+                )
+                contact_xyz = contact_xyz_odom_hand + fingertip_offset_expressed_in_odom
+                contact_point = Point3D.from_array(contact_xyz)
+
+                break
+
+            time.sleep(check_period_s)
+
+        # If contact was never detected, wait until trajectory finishes, then move to initial pose
+        if contact_point is None:
+            self._manager.log_info("No contact detected; waiting for trajectory to finish.")
+            self._manager.block_until_arm_arrives(command_id)
+            return_id = self._manager.send_robot_command(return_command)  # Return to initial pose
+
+        self._manager.log_info("Waiting for arm to return to initial pose...")
+        if return_id is not None:
+            self._manager.block_until_arm_arrives(return_id)
+        else:
+            time.sleep(1.5)  # Wait for the 1-second return command to complete (with buffer)
+
+        return contact_point
