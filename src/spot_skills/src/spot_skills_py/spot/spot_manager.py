@@ -27,7 +27,6 @@ from bosdyn.client.lease import (
     LeaseClient,
     LeaseKeepAlive,
     LeaseState,
-    LeaseWallet,
     ResourceAlreadyClaimedError,
     add_lease_wallet_processors,
 )
@@ -610,7 +609,7 @@ class SpotManager:
 
         self.log_info("Stowing Spot's arm...")
         arm_stow = RobotCommandBuilder.arm_stow_command()
-        command_id = self.send_robot_command(arm_stow, duration_s=5.0)
+        command_id = self.send_robot_command(arm_stow)  # No timeout
         if command_id is None:
             self.log_info("Could not stow Spot's arm.")
             return False

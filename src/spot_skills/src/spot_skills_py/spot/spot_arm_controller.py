@@ -245,7 +245,11 @@ class SpotArmController:
 
         return ArmCommandOutcome.PREEMPTED if preempted else ArmCommandOutcome.SUCCESS
 
-    def command_gripper(self, target_rad: float) -> GripperCommandOutcome:
+    def command_gripper(
+        self,
+        target_rad: float,
+        max_vel_radps: float = 0.5,
+    ) -> GripperCommandOutcome:
         """Command Spot's gripper to move to the specified angle (radians).
 
         Fully open gripper is -1.5707 radians, whereas fully closed gripper is 0 radians.
@@ -255,6 +259,7 @@ class SpotArmController:
         Reference: https://dev.bostondynamics.com/_modules/bosdyn/client/robot_command#RobotCommandBuilder.claw_gripper_open_angle_command
 
         :param target_rad: Target gripper angle (radians)
+        :param max_vel_radps: Maximum angular velocity (radians/second) for gripper movement
         :return: Enum indicating the outcome of the gripper command sent to Spot
         """
         if self._locked:
@@ -269,7 +274,10 @@ class SpotArmController:
             self._manager.log_info(f"Rejected gripper command requesting: {target_rad} rad.\n")
             return GripperCommandOutcome.FAILURE
 
-        robot_command = RobotCommandBuilder.claw_gripper_open_angle_command(target_rad)
+        robot_command = RobotCommandBuilder.claw_gripper_open_angle_command(
+            target_rad,
+            max_vel=max_vel_radps,
+        )
 
         self._command_id = self._manager.send_robot_command(robot_command)
         self._manager.log_info("Gripper command sent.\n")

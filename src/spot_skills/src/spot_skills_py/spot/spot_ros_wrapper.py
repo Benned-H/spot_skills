@@ -825,7 +825,7 @@ class SpotROS1Wrapper:
             message=f"Successfully resumed pose estimation for '{object_name}'.",
         )
 
-    def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.25) -> None:
+    def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.5) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
 
         If Spot's arm is unlocked, trajectories sent to this server will be executed.
