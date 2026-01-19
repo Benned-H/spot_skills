@@ -24,7 +24,7 @@ from bosdyn.client.frame_helpers import (
 )
 from bosdyn.client.robot_command import RobotCommandBuilder, block_until_arm_arrives
 from bosdyn.util import seconds_to_duration
-from robotics_utils.kinematics import Point3D
+from robotics_utils.geometry import Point3D
 
 from spot_skills_py.spot.spot_manager import SpotManager
 

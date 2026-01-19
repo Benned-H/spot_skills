@@ -13,7 +13,7 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
-from robotics_utils.kinematics import DEFAULT_FRAME, Point3D
+from robotics_utils.geometry import Point3D
 from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import TagTracker, TransformManager, get_ros_param
 from robotics_utils.ros.msg_conversion import (
@@ -22,6 +22,7 @@ from robotics_utils.ros.msg_conversion import (
 )
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
+from robotics_utils.spatial import DEFAULT_FRAME
 from robotics_utils.vision.fiducials import FiducialSystem
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 

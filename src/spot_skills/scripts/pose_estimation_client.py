@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import rospy
-from robotics_utils.kinematics import Pose3D
 from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.services import ServiceCaller
@@ -24,6 +23,7 @@ from spot_skills.srv import (
 
 if TYPE_CHECKING:
     from geometry_msgs.msg import PoseStamped
+    from robotics_utils.spatial import Pose3D
 
 
 class PoseEstimateClient:

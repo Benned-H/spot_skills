@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
 import rospy
-from bosdyn.api.graph_nav.map_pb2 import Graph as GraphProto
-from bosdyn.client.graph_nav import GraphNavClient
 from bosdyn.client.math_helpers import SE3Pose
-from robotics_utils.kinematics import DEFAULT_FRAME, Point3D, Pose3D, Quaternion
+from robotics_utils.geometry import Point3D
 from robotics_utils.ros.call_loop_thread import CallLoopThread
 from robotics_utils.ros.msg_conversion import point_to_msg, pose_to_msg
+from robotics_utils.spatial import DEFAULT_FRAME, Pose3D, Quaternion
 from std_msgs.msg import ColorRGBA, Header
 from visualization_msgs.msg import Marker, MarkerArray
+
+if TYPE_CHECKING:
+    from bosdyn.api.graph_nav.map_pb2 import Graph as GraphProto
+    from bosdyn.client.graph_nav import GraphNavClient
 
 
 def se3_to_pose(se3: SE3Pose, ref_frame: str = DEFAULT_FRAME) -> Pose3D:

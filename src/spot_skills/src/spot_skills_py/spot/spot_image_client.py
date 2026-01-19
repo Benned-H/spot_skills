@@ -12,9 +12,9 @@ from bosdyn.api.image_pb2 import Image, ImageCapture, ImageRequest, ImageRespons
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.lease import LeaseWallet, add_lease_wallet_processors
 from cv_bridge import CvBridge
-from robotics_utils.kinematics import Pose3D
-from robotics_utils.ros.transform_manager import TransformManager
-from robotics_utils.vision import CameraIntrinsics, DepthImage, RGBCamera, RGBImage
+from robotics_utils.ros import TransformManager
+from robotics_utils.spatial import Pose3D
+from robotics_utils.vision.cameras import CameraIntrinsics, RGBCamera
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image as ImageMsg
 

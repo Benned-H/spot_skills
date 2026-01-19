@@ -10,7 +10,7 @@ from bosdyn.client.frame_helpers import ODOM_FRAME_NAME
 from bosdyn.client.math_helpers import SE3Pose
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.util import seconds_to_timestamp
-from robotics_utils.kinematics import Plane3D, Point3D
+from robotics_utils.geometry import Plane3D, Point3D
 from robotics_utils.ros import PoseBroadcastThread
 
 from spot_skills_py.spot.spot_conversion import HAND_T_FINGERTIP, pose_from_sdk

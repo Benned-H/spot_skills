@@ -1,7 +1,8 @@
 """Define utilities and constants to convert to and from Spot SDK data structures."""
 
 from bosdyn.client.math_helpers import Quat, SE3Pose
-from robotics_utils.kinematics import Point3D, Pose3D, Quaternion
+from robotics_utils.geometry import Point3D
+from robotics_utils.spatial import Pose3D, Quaternion
 
 HAND_T_FINGERTIP = Pose3D.from_xyz_rpy(x=0.04843, z=-0.015, ref_frame="hand")
 """Relative pose of the `fingertip` frame relative to the Spot-published `hand` frame."""

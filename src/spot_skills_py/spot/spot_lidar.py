@@ -25,7 +25,7 @@ class SpotLiDAR:
         """
         self._robot = robot
         self._point_cloud_client: PointCloudClient = robot.ensure_client(
-            VELODYNE_SERVICE_NAME
+            VELODYNE_SERVICE_NAME,
         )
 
     def get_point_cloud(self, source: str = "velodyne-point-cloud") -> np.ndarray:

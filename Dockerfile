@@ -52,7 +52,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         ros-noetic-velodyne-description \
         ros-noetic-velodyne-pointcloud \
         ros-noetic-point-cloud2-filters \
-        ros-noetic-robot-body-filter && \
+        ros-noetic-robot-body-filter \
+        python3-tk && \
     # Clean up layer after using apt-get update
     rm -rf /var/lib/apt/lists/* && apt-get clean
 

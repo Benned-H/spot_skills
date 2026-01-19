@@ -7,7 +7,7 @@ This module provides perception-driven erasing that:
     4. Generates force-controlled erasing trajectories aligned to the plane normal
 """
 
-from robotics_utils.kinematics import Plane3D, Rectangle3D
+from robotics_utils.geometry import Plane3D, Rectangle3D
 
 from spot_skills_py.spot import SpotImageClient, SpotManager
 

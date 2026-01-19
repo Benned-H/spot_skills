@@ -19,7 +19,7 @@ from bosdyn.api.manipulation_api_pb2 import (
 )
 from bosdyn.api.spot import door_pb2
 from bosdyn.client import frame_helpers
-from robotics_utils.kinematics import Point3D
+from robotics_utils.geometry import Point3D
 from robotics_utils.ros import TransformManager
 from robotics_utils.vision import PixelXY, RGBImage
 from robotics_utils.vision.vlms.gemini import GeminiRoboticsBridge

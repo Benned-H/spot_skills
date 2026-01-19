@@ -57,8 +57,9 @@ from spot_skills_py.spot.spot_sync import SpotTimeSync
 if TYPE_CHECKING:
     from bosdyn.api.robot_command_pb2 import RobotCommand
     from bosdyn.api.robot_state_pb2 import RobotState
-    from robotics_utils.kinematics import Configuration, Pose2D
+    from robotics_utils.kinematics import Configuration
     from robotics_utils.robots import MobileRobot
+    from robotics_utils.spatial import Pose2D
 
 
 @dataclass(frozen=True)

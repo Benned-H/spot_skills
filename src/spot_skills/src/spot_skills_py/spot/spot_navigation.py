@@ -8,12 +8,13 @@ from typing import TYPE_CHECKING
 
 import rospy
 from geometry_msgs.msg import Twist
-from robotics_utils.kinematics import DEFAULT_FRAME, Pose2D, Waypoints
+from robotics_utils.kinematics import Waypoints
 from robotics_utils.motion_planning.navigation_goal import NavigationGoal
 from robotics_utils.robots.mobile_robot import MobileRobot
 from robotics_utils.ros.msg_conversion import pose_from_msg
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
+from robotics_utils.spatial import DEFAULT_FRAME, Pose2D
 
 from spot_skills.srv import (
     NameService,
@@ -23,11 +24,11 @@ from spot_skills.srv import (
     NavigateToPoseRequest,
     NavigateToPoseResponse,
 )
-from spot_skills_py.spot.spot_graph_nav import SpotGraphNav
 
 if TYPE_CHECKING:
-    from robotics_utils.skills.skill import SkillResult
+    from robotics_utils.skills.skill import Outcome
 
+    from spot_skills_py.spot.spot_graph_nav import SpotGraphNav
     from spot_skills_py.spot.spot_manager import SpotManager
 
 
@@ -148,7 +149,7 @@ class SpotNavigationServer(MobileRobot):
         success, message = self.navigate_to_pose(target_pose, self.timeout_s)
         return NameServiceResponse(success, message)
 
-    def navigate_to_pose(self, goal_pose: Pose2D, timeout_s: float) -> SkillResult:
+    def navigate_to_pose(self, goal_pose: Pose2D, timeout_s: float) -> Outcome:
         """Navigate using graph nav when available, fallback to global path planning.
 
         :param goal_pose: Target base pose for the robot (in DEFAULT_FRAME/"map")
@@ -168,9 +169,9 @@ class SpotNavigationServer(MobileRobot):
             message = "Spot has reached the navigation goal."
 
         meta_message = "GraphNav successful: " if success else "GraphNav unsuccessful: "
-        return success, f"{meta_message}{message}"
+        return Outcome(success, f"{meta_message}{message}")
 
-    def go_to_pose(self, base_pose: Pose2D, timeout_s: float) -> SkillResult:
+    def go_to_pose(self, base_pose: Pose2D, timeout_s: float) -> Outcome:
         """Move directly to the specified base pose.
 
         :param base_pose: Target base pose for the robot
@@ -180,12 +181,12 @@ class SpotNavigationServer(MobileRobot):
         self._manager.ensure_control(take_by_force=True)  # Forcefully ensure control of Spot
 
         if not self._manager.has_control:
-            return False, "Could not obtain control of Spot using the SpotManager."
+            return Outcome(False, "Could not obtain control of Spot using the SpotManager.")
 
         success = self._manager.move_to_base_pose(base_pose, self, timeout_s)
         message = "Movement was successful." if success else "Movement failed."
 
-        return success, message
+        return Outcome(success, message)
 
     def handle_cmd_vel(self, msg: Twist) -> None:
         """Handle a body-frame velocity command.

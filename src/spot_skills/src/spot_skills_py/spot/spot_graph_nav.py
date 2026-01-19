@@ -15,10 +15,10 @@ from bosdyn.client.graph_nav import GraphNavClient
 from bosdyn.client.map_processing import MapProcessingServiceClient
 from bosdyn.client.math_helpers import Quat, SE3Pose
 from bosdyn.client.recording import GraphNavRecordingServiceClient, NotReadyYetError
-from robotics_utils.kinematics import Point3D, Pose2D, Pose3D, Quaternion
-from robotics_utils.ros import TransformManager
+from robotics_utils.geometry import Point3D
+from robotics_utils.ros import PoseBroadcastThread, TransformManager
 from robotics_utils.ros.call_loop_thread import CallLoopThread
-from robotics_utils.ros.pose_broadcast_thread import PoseBroadcastThread
+from robotics_utils.spatial import Pose2D, Pose3D, Quaternion
 
 if TYPE_CHECKING:
     from robotics_utils.kinematics import Pose2D
