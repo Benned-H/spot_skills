@@ -14,6 +14,7 @@ from bosdyn.client.lease import LeaseWallet, add_lease_wallet_processors
 from cv_bridge import CvBridge
 from robotics_utils.ros import TransformManager
 from robotics_utils.spatial import Pose3D
+from robotics_utils.vision import DepthImage, RGBImage
 from robotics_utils.vision.cameras import CameraIntrinsics, RGBCamera
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image as ImageMsg
@@ -408,7 +409,12 @@ class SpotRGBCamera(RGBCamera):
         intrinsics = image_client.get_intrinsics(camera_name, ImageFormat.RGB)
         frame_name = image_client.get_frame_name(camera_name)
 
-        super().__init__(camera_name, intrinsics, frame_name)
+        super().__init__(
+            name=camera_name,
+            intrinsics=intrinsics,
+            image_type=RGBImage,
+            frame_name=frame_name,
+        )
 
         self.image_client = image_client
         self.image_source = self.image_client.get_images

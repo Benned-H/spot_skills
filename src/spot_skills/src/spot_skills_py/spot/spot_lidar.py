@@ -1,220 +1,188 @@
-"""Define a class to interface with Spot's LiDAR point cloud service.
-
-Reference: https://github.com/boston-dynamics/spot-sdk/blob/master/python/examples/velodyne_client/client.py
-"""
+"""Define a class to interface with Spot's LiDAR point cloud service."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
-from bosdyn.api import point_cloud_pb2
-from robotics_utils.geometry import Point3D
-from robotics_utils.perception import LaserScan2D
-from robotics_utils.spatial import Pose2D, Pose3D, Quaternion
+from bosdyn.api.point_cloud_pb2 import PointCloud as PointCloudProto
+from bosdyn.api.point_cloud_pb2 import PointCloudResponse
+from bosdyn.client.frame_helpers import (
+    BODY_FRAME_NAME,
+    GROUND_PLANE_FRAME_NAME,
+    VISION_FRAME_NAME,
+    get_a_tform_b,
+)
+from bosdyn.client.point_cloud import build_pc_request
+from bosdyn.util import timestamp_to_sec
+from robotics_utils.reconstruction import PointCloud
+
+from spot_skills_py.spot.spot_conversion import pose_from_sdk
 
 if TYPE_CHECKING:
-    from bosdyn.api.point_cloud_pb2 import PointCloudRequest
+    from bosdyn.api.geometry_pb2 import FrameTreeSnapshot
     from bosdyn.client.point_cloud import PointCloudClient
-    from bosdyn.client.robot import Robot
+    from robotics_utils.spatial import Pose3D
 
-VISION_FRAME = "vision"
-"""Reference frame for LiDAR pose history (Spot's vision world frame)."""
+    from spot_skills_py.spot.spot_manager import SpotManager
+
+
+@dataclass(frozen=True)
+class StampedPose3D:
+    """A Pose3D and an associated timestamp (seconds)."""
+
+    pose: Pose3D
+    timestamp_s: float
+
+
+@dataclass(frozen=True)
+class StampedPointCloud:
+    """A PointCloud with the sensor pose at acquisition time."""
+
+    cloud: PointCloud
+    cloud_frame: str
+    """Reference frame of the XYZ data in the point cloud."""
+
+    sensor_frame_name: str
+    """Name of the sensor's reference frame."""
+
+    sensor_pose: Pose3D
+    timestamp_s: float
 
 
 class SpotLiDAR:
     """An interface for requesting and processing LiDAR data from Spot."""
 
-    def __init__(self, robot: Robot, lidar_source: str = "velodyne-point-cloud"):
+    def __init__(self, manager: SpotManager, lidar_source: str = "velodyne-point-cloud"):
         """Initialize the SpotLiDAR interface.
 
-        :param robot: Authenticated Spot robot instance
+        :param manager: Interface providing an authenticated Spot robot instance
         :param lidar_source: LiDAR point cloud source name (default: "velodyne-point-cloud")
         """
-        self._robot = robot
-        self._point_cloud_client: PointCloudClient = robot.ensure_client(lidar_source)
+        self._manager = manager
+        self._point_cloud_client: PointCloudClient = manager._robot.ensure_client(lidar_source)
         self.lidar_source = lidar_source
 
-    def _build_lidar_request(self) -> PointCloudRequest:
-        """Build a PointCloudRequest configured for LiDAR data.
+    def request_generic_pointcloud(self) -> PointCloudResponse | None:
+        """Request a point cloud using the generic (i.e., non-LiDAR-specific) interface.
 
-        :return: PointCloudRequest with CLOUD_TYPE_LIDAR set
+        This uses `build_pc_request` which does NOT set CLOUD_TYPE_LIDAR, so it
+        returns a generic PointCloud without beam/scan structure or pose history.
+
+        This is the same approach used in spot_ros/spot_wrapper's SpotEAP class.
+
+        :return: PointCloudResponse containing generic point cloud data
         """
-        request = point_cloud_pb2.PointCloudRequest()
-        request.point_cloud_source_name = self.lidar_source
-        request.cloud_type = point_cloud_pb2.PointCloudRequest.CLOUD_TYPE_LIDAR
-        return request
+        request = build_pc_request(self.lidar_source)
+        responses = self._point_cloud_client.get_point_cloud([request])
+        if not responses:
+            return None
+        return responses[0]
 
-    def _parse_pose_sample(self, pose_sample: LidarPoseSample) -> tuple[float, Pose3D]:
-        """Parse a LidarPoseSample into a timestamp and Pose3D.
+    def _log_snapshot_frames(self, snapshot: FrameTreeSnapshot) -> None:
+        """Log all frames available in a transforms_snapshot for debugging."""
+        edge_map = snapshot.child_to_parent_edge_map
+        frames_info = []
+        for child_frame, edge in edge_map.items():
+            frames_info.append(f"  {child_frame} -> {edge.parent_frame_name}")
+        self._manager.log_info("Snapshot frames:\n" + "\n".join(frames_info))
 
-        :param pose_sample: LidarPoseSample from lidar_pose_history
-        :return: Tuple of (timestamp_sec, Pose3D)
-        """
-        timestamp_sec = pose_sample.timestamp.seconds + pose_sample.timestamp.nanos * 1e-9
-        pos = pose_sample.position
-        rot = pose_sample.rotation
-        pose = Pose3D(
-            position=Point3D(pos.x, pos.y, pos.z),
-            orientation=Quaternion(x=rot.x, y=rot.y, z=rot.z, w=rot.w),
-            ref_frame=VISION_FRAME,
-        )
-        return timestamp_sec, pose
-
-    def _interpolate_pose(
-        self,
-        t: float,
-        t0: float,
-        pose0: Pose3D,
-        t1: float,
-        pose1: Pose3D,
-    ) -> Pose2D:
-        """Linearly interpolate between two poses and project to 2D.
-
-        :param t: Target timestamp
-        :param t0: Timestamp of first pose
-        :param pose0: First pose
-        :param t1: Timestamp of second pose
-        :param pose1: Second pose
-        :return: Interpolated Pose2D at timestamp t
-        """
-        if t1 == t0:
-            return pose0.to_2d()
-
-        alpha = (t - t0) / (t1 - t0)
-        alpha = np.clip(alpha, 0.0, 1.0)
-
-        # Linear interpolation for position
-        x = pose0.position.x + alpha * (pose1.position.x - pose0.position.x)
-        y = pose0.position.y + alpha * (pose1.position.y - pose0.position.y)
-
-        # Linear interpolation for yaw (handles wraparound)
-        yaw0 = pose0.yaw_rad
-        yaw1 = pose1.yaw_rad
-        delta_yaw = np.arctan2(np.sin(yaw1 - yaw0), np.cos(yaw1 - yaw0))
-        yaw = yaw0 + alpha * delta_yaw
-
-        return Pose2D(x=x, y=y, yaw_rad=yaw, ref_frame=VISION_FRAME)
-
-    def _get_pose_for_scan(
-        self,
-        scan_idx: int,
-        num_scans: int,
-        pose_samples: list[tuple[float, Pose3D]],
-    ) -> Pose2D:
-        """Get the interpolated pose for a specific scan index.
-
-        :param scan_idx: Index of the scan (0 to num_scans-1)
-        :param num_scans: Total number of scans
-        :param pose_samples: List of (timestamp, pose) tuples from pose history
-        :return: Interpolated Pose2D for the scan
-        """
-        if not pose_samples:
-            return Pose2D(x=0.0, y=0.0, yaw_rad=0.0, ref_frame=VISION_FRAME)
-
-        if len(pose_samples) == 1:
-            return pose_samples[0][1].to_2d()
-
-        # Compute the timestamp for this scan by interpolating between first and last
-        t_start = pose_samples[0][0]
-        t_end = pose_samples[-1][0]
-        scan_t = t_start + (scan_idx / max(num_scans - 1, 1)) * (t_end - t_start)
-
-        # Find bracketing pose samples for interpolation
-        for i in range(len(pose_samples) - 1):
-            t0, pose0 = pose_samples[i]
-            t1, pose1 = pose_samples[i + 1]
-            if t0 <= scan_t <= t1:
-                return self._interpolate_pose(scan_t, t0, pose0, t1, pose1)
-
-        # Extrapolate using the last two samples if scan_t is beyond the range
-        t0, pose0 = pose_samples[-2]
-        t1, pose1 = pose_samples[-1]
-        return self._interpolate_pose(scan_t, t0, pose0, t1, pose1)
-
-    def get_laser_scans(
+    def get_stamped_pointcloud(
         self,
         min_height_m: float = 0.1,
         max_height_m: float = 2.0,
-        range_min_m: float = 0.5,
-        range_max_m: float = 100.0,
-    ) -> list[LaserScan2D]:
-        """Request LiDAR data and return per-scan LaserScan2D objects with interpolated poses.
+        output_frame: str = VISION_FRAME_NAME,
+    ) -> StampedPointCloud | None:
+        """Request a height-filtered point cloud with the sensor pose at acquisition time.
 
-        Each scan corresponds to a single rotational position of the LiDAR, with all beams
-        firing simultaneously. The sensor pose for each scan is interpolated from the
-        lidar_pose_history provided by the SDK.
+        Uses the embedded transforms_snapshot in the PointCloudResponse to extract the
+        exact sensor pose when the data was captured. This allows correlating point cloud
+        data with Spot's pose, enabling aggregation of multiple captures.
 
         :param min_height_m: Minimum height of included points (meters)
         :param max_height_m: Maximum height of included points (meters)
-        :param range_min_m: Minimum valid range (meters)
-        :param range_max_m: Maximum valid range (meters)
-        :return: List of LaserScan2D objects, one per scan, with interpolated sensor poses
+        :param output_frame: Reference frame used for the point cloud (default: "vision")
+        :return: StampedPointCloud with points, sensor pose, and timestamp, or None if no data
         """
-        request = self._build_lidar_request()
-        responses = self._point_cloud_client.get_point_cloud([request])
+        response = self.request_generic_pointcloud()
+        if response is None:
+            return None
 
-        if not responses:
-            return []
+        # Get the robot state, which has the full transform tree available from Spot
+        # Retrieve immediately after the point cloud to minimize motion drift
+        robot_state = self._manager.get_robot_state()
 
-        response = responses[0]
-        lidar_cloud = response.lidar_cloud
+        # PointCloudResponse Reference:
+        # https://dev.bostondynamics.com/protos/bosdyn/api/proto_reference.html#pointcloudresponse
+        cloud_proto = response.point_cloud
+        source = cloud_proto.source
+        sensor_frame = source.frame_name_sensor
+        acquisition_time_s = timestamp_to_sec(source.acquisition_time)
 
-        num_beams = lidar_cloud.num_beams
-        num_scans = lidar_cloud.num_scans
-
-        if num_beams == 0 or num_scans == 0:
-            return []
-
-        # Parse pose history for interpolation
-        pose_samples = [
-            self._parse_pose_sample(sample) for sample in lidar_cloud.lidar_pose_history
-        ]
-
-        # Parse point data - structured as num_beams x num_scans, row-major order
-        # Reshape to (num_beams, num_scans, 3) for easy column (scan) access
-        point_data = np.frombuffer(lidar_cloud.data, dtype=np.float32)
-        points = point_data.reshape((num_beams, num_scans, 3))
-
-        laser_scans = []
-
-        for scan_idx in range(num_scans):
-            # Extract points for this scan (all beams at this rotational position)
-            scan_points = points[:, scan_idx, :]  # Shape: (num_beams, 3)
-
-            # Filter out invalid points (0, 0, 0) indicating missing returns
-            valid_mask = np.any(scan_points != 0, axis=1)
-            valid_points = scan_points[valid_mask]
-
-            if valid_points.shape[0] == 0:
-                continue
-
-            # Filter by height (z-coordinate relative to sensor)
-            z_coords = valid_points[:, 2]
-            height_mask = (z_coords >= min_height_m) & (z_coords <= max_height_m)
-            filtered_points = valid_points[height_mask]
-
-            if filtered_points.shape[0] == 0:
-                continue
-
-            # Convert to 2D polar coordinates (range, bearing) in sensor frame
-            x_coords = filtered_points[:, 0]
-            y_coords = filtered_points[:, 1]
-            ranges_m = np.sqrt(x_coords**2 + y_coords**2)
-            bearings_rad = np.arctan2(y_coords, x_coords)
-            beam_data = np.stack([ranges_m, bearings_rad], axis=1).astype(np.float32)
-
-            # Get interpolated sensor pose for this scan
-            sensor_pose = self._get_pose_for_scan(scan_idx, num_scans, pose_samples)
-
-            laser_scan = LaserScan2D(
-                sensor_pose=sensor_pose,
-                beam_data=beam_data,
-                range_min_m=range_min_m,
-                range_max_m=range_max_m,
+        # Find the sensor pose in the robot's body frame
+        snapshot = source.transforms_snapshot
+        body_t_sensor = get_a_tform_b(snapshot, BODY_FRAME_NAME, sensor_frame)
+        if body_t_sensor is None:
+            self._manager.log_info(
+                f"Could not find transform from '{sensor_frame}' to '{BODY_FRAME_NAME}'.",
             )
+            self._log_snapshot_frames(snapshot)
+            return None
 
-            if laser_scan.num_beams > 0:
-                laser_scans.append(laser_scan)
+        pose_b_s = pose_from_sdk(body_t_sensor, ref_frame=BODY_FRAME_NAME)
 
-        return laser_scans
+        # Find the body frame's pose in the output frame
+        robot_snapshot = robot_state.kinematic_state.transforms_snapshot
+        output_t_body = get_a_tform_b(robot_snapshot, output_frame, BODY_FRAME_NAME)
+        if output_t_body is None:
+            self._manager.log_info(
+                f"Could not find transform from '{BODY_FRAME_NAME}' to '{output_frame}'.",
+            )
+            self._log_snapshot_frames(robot_snapshot)
+            return None
+
+        pose_o_b = pose_from_sdk(output_t_body, ref_frame=output_frame)
+        pose_o_s = pose_o_b @ pose_b_s  # Sensor w.r.t. the output frame
+
+        # Find the body frame's pose in the ground-plane estimate frame
+        gpe_t_body = get_a_tform_b(robot_snapshot, GROUND_PLANE_FRAME_NAME, BODY_FRAME_NAME)
+        if gpe_t_body is None:
+            self._manager.log_info(
+                f"Unable to transform from '{BODY_FRAME_NAME}' to '{GROUND_PLANE_FRAME_NAME}'.",
+            )
+            self._log_snapshot_frames(robot_snapshot)
+            return None
+
+        pose_gpe_b = pose_from_sdk(gpe_t_body, ref_frame=GROUND_PLANE_FRAME_NAME)
+        pose_gpe_s = pose_gpe_b @ pose_b_s  # Sensor w.r.t. GPE frame
+
+        # Parse point cloud data into a NumPy array
+        if cloud_proto.encoding != PointCloudProto.ENCODING_XYZ_32F:
+            raise RuntimeError(f"Unexpected point cloud encoding: {cloud_proto.encoding}")
+
+        point_data = np.frombuffer(cloud_proto.data, dtype=np.float32)
+        points = point_data.reshape((cloud_proto.num_points, 3))
+
+        # Filter out invalid points indicated by (0, 0, 0)
+        valid_mask = np.any(points != 0, axis=1)
+        valid_points = points[valid_mask]
+        valid_point_cloud = PointCloud(points=valid_points)
+
+        # Filter out points based on their height in the ground-plane estimate frame
+        point_cloud_gpe = valid_point_cloud.transform(pose_gpe_s)
+        z_coords_gpe = point_cloud_gpe.points[:, 2]
+        height_mask = (z_coords_gpe >= min_height_m) & (z_coords_gpe <= max_height_m)
+        filtered_points = valid_points[height_mask]  # Shape (N, 3)
+
+        # Transform the remaining points into the requested output frame
+        point_cloud_wrt_sensor = PointCloud(points=filtered_points)
+        point_cloud_wrt_output = point_cloud_wrt_sensor.transform(pose_o_s)
+
+        return StampedPointCloud(
+            cloud=point_cloud_wrt_output,
+            cloud_frame=output_frame,
+            sensor_frame_name=sensor_frame,
+            sensor_pose=pose_o_s,
+            timestamp_s=acquisition_time_s,
+        )

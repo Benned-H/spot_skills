@@ -52,6 +52,7 @@ from rospy import loginfo as ros_loginfo
 from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
 from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
 from spot_skills_py.spot.spot_image_client import SpotImageClient
+from spot_skills_py.spot.spot_lidar import SpotLiDAR
 from spot_skills_py.spot.spot_sync import SpotTimeSync
 
 if TYPE_CHECKING:
@@ -155,6 +156,9 @@ class SpotManager:
 
         # Define an image client to interface with Spot's cameras
         self.image_client = SpotImageClient(self._robot, self.lease_wallet)
+
+        # Define an interface for Spot's LiDAR sensor
+        self.lidar_interface = SpotLiDAR(self)
 
         # Define clients used to control Spot to open doors
         self.manip_client = self._robot.ensure_client(ManipulationApiClient.default_service_name)

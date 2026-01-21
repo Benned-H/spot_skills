@@ -3,6 +3,7 @@
 from copy import deepcopy
 from pathlib import Path
 
+import numpy as np
 import rospy
 from actionlib import SimpleActionServer
 from control_msgs.msg import (
@@ -13,17 +14,23 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
+from nav_msgs.msg import OccupancyGrid as OccupancyGridMsg
 from robotics_utils.geometry import Point3D
+from robotics_utils.motion_planning import DiscreteGrid2D
+from robotics_utils.perception import LaserScan2D, OccupancyGrid2D
 from robotics_utils.robots import GripperAngleLimits
-from robotics_utils.ros import TagTracker, TransformManager, get_ros_param
+from robotics_utils.ros import CallLoopThread, TagTracker, TransformManager, get_ros_param
 from robotics_utils.ros.msg_conversion import (
+    occupancy_grid_to_msg,
     point_from_vector3_msg,
+    pointcloud_to_msg,
     pose_to_stamped_msg,
 )
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
-from robotics_utils.spatial import DEFAULT_FRAME
+from robotics_utils.spatial import DEFAULT_FRAME, Pose2D
 from robotics_utils.vision.fiducials import FiducialSystem
+from sensor_msgs.msg import PointCloud2
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from spot_skills.msg import RGBDPair
@@ -76,9 +83,8 @@ class SpotROS1Wrapper:
         """Initialize the ROS interface by creating an internal SpotManager."""
         # Initialize Spot's arm as locked before enabling any of the actions!
         self._arm_locked = True  # Begin without ROS control of Spot's arm
-
-        self._manager = None
-        self._arm_controller = None
+        self._manager_exists = False
+        self._arm_controller_exists = False
 
         TransformManager.init_node()
 
@@ -113,9 +119,11 @@ class SpotROS1Wrapper:
             username=spot_username,
             password=spot_password,
         )
+        self._manager_exists = True
 
         max_segment_len = 30  # Limit the points/segment in ArmController trajectories
         self._arm_controller = SpotArmController(self._manager, max_segment_len)
+        self._arm_controller_exists = True
 
         gemini_api_key = get_ros_param("~gemini_api_key", str, "NOT SPECIFIED")
         if gemini_api_key == "NOT SPECIFIED":
@@ -153,6 +161,10 @@ class SpotROS1Wrapper:
             Trigger,
             self.handle_release_control,
         )
+
+        self._pcd_pub = rospy.Publisher("spot/lidar_cloud", PointCloud2, latch=True, queue_size=1)
+        self._occ_pub = rospy.Publisher("occupancy_grid", OccupancyGridMsg, queue_size=1)
+
         self._pose_lookup_srv = rospy.Service("pose_lookup", PoseLookup, self.handle_pose_lookup)
         self._dock_srv = rospy.Service("spot/dock", Trigger, self.handle_dock)
         self._undock_srv = rospy.Service("spot/undock", Trigger, self.handle_undock)
@@ -233,6 +245,7 @@ class SpotROS1Wrapper:
                 SpotRGBCamera(camera_name, self._manager.image_client)
                 for camera_name in fiducial_system.camera_names
             ]
+            self._manager.log_info(str(spot_rgb_cameras))
 
             self.tag_tracker = TagTracker(fiducial_system, spot_rgb_cameras)
 
@@ -240,18 +253,68 @@ class SpotROS1Wrapper:
             self.manipulator.planning_scene.synchronize_state(self.tag_tracker.kinematic_state)
             self.tag_tracker.simulators.append(self.manipulator.planning_scene)
 
+        grid_parameters = DiscreteGrid2D(
+            Pose2D(x=-0.5, y=2.5, yaw_rad=0, ref_frame="map"),
+            resolution_m=0.1,
+            width_cells=100,
+            height_cells=100,
+        )
+        self.occupancy_grid = OccupancyGrid2D(grid=grid_parameters, min_obstacle_depth_m=0.05)
+        self._lidar_thread = CallLoopThread(func=self._update_lidar, loop_hz=1.0)
+
+    def _update_lidar(self) -> None:
+        """Update the occupancy grid with new LiDAR data from Spot."""
+        try:
+            stamped_cloud = self._manager.lidar_interface.get_stamped_pointcloud()
+            if stamped_cloud is None:
+                return
+
+            cloud_msg = pointcloud_to_msg(stamped_cloud.cloud, frame_id=stamped_cloud.cloud_frame)
+            self._pcd_pub.publish(cloud_msg)
+
+            # Convert the point cloud into a 2D laser scan
+            # The point cloud is in the vision frame, so compute ranges and bearings
+            #   relative to the sensor position and heading, not the world origin
+            sensor_pose_2d = stamped_cloud.sensor_pose.to_2d()
+            sensor_x = sensor_pose_2d.x
+            sensor_y = sensor_pose_2d.y
+            sensor_yaw = sensor_pose_2d.yaw_rad
+
+            x_coords = stamped_cloud.cloud.points[:, 0]
+            y_coords = stamped_cloud.cloud.points[:, 1]
+
+            # Vector from sensor to each point
+            x_rel = x_coords - sensor_x
+            y_rel = y_coords - sensor_y
+
+            ranges_m = np.sqrt(x_rel**2 + y_rel**2)
+
+            # Compute angles in vision frame, then convert to bearings relative to sensor heading
+            world_angles_rad = np.arctan2(y_rel, x_rel)
+            angles_rad = world_angles_rad - sensor_yaw
+            beam_data = np.stack([ranges_m, angles_rad], axis=1).astype(np.float32)  # (r, θ)
+
+            laser_scan = LaserScan2D(
+                sensor_pose=stamped_cloud.sensor_pose.to_2d(),
+                beam_data=beam_data,
+                range_min_m=0.5,
+                range_max_m=60,
+            )
+
+            self.occupancy_grid.update(laser_scan)
+
+            occupancy_msg = occupancy_grid_to_msg(grid=self.occupancy_grid)
+            self._occ_pub.publish(occupancy_msg)
+
+        except Exception as exc:
+            self._manager.log_info(f"Exception during LiDAR update: {exc}")
+
     def handle_stand(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to have Spot stand up.
 
         :param _: Message representing a request for Spot to stand (unused)
         :return: Response conveying whether Spot has successfully stood up
         """
-        if self._manager is None:
-            return TriggerResponse(
-                success=False,
-                message="SpotManager is None; could not make Spot stand.",
-            )
-
         stood_up = False
         if self._manager.ensure_control(take_by_force=False):
             stood_up = self._manager.stand_up(20)
@@ -266,12 +329,6 @@ class SpotROS1Wrapper:
         :param _: ROS message representing a request that Spot sits (unused)
         :return: Response conveying whether Spot has successfully sat down
         """
-        if self._manager is None:
-            return TriggerResponse(
-                success=False,
-                message="SpotManager is None; could not make Spot sit.",
-            )
-
         sit_success = False
         if self._manager.ensure_control(take_by_force=False):
             sit_success = self._manager.sit_down(20)
@@ -286,12 +343,6 @@ class SpotROS1Wrapper:
         :param _: ROS message requesting that Spot be docked (unused)
         :return: Response conveying whether Spot successfully docked
         """
-        if self._manager is None:
-            return TriggerResponse(
-                success=False,
-                message="SpotManager is None; could not make Spot dock.",
-            )
-
         dock_id = get_ros_param("spot/dock_id", int, default_value=520)
         success = self._manager.dock(dock_id)
         message = "Spot successfully docked." if success else "Spot failed to dock."
@@ -303,12 +354,6 @@ class SpotROS1Wrapper:
         :param _: ROS message requesting that Spot be undocked
         :return: Response conveying whether Spot successfully undocked
         """
-        if self._manager is None:
-            return TriggerResponse(
-                success=False,
-                message="SpotManager is None; could not undock Spot.",
-            )
-
         outcome = self._manager.undock()
         return TriggerResponse(outcome.success, outcome.message)
 
@@ -318,12 +363,6 @@ class SpotROS1Wrapper:
         :param _: ROS message requesting that Spot be shut down (unused)
         :return: Response conveying that shutdown was initiated
         """
-        if self._manager is None:
-            return TriggerResponse(
-                success=False,
-                message="SpotManager is None; could not shut down Spot.",
-            )
-
         self._manager.shutdown()
         rospy.signal_shutdown("Shutting down Spot ROS wrapper...")
 
@@ -335,12 +374,6 @@ class SpotROS1Wrapper:
         :param _: Message representing a request to unlock Spot's arm (unused)
         :return: Response conveying that Spot's arm has been unlocked
         """
-        if self._manager is None or self._arm_controller is None:
-            return TriggerResponse(
-                success=False,
-                message="SpotManager is not set up; could not unlock Spot's arm.",
-            )
-
         # When unlocking the arm, forcibly take control of Spot if necessary
         has_control = self._manager.ensure_control(take_by_force=True)
 
@@ -361,12 +394,6 @@ class SpotROS1Wrapper:
         :param _: Message representing a request to stow Spot's arm
         :return: Response conveying whether Spot's arm has been stowed
         """
-        if self._manager is None:
-            return TriggerResponse(
-                success=False,
-                message="SpotManager is not set up; could not stow Spot's arm.",
-            )
-
         if self._arm_locked:
             message = "Spot's arm was not stowed because Spot's arm remains locked."
             return TriggerResponse(success=False, message=message)
@@ -385,12 +412,6 @@ class SpotROS1Wrapper:
         :param _: Message representing a request to deploy Spot's arm
         :return: Response conveying whether Spot's arm has been deployed
         """
-        if self._manager is None:
-            return TriggerResponse(
-                success=False,
-                message="SpotManager is not set up; could not deploy Spot's arm.",
-            )
-
         if self._arm_locked:
             message = "Spot's arm was not deployed because Spot's arm remains locked."
             return TriggerResponse(success=False, message=message)
@@ -439,9 +460,6 @@ class SpotROS1Wrapper:
         :param _: ROS message request to save the map to file
         :return: Response conveying whether map was successfully saved
         """
-        if self._manager is None:
-            return TriggerResponse(success=False, message="Cannot save map; SpotManager is None.")
-
         if self._graph_nav is None:
             return TriggerResponse(
                 success=False,
@@ -458,9 +476,6 @@ class SpotROS1Wrapper:
         :param request_msg: Message specifying the name of the RGBD camera(s) to be used
         :return: Response containing the RGB and depth images, alongside camera info
         """
-        if self._manager is None:
-            raise RuntimeError("Cannot capture RGBD image pair when SpotManager is None!")
-
         request_protos = []
 
         for camera_name in request_msg.camera_names:
@@ -525,9 +540,6 @@ class SpotROS1Wrapper:
         response_msg = GetRGBImagesResponse()
         response_msg.images = []
 
-        if self._manager is None:
-            return response_msg
-
         request_protos = [
             self._manager.image_client.make_image_request(camera_name, ImageFormat.RGB)
             for camera_name in request_msg.camera_names
@@ -560,12 +572,6 @@ class SpotROS1Wrapper:
         if self._arm_locked:
             message = "Could not open door because Spot's arm remains locked."
             return OpenDoorResponse(success=False, message=message)
-
-        if self._manager is None:
-            return OpenDoorResponse(
-                success=False,
-                message="SpotManager is None; could not open the door.",
-            )
 
         if not self._manager.ensure_control(take_by_force=False):
             message = "Could not open door because SpotManager could not take control of Spot."
@@ -617,12 +623,6 @@ class SpotROS1Wrapper:
         :param request_msg: ROS message specifying a path to a trajectory YAML file
         :return: Response conveying whether Spot was able to play back the trajectory
         """
-        if self._manager is None:
-            return PlaybackTrajectoryResponse(
-                success=False,
-                message="SpotManager is None; could not play back a trajectory.",
-            )
-
         yaml_path = Path(request_msg.yaml_path)
         if not yaml_path.exists():
             return PlaybackTrajectoryResponse(
@@ -655,12 +655,6 @@ class SpotROS1Wrapper:
         :param _: Message representing a request to erase a board
         :return: Response conveying whether the whiteboard was erased
         """
-        if self._manager is None:
-            return TriggerResponse(
-                success=False,
-                message="SpotManager is None; could not erase the board.",
-            )
-
         if self._arm_locked:
             return TriggerResponse(
                 success=False,
@@ -687,12 +681,6 @@ class SpotROS1Wrapper:
         :param request: Message configuring the surface probe attempt
         :return: Response with a Boolean success indicator and outcome message
         """
-        if self._manager is None or self._arm_controller is None:
-            return ProbeSurfaceResponse(
-                success=False,
-                message="Cannot probe for surface; SpotManager or arm controller was None.",
-            )
-
         if not self._manager.has_control:
             return ProbeSurfaceResponse(
                 success=False,
@@ -724,12 +712,6 @@ class SpotROS1Wrapper:
         :param _: Message representing a request to take control of Spot
         :return: Response conveying whether control was successfully taken
         """
-        if self._manager is None:
-            return TriggerResponse(
-                success=False,
-                message="SpotManager is None; could not take control of Spot.",
-            )
-
         has_control = self._manager.ensure_control(take_by_force=True)
         message = (
             "SpotManager now controls Spot."
@@ -744,12 +726,6 @@ class SpotROS1Wrapper:
         :param _: Message representing a request to release control of Spot
         :return: Response conveying whether control was successfully released
         """
-        if self._manager is None:
-            return TriggerResponse(
-                success=False,
-                message="SpotManager is None; could not release control of Spot.",
-            )
-
         if not self._manager.has_control:
             return TriggerResponse(
                 success=True,
@@ -839,7 +815,7 @@ class SpotROS1Wrapper:
         result = FollowJointTrajectoryResult()
         result.error_code = -1  # Default error code: INVALID_GOAL
 
-        if self._manager is None or self._arm_controller is None:
+        if not (self._manager_exists and self._arm_controller_exists):
             result.error_string = "Could not follow trajectory because SpotManager is not set up."
             rospy.loginfo(f"[{self._arm_action_name}] {result.error_string}")
             self._arm_action_server.set_aborted(result)
@@ -918,7 +894,7 @@ class SpotROS1Wrapper:
         """
         gripper_command_result = GripperCommandResult()
 
-        if self._manager is None or self._arm_controller is None or self._arm_locked:
+        if (not self._manager_exists) or (not self._arm_controller_exists) or self._arm_locked:
             gripper_command_result.reached_goal = False
             self._gripper_action_server.set_aborted(gripper_command_result)
             return
