@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import contextlib
 import time
+from dataclasses import replace
 from math import radians
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import rospy
 from bosdyn.api.graph_nav import graph_nav_pb2, map_pb2, map_processing_pb2, nav_pb2
 from bosdyn.client.exceptions import ResponseError
 from bosdyn.client.frame_helpers import get_odom_tform_body, get_vision_tform_body
@@ -16,9 +18,10 @@ from bosdyn.client.map_processing import MapProcessingServiceClient
 from bosdyn.client.math_helpers import Quat, SE3Pose
 from bosdyn.client.recording import GraphNavRecordingServiceClient, NotReadyYetError
 from robotics_utils.geometry import Point3D
-from robotics_utils.ros import PoseBroadcastThread, TransformManager
+from robotics_utils.ros import PoseBroadcastThread, TransformManager, get_ros_param
 from robotics_utils.ros.call_loop_thread import CallLoopThread
 from robotics_utils.spatial import Pose2D, Pose3D, Quaternion
+from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 if TYPE_CHECKING:
     from robotics_utils.kinematics import Pose2D
@@ -44,6 +47,21 @@ class SpotGraphNav:
         self.map_path = map_path
         self.mapping_mode = mapping_mode
         self.should_load_map = load_map
+
+        # Optional map-to-seed frame transform correction (defaults to None)
+        self.map_t_seed: Pose3D | None = None
+
+        map_t_seed_xyz_rpy = get_ros_param("/map_to_seed/pose", param_t=list, default_value=[])
+        if map_t_seed_xyz_rpy:
+            self.map_t_seed = Pose3D.from_sequence(map_t_seed_xyz_rpy, ref_frame="map")
+            self._manager.log_info(f"Loaded map_t_seed correction: {self.map_t_seed}")
+
+        self._reload_map_to_seed_srv = rospy.Service(
+            "/spot/reload_map_to_seed",
+            Trigger,
+            self.handle_reload_map_to_seed,
+        )
+        self._relocalize_srv = rospy.Service("/spot/relocalize", Trigger, self.handle_relocalize)
 
         # Create metadata for the recording session
         self._recording_metadata = GraphNavRecordingServiceClient.make_client_metadata(
@@ -161,6 +179,27 @@ class SpotGraphNav:
         else:
             return True, f"Localized to waypoint '{waypoint_id}'."
 
+    def handle_reload_map_to_seed(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a request to reload the map-to-seed transform from ROS parameters."""
+        map_t_seed_xyz_rpy = get_ros_param("/map_to_seed/pose", param_t=list, default_value=[])
+        if not map_t_seed_xyz_rpy:
+            return TriggerResponse(
+                success=False,
+                message="Unable to find map-to-seed transform from ROS parameters.",
+            )
+
+        self.map_t_seed = Pose3D.from_sequence(map_t_seed_xyz_rpy, ref_frame="map")
+
+        return TriggerResponse(
+            success=True,
+            message=f"Loaded map_t_seed correction: {self.map_t_seed}",
+        )
+
+    def handle_relocalize(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a request to relocalize using the nearest visible fiducial."""
+        ok, msg = self.localize_nearest_fiducial()
+        return TriggerResponse(success=ok, message=msg)
+
     def update_odometry(self) -> bool:
         """Update the current odometry estimate based on localization from GraphNav.
 
@@ -173,19 +212,23 @@ class SpotGraphNav:
                 self._manager.log_info("GraphNav not localized!")
                 return False
 
-            sTb = SE3Pose.from_proto(loc.seed_tform_body)  # Body w.r.t. seed frame
+            seed_t_body = SE3Pose.from_proto(loc.seed_tform_body)  # Body w.r.t. seed frame
 
             robot_state = self._manager.get_robot_state()
-            vTb = get_vision_tform_body(robot_state.kinematic_state.transforms_snapshot)
-            bTv = SE3Pose(vTb.x, vTb.y, vTb.z, vTb.rot).inverse()
+            v_t_b = get_vision_tform_body(robot_state.kinematic_state.transforms_snapshot)
+            body_t_vision = SE3Pose(v_t_b.x, v_t_b.y, v_t_b.z, v_t_b.rot).inverse()
 
-            mTv = sTb * bTv  # Treat GraphNav's seed frame as the map frame in TF
+            s_t_v = seed_t_body * body_t_vision  # Vision frame w.r.t. GraphNav seed frame
 
-            pose_m_v = Pose3D(
-                Point3D(mTv.x, mTv.y, mTv.z),
-                Quaternion(x=mTv.rot.x, y=mTv.rot.y, z=mTv.rot.z, w=mTv.rot.w),
-                ref_frame="map",
+            pose_s_v = Pose3D(
+                position=Point3D(s_t_v.x, s_t_v.y, s_t_v.z),
+                orientation=Quaternion(x=s_t_v.rot.x, y=s_t_v.rot.y, z=s_t_v.rot.z, w=s_t_v.rot.w),
+                ref_frame="seed",
             )
+
+            # Treat GraphNav's seed frame as TF's map frame (apply correction if provided)
+            pose_m_v = pose_s_v if self.map_t_seed is None else (self.map_t_seed @ pose_s_v)
+            pose_m_v = replace(pose_m_v, ref_frame="map")
 
         except Exception as exc:
             self._manager.log_info(f"update_odometry failed: {exc}")

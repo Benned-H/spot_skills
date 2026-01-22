@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -79,9 +78,10 @@ class SpotNavigationServer(MobileRobot):
 
         self._CMD_VEL_DURATION_S = 1.0  # Duration (seconds) to execute each velocity command
 
-        self._tf_publisher_thread = threading.Thread(target=self._publish_waypoints_tf_loop)
-        self._tf_publisher_thread.daemon = True  # Thread exits when main process does
-        self._tf_publisher_thread.start()
+        # Broadcast the navigation waypoints as static transforms to TF
+        #   This makes them available for any timestamp query, preventing TF extrapolation errors
+        for name, pose in self.waypoints.items():
+            TransformManager.broadcast_static_transform(name, pose.to_3d())
 
     @property
     def current_base_pose(self) -> Pose2D:
@@ -199,15 +199,3 @@ class SpotNavigationServer(MobileRobot):
             angular_z_radps=msg.angular.z,
             duration_s=self._CMD_VEL_DURATION_S,
         )
-
-    def _publish_waypoints_tf_loop(self) -> None:
-        """Publish the defined waypoints' poses in a loop."""
-        try:
-            rate_hz = rospy.Rate(TransformManager.LOOP_HZ)
-            while not rospy.is_shutdown():
-                for name, pose in self.waypoints.items():
-                    TransformManager.broadcast_transform(name, pose.to_3d())
-
-                rate_hz.sleep()
-        except rospy.ROSInterruptException as ros_exc:
-            rospy.logwarn(f"[_publish_waypoints_tf_loop] {ros_exc}")

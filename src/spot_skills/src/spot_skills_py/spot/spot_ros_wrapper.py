@@ -86,6 +86,9 @@ class SpotROS1Wrapper:
         self._manager_exists = False
         self._arm_controller_exists = False
 
+        self._lidar_active = False
+        """Boolean indicating whether we should continually request LiDAR data from Spot."""
+
         TransformManager.init_node()
 
         # Set up all ROS action servers provided by the class (do this early so MoveIt finds them)
@@ -261,9 +264,13 @@ class SpotROS1Wrapper:
         )
         self.occupancy_grid = OccupancyGrid2D(grid=grid_parameters, min_obstacle_depth_m=0.05)
         self._lidar_thread = CallLoopThread(func=self._update_lidar, loop_hz=1.0)
+        self._lidar_active = True
 
     def _update_lidar(self) -> None:
         """Update the occupancy grid with new LiDAR data from Spot."""
+        if not self._lidar_active:
+            return
+
         try:
             stamped_cloud = self._manager.lidar_interface.get_stamped_pointcloud()
             if stamped_cloud is None:
@@ -394,17 +401,21 @@ class SpotROS1Wrapper:
         :param _: Message representing a request to stow Spot's arm
         :return: Response conveying whether Spot's arm has been stowed
         """
+        self._lidar_active = False  # Pause LiDAR updates while stowing Spot's arm
+
         if self._arm_locked:
             message = "Spot's arm was not stowed because Spot's arm remains locked."
-            return TriggerResponse(success=False, message=message)
+            success = False
+        else:
+            arm_stowed = False
+            if self._manager.ensure_control(take_by_force=False):
+                arm_stowed = self._manager.stow_arm()
 
-        arm_stowed = False
-        if self._manager.ensure_control(take_by_force=False):
-            arm_stowed = self._manager.stow_arm()
+            success = arm_stowed
+            message = "Spot's arm has been stowed." if arm_stowed else "Could not stow Spot's arm."
 
-        message = "Spot's arm has been stowed." if arm_stowed else "Could not stow Spot's arm."
-
-        return TriggerResponse(arm_stowed, message)
+        self._lidar_active = True
+        return TriggerResponse(success, message)
 
     def handle_deploy_arm(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to deploy Spot's arm.
@@ -583,6 +594,8 @@ class SpotROS1Wrapper:
                 message="Cannot open the door because Spot's gripper was None.",
             )
 
+        self._lidar_active = False  # Pause LiDAR updates while opening the door
+
         # Navigate to the "open_door" waypoint, if Spot has one
         if "open_door" in self._navigation_server.waypoints:
             open_door_waypoint = self._navigation_server.waypoints["open_door"]
@@ -593,6 +606,7 @@ class SpotROS1Wrapper:
         door_image = self._door_opener.capture_door_handle_image(request.body_pitch_rad)
 
         if self._door_opener.detect_handle_xy(door_image) is None:
+            self._lidar_active = True
             return OpenDoorResponse(
                 success=False,
                 message="Cannot open door because no door handle was detected.",
@@ -610,8 +624,9 @@ class SpotROS1Wrapper:
             ray_search_dist_m=request.ray_search_dist_m,
         )
 
-        message = "Spot opened the door." if door_opened else "Could not open the door."
+        self._lidar_active = True
 
+        message = "Spot opened the door." if door_opened else "Could not open the door."
         return OpenDoorResponse(door_opened, message)
 
     def handle_playback_trajectory(
@@ -638,6 +653,8 @@ class SpotROS1Wrapper:
             message = f"Cannot replay trajectory from {yaml_path} without control of Spot."
             return PlaybackTrajectoryResponse(success=False, message=message)
 
+        self._lidar_active = False  # Pause LiDAR updates during trajectory playback
+
         relative_poses = self.trajectory_replayer.load_relative_trajectory(yaml_path)
         rospy.loginfo(f"Loaded {len(relative_poses)} poses from YAML file: {yaml_path}.")
         success = self.trajectory_replayer.execute_hybrid_cartesian_sequence(relative_poses)
@@ -646,6 +663,8 @@ class SpotROS1Wrapper:
             if success
             else f"Unable to execute trajectory loaded from file: {yaml_path}"
         )
+
+        self._lidar_active = True
 
         return PlaybackTrajectoryResponse(success, message)
 
@@ -664,6 +683,8 @@ class SpotROS1Wrapper:
         if not self._manager.ensure_control(take_by_force=False):
             return TriggerResponse(success=False, message="Could not erase the whiteboard.")
 
+        self._lidar_active = False  # Pause LiDAR updates while erasing the board
+
         erase_traj_path = get_ros_param(
             "spot/erase_trajectory_path",
             Path,
@@ -672,6 +693,8 @@ class SpotROS1Wrapper:
         erase_traj = Point3D.load_points_from_yaml(erase_traj_path, collection_name="points")
 
         erase_board(self._manager, erase_traj)
+
+        self._lidar_active = True
 
         return TriggerResponse(success=True, message="Erased the whiteboard.")
 
@@ -686,6 +709,8 @@ class SpotROS1Wrapper:
                 success=False,
                 message="Cannot probe for surface; SpotManager doesn't control Spot.",
             )
+
+        self._lidar_active = False  # Pause LiDAR updates while probing
 
         plane_result = self._arm_controller.force_controller.probe_surface(
             direction=point_from_vector3_msg(request.direction),
@@ -703,6 +728,8 @@ class SpotROS1Wrapper:
             if success
             else "Probed for surface but no surface was found."
         )
+
+        self._lidar_active = True
 
         return ProbeSurfaceResponse(success, message)
 
@@ -793,9 +820,10 @@ class SpotROS1Wrapper:
 
         # If the object's pose is known, initialize its estimate accordingly
         if object_name in self.tag_tracker.kinematic_state.object_names:
-            known_pose = self.tag_tracker.kinematic_state.get_object_pose(object_name)
-            self.tag_tracker.kinematic_state.remove_object(object_name)
-            self.tag_tracker.pose_averager.update(object_name, known_pose)
+            known_pose = self.tag_tracker.kinematic_state.clear_object_pose(object_name)
+            if known_pose is not None:
+                self.tag_tracker.pose_averager.update(object_name, known_pose)
+                TransformManager.broadcast_transform(object_name, known_pose)
 
         return NameServiceResponse(
             success=True,
@@ -850,6 +878,8 @@ class SpotROS1Wrapper:
             self._arm_action_server.set_aborted(result)
             return
 
+        self._lidar_active = False  # Pause LiDAR updates while controlling Spot's arm
+
         # Attempt to send the trajectory using the SpotArmController
         outcome = self._arm_controller.command_trajectory(
             trajectory,
@@ -882,6 +912,8 @@ class SpotROS1Wrapper:
         elif outcome == ArmCommandOutcome.PREEMPTED:
             self._arm_action_server.set_preempted()
 
+        self._lidar_active = True
+
     def gripper_action_callback(self, goal: GripperCommandGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the GripperCommandAction action server.
 
@@ -899,6 +931,8 @@ class SpotROS1Wrapper:
             self._gripper_action_server.set_aborted(gripper_command_result)
             return
 
+        self._lidar_active = False  # Pause LiDAR updates while controlling Spot's gripper
+
         goal_position_rad = goal.command.position  # Ignoring goal.command.max_effort
 
         outcome = GripperCommandOutcome.FAILURE
@@ -914,3 +948,5 @@ class SpotROS1Wrapper:
             gripper_command_result.stalled = outcome == GripperCommandOutcome.STALLED
 
             self._gripper_action_server.set_succeeded(gripper_command_result)
+
+        self._lidar_active = True

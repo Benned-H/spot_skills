@@ -15,6 +15,9 @@
     <param name="/spot/graph_nav/mapping_mode" value="$(arg mapping_mode)" />
     <param name="/spot/graph_nav/load_map" value="$(arg load_map)" />
 
+    <!-- Load map-to-seed transform correction (populates /map_to_seed/pose) -->
+    <rosparam file="$(find spot_skills)/config/map_to_seed.yaml" ns="map_to_seed" />
+
     <!-- Specify ROS parameters to configure navigation -->
 
     <!-- YAML file specifying the 2D poses of named waypoints -->
