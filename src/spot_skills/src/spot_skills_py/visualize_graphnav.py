@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import rospy
 from bosdyn.client.math_helpers import SE3Pose
 from robotics_utils.geometry import Point3D
+from robotics_utils.parallelism import ResourceManager
 from robotics_utils.ros.call_loop_thread import CallLoopThread
 from robotics_utils.ros.msg_conversion import point_to_msg, pose_to_msg
 from robotics_utils.spatial import DEFAULT_FRAME, Pose3D, Quaternion
@@ -62,7 +63,9 @@ class GraphNavRViz:
         ns: str = "graphnav",
         waypoint_size_m: float = 0.1,
         edge_width_m: float = 0.03,
+        *,
         show_labels: bool = True,
+        resource_manager: ResourceManager | None = None,
     ) -> None:
         """Initialize the class with everything needed to update the visualization."""
         self.client = client
@@ -72,12 +75,20 @@ class GraphNavRViz:
         self.edge_width_m = edge_width_m
         self.show_labels = show_labels
 
+        self.graph: NavigationGraph | None = None
+
         self._waypoint_color = ColorRGBA(0.1, 0.7, 1.0, 1.0)
         self._label_color = ColorRGBA(1.0, 1.0, 1.0, 0.8)
         self._edge_color = ColorRGBA(1.0, 0.5, 0.1, 1.0)
 
+        self.resource_manager = resource_manager
         self.pub = rospy.Publisher(topic, MarkerArray, queue_size=1, latch=True)
-        self.loop_thread = CallLoopThread(self.update, loop_hz=0.2)
+        self.loop_thread = CallLoopThread(
+            self.update,
+            loop_hz=1.0,
+            name="GraphNavRViz",
+            resource_manager=self.resource_manager,
+        )
 
     def get_updated_graph(self) -> NavigationGraph:
         """Retrieve an updated graph from the GraphNav client."""
@@ -138,22 +149,33 @@ class GraphNavRViz:
 
     def update(self) -> None:
         """Publish updated markers to visualize the current GraphNav graph."""
-        graph = self.get_updated_graph()
+        if self.resource_manager.should_pause:  # Exit early if RPC pause is requested
+            return
 
-        markers = MarkerArray()
-        markers.markers = []
-        marker_id = 0
-        for wp_name, wp_pose in graph.waypoints.items():
-            markers.markers.append(self._waypoint_marker(marker_id, wp_pose))
-            marker_id += 1
-            if self.show_labels:
-                markers.markers.append(self._label_marker(marker_id, wp_pose, wp_name))
+        if self.graph is not None:
+            markers = MarkerArray()
+            markers.markers = []
+            marker_id = 0
+            for wp_name, wp_pose in self.graph.waypoints.items():
+                markers.markers.append(self._waypoint_marker(marker_id, wp_pose))
                 marker_id += 1
+                if self.show_labels:
+                    markers.markers.append(self._label_marker(marker_id, wp_pose, wp_name))
+                    marker_id += 1
 
-        # Find the poses of the waypoints for each edge
-        edge_poses = [(graph.waypoints[src], graph.waypoints[dst]) for (src, dst) in graph.edges]
-        flattened = [p for edge in edge_poses for p in edge]
+            # Find the poses of the waypoints for each edge
+            edge_poses = [
+                (self.graph.waypoints[src], self.graph.waypoints[dst])
+                for (src, dst) in self.graph.edges
+            ]
+            flattened = [p for edge in edge_poses for p in edge]
 
-        markers.markers.append(self._edges_marker(marker_id, flattened))
+            markers.markers.append(self._edges_marker(marker_id, flattened))
 
-        self.pub.publish(markers)
+            self.pub.publish(markers)
+            self.graph = None  # Clear the stored graph once it's been published to RViz
+
+        if self.resource_manager.should_pause:  # Exit early if RPC pause is requested
+            return
+
+        self.graph = self.get_updated_graph()

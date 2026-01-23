@@ -142,6 +142,7 @@ class SpotArmController:
             self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the schedule.")
 
         # Retry loop: Adjust and resend only (no sleep)
+        cumulative_bump_s = 0.0  # Cumulative bump (seconds) to delay each retry
         for attempt in range(1, max_attempts + 1):
             try:
                 self._command_id = self._manager.send_robot_command(schedule.commands[idx])
@@ -153,17 +154,17 @@ class SpotArmController:
                 )
 
                 if "time point before the current robot time" not in str(err):
-                    raise err
+                    raise
 
                 if attempt == max_attempts:
                     self._manager.log_info("Out of attempts, exiting...")
-                    raise err
+                    raise
 
-                bump_s = 0.03 * (2 ** (attempt - 1))  # Minimum bump (seconds) to delay each retry
-
-                delta_s = schedule.slide_segment_if_late(idx, send_early_s + bump_s)
+                # Use previously observed lateness to inform retry (delay by cumulative_bump_s)
+                delta_s = schedule.slide_segment_if_late(idx, send_early_s + cumulative_bump_s)
                 if delta_s > 0:
                     self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the schedule.")
+                    cumulative_bump_s += delta_s + 0.05  # Build on observed lateness
 
             else:
                 self._manager.log_info("Trajectory segment sent.\n")

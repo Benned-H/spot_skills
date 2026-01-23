@@ -17,6 +17,7 @@ from control_msgs.msg import (
 from nav_msgs.msg import OccupancyGrid as OccupancyGridMsg
 from robotics_utils.geometry import Point3D
 from robotics_utils.motion_planning import DiscreteGrid2D
+from robotics_utils.parallelism import ResourceManager
 from robotics_utils.perception import LaserScan2D, OccupancyGrid2D
 from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import CallLoopThread, TagTracker, TransformManager, get_ros_param
@@ -29,6 +30,7 @@ from robotics_utils.ros.msg_conversion import (
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
 from robotics_utils.spatial import DEFAULT_FRAME, Pose2D
+from robotics_utils.states import ObjectCentricState
 from robotics_utils.vision.fiducials import FiducialSystem
 from sensor_msgs.msg import PointCloud2
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
@@ -67,6 +69,7 @@ from spot_skills_py.spot.spot_arm_controller import (
 from spot_skills_py.spot.spot_erase import erase_board
 from spot_skills_py.spot.spot_graph_nav import SpotGraphNav
 from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient, SpotRGBCamera
+from spot_skills_py.spot.spot_lidar import StampedPointCloud
 from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.spot.spot_navigation import SpotNavigationServer
 from spot_skills_py.spot.spot_open_door import SpotDoorOpener
@@ -81,15 +84,14 @@ class SpotROS1Wrapper:
 
     def __init__(self) -> None:
         """Initialize the ROS interface by creating an internal SpotManager."""
+        TransformManager.init_node()
+
         # Initialize Spot's arm as locked before enabling any of the actions!
         self._arm_locked = True  # Begin without ROS control of Spot's arm
         self._manager_exists = False
         self._arm_controller_exists = False
 
-        self._lidar_active = False
-        """Boolean indicating whether we should continually request LiDAR data from Spot."""
-
-        TransformManager.init_node()
+        self._robot_rpc_manager = ResourceManager(grace_period_s=1.0)
 
         # Set up all ROS action servers provided by the class (do this early so MoveIt finds them)
         self._arm_action_name = "arm_controller/follow_joint_trajectory"
@@ -124,8 +126,7 @@ class SpotROS1Wrapper:
         )
         self._manager_exists = True
 
-        max_segment_len = 30  # Limit the points/segment in ArmController trajectories
-        self._arm_controller = SpotArmController(self._manager, max_segment_len)
+        self._arm_controller = SpotArmController(self._manager)
         self._arm_controller_exists = True
 
         gemini_api_key = get_ros_param("~gemini_api_key", str, "NOT SPECIFIED")
@@ -140,6 +141,16 @@ class SpotROS1Wrapper:
             self._manager.take_control(force=True)
 
         # Initialize all ROS services provided by the class
+        self._grasp_srv = rospy.Service("spot/grasp_object", NameService, self.handle_grasp)
+        self._release_srv = rospy.Service("spot/release_object", NameService, self.handle_release)
+
+        self._reset_srv = rospy.Service("spot/reset_state", NameService, self.handle_reset_state)
+        self._open_container_srv = rospy.Service(
+            "spot/set_container_open",
+            NameService,
+            self.handle_set_container_open,
+        )
+
         self._stand_service = rospy.Service("spot/stand", Trigger, self.handle_stand)
         self._sit_service = rospy.Service("spot/sit", Trigger, self.handle_sit)
         self._shutdown_service = rospy.Service("spot/shutdown", Trigger, self.handle_shutdown)
@@ -232,12 +243,18 @@ class SpotROS1Wrapper:
                 map_path,
                 mapping_mode=mapping_mode,
                 load_map=load_map,
+                resource_manager=self._robot_rpc_manager,
             )
 
-            self._graph_nav_rviz = GraphNavRViz(self._graph_nav.graph_nav_client)
+            self._graph_nav_rviz = GraphNavRViz(
+                self._graph_nav.graph_nav_client,
+                resource_manager=self._robot_rpc_manager,
+            )
             self._navigation_server = SpotNavigationServer(self._manager, self._graph_nav)
 
             rospy.loginfo("Now initializing the SpotNavigationServer...")
+
+        self.tag_tracker: TagTracker | None = None
 
         apriltags_active = get_ros_param("/tag_tracker/active", bool, default_value=False)
         if apriltags_active:
@@ -250,11 +267,23 @@ class SpotROS1Wrapper:
             ]
             self._manager.log_info(str(spot_rgb_cameras))
 
-            self.tag_tracker = TagTracker(fiducial_system, spot_rgb_cameras)
+            self.tag_tracker = TagTracker(
+                fiducial_system,
+                spot_rgb_cameras,
+                resource_manager=self._robot_rpc_manager,
+            )
 
-            # Initialize all objects in the planning scene, then begin syncing in a loop
-            self.manipulator.planning_scene.synchronize_state(self.tag_tracker.kinematic_state)
-            self.tag_tracker.simulators.append(self.manipulator.planning_scene)
+        # Load the initial environment state from YAML and update the MoveIt planning scene
+        env_yaml_param = get_ros_param("/spot/env_yaml_path", str)
+        rospy.loginfo(f"Loading object-centric state from file: {env_yaml_param}")
+        self._env_state = ObjectCentricState.from_yaml(Path(env_yaml_param))
+        self.manipulator.planning_scene.set_state(self._env_state)
+
+        # Begin synchronizing the environment state with TF in a loop
+        self._state_thread = CallLoopThread(func=self._broadcast_frames, loop_hz=5.0)
+        self._planning_scene_thread = CallLoopThread(func=self._sync_planning_scene, loop_hz=5.0)
+
+        self.stamped_cloud: StampedPointCloud | None = None
 
         grid_parameters = DiscreteGrid2D(
             Pose2D(x=-0.5, y=2.5, yaw_rad=0, ref_frame="map"),
@@ -263,32 +292,93 @@ class SpotROS1Wrapper:
             height_cells=100,
         )
         self.occupancy_grid = OccupancyGrid2D(grid=grid_parameters, min_obstacle_depth_m=0.05)
-        self._lidar_thread = CallLoopThread(func=self._update_lidar, loop_hz=1.0)
-        self._lidar_active = True
+        self._last_occ_update_timestamp_s: float | None = None
+
+        self._lidar_thread = CallLoopThread(
+            func=self._update_lidar,
+            loop_hz=5.0,
+            name="Spot LiDAR",
+            resource_manager=self._robot_rpc_manager,
+        )
+        self._occupancy_thread = CallLoopThread(
+            func=self._update_occupancy,
+            loop_hz=5.0,
+            name="Occupancy Grid",
+            resource_manager=self._robot_rpc_manager,
+        )
+
+    def _broadcast_frames(self) -> None:
+        """Broadcast the current known and estimated reference frames to /tf."""
+        known_object_poses = self._env_state.known_object_poses
+        estimated_poses = {} if self.tag_tracker is None else self.tag_tracker.all_estimated_poses
+
+        # Attempt to publish the pose of each object in the environment (prioritize known poses)
+        for obj_name in self._env_state.object_names:
+            obj_pose = known_object_poses.get(obj_name)
+            if obj_pose is None:
+                obj_pose = estimated_poses.get(obj_name)
+            if obj_pose is not None:
+                TransformManager.broadcast_transform(frame_name=obj_name, relative_pose=obj_pose)
+
+        # Publish any additional known frames
+        known_frame_names = set(known_object_poses.keys())
+        unpublished_known_frame_names = known_frame_names.difference(self._env_state.object_names)
+        for frame_name in unpublished_known_frame_names:
+            known_pose = known_object_poses[frame_name]
+            TransformManager.broadcast_transform(frame_name=frame_name, relative_pose=known_pose)
+
+        # Publish any additional fiducial-estimated frames
+        est_frame_names = set(estimated_poses.keys())
+        unpublished_est_frame_names = est_frame_names.difference(
+            self._env_state.object_names,
+        ).difference(
+            unpublished_known_frame_names,
+        )
+        for frame_name in unpublished_est_frame_names:
+            est_pose = estimated_poses[frame_name]
+            TransformManager.broadcast_transform(frame_name=frame_name, relative_pose=est_pose)
+
+    def _sync_planning_scene(self) -> None:
+        """Synchronize the MoveIt planning scene with the stored environment state."""
+        if not self.manipulator.planning_scene.set_state(self._env_state):
+            rospy.logwarn("Failed to sync the MoveIt planning scene with the current state.")
 
     def _update_lidar(self) -> None:
-        """Update the occupancy grid with new LiDAR data from Spot."""
-        if not self._lidar_active:
+        """Update the stored stamped pointcloud using new LiDAR data from Spot."""
+        try:
+            self.stamped_cloud = self._manager.lidar_interface.get_stamped_pointcloud()
+            if self.stamped_cloud is None:
+                return
+
+            cloud_msg = pointcloud_to_msg(self.stamped_cloud.cloud, self.stamped_cloud.cloud_frame)
+            self._pcd_pub.publish(cloud_msg)
+
+        except Exception as exc:
+            self._manager.log_info(f"Exception during LiDAR update: {exc}")
+
+    def _update_occupancy(self) -> None:
+        """Update the occupancy grid with the current LiDAR data from Spot (if new)."""
+        if (
+            self._last_occ_update_timestamp_s is not None
+            and self.stamped_cloud is not None
+            and self.stamped_cloud.timestamp_s == self._last_occ_update_timestamp_s
+        ):
             return
 
         try:
-            stamped_cloud = self._manager.lidar_interface.get_stamped_pointcloud()
-            if stamped_cloud is None:
+            if self.stamped_cloud is None:
                 return
-
-            cloud_msg = pointcloud_to_msg(stamped_cloud.cloud, frame_id=stamped_cloud.cloud_frame)
-            self._pcd_pub.publish(cloud_msg)
 
             # Convert the point cloud into a 2D laser scan
             # The point cloud is in the vision frame, so compute ranges and bearings
             #   relative to the sensor position and heading, not the world origin
-            sensor_pose_2d = stamped_cloud.sensor_pose.to_2d()
+            sensor_pose_2d = self.stamped_cloud.sensor_pose.to_2d()
             sensor_x = sensor_pose_2d.x
             sensor_y = sensor_pose_2d.y
             sensor_yaw = sensor_pose_2d.yaw_rad
 
-            x_coords = stamped_cloud.cloud.points[:, 0]
-            y_coords = stamped_cloud.cloud.points[:, 1]
+            x_coords = self.stamped_cloud.cloud.points[:, 0]
+            y_coords = self.stamped_cloud.cloud.points[:, 1]
 
             # Vector from sensor to each point
             x_rel = x_coords - sensor_x
@@ -302,19 +392,74 @@ class SpotROS1Wrapper:
             beam_data = np.stack([ranges_m, angles_rad], axis=1).astype(np.float32)  # (r, θ)
 
             laser_scan = LaserScan2D(
-                sensor_pose=stamped_cloud.sensor_pose.to_2d(),
+                sensor_pose=self.stamped_cloud.sensor_pose.to_2d(),
                 beam_data=beam_data,
                 range_min_m=0.5,
                 range_max_m=60,
             )
 
             self.occupancy_grid.update(laser_scan)
+            self._last_occ_update_timestamp_s = self.stamped_cloud.timestamp_s
 
             occupancy_msg = occupancy_grid_to_msg(grid=self.occupancy_grid)
             self._occ_pub.publish(occupancy_msg)
-
         except Exception as exc:
-            self._manager.log_info(f"Exception during LiDAR update: {exc}")
+            self._manager.log_info(f"Exception during occupancy grid update: {exc}")
+
+    def handle_grasp(self, request: NameServiceRequest) -> NameServiceResponse:
+        """Handle a request to grasp the named object."""
+        object_name = request.name
+
+        if object_name not in self._env_state.object_names:
+            return NameServiceResponse(
+                success=False,
+                message=f"Cannot grasp unknown object: '{object_name}'.",
+            )
+
+        outcome = self.manipulator.grasp(object_name=object_name)
+        return NameServiceResponse(success=outcome.success, message=outcome.message)
+
+    def handle_release(self, request: NameServiceRequest) -> NameServiceResponse:
+        """Handle a request to release the named object."""
+        object_name = request.name
+
+        if object_name not in self._env_state.object_names:
+            return NameServiceResponse(
+                success=False,
+                message=f"Cannot release unknown object: '{object_name}'.",
+            )
+
+        outcome = self.manipulator.release(object_name=object_name)
+        return NameServiceResponse(success=outcome.success, message=outcome.message)
+
+    # TODO
+    # # Look up the pose of the end-effector w.r.t. the surface before releasing
+    # curr_pose_s_ee = TransformManager.lookup_transform(self._arm.ee_link_name, surface_name)
+    # if curr_pose_s_ee is None:
+    #     return Outcome(False, f"Unable to place '{object_name}' due to pose lookup failure.")
+    # pose_ee_o = grasped_pose_o_ee.inverse(pose_frame=self._arm.ee_link_name)
+    # curr_pose_s_o = curr_pose_s_ee @ pose_ee_o
+
+    # # Then actually release
+
+    # TransformManager.broadcast_transform(object_name, curr_pose_s_o)
+
+    def handle_set_container_open(self, request: NameServiceRequest) -> NameServiceResponse:
+        """Handle a request that the named container's state be set as open."""
+        self._env_state.open_container(container_name=request.name)
+        return NameServiceResponse(success=True, message=f"Successfully opened '{request.name}'.")
+
+    def handle_reset_state(self, request: NameServiceRequest) -> NameServiceResponse:
+        """Handle a request to reset the environment state based on a YAML file.
+
+        :param request: Service request containing a path to a YAML file
+        :return: Response conveying whether the reset succeeded and why
+        """
+        yaml_path = Path(request.name)
+        self._env_state = ObjectCentricState.from_yaml(yaml_path)
+
+        message = f"Successfully reset the environment state based on {yaml_path}."
+        return NameServiceResponse(success=True, message=message)
 
     def handle_stand(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to have Spot stand up.
@@ -401,21 +546,18 @@ class SpotROS1Wrapper:
         :param _: Message representing a request to stow Spot's arm
         :return: Response conveying whether Spot's arm has been stowed
         """
-        self._lidar_active = False  # Pause LiDAR updates while stowing Spot's arm
-
         if self._arm_locked:
-            message = "Spot's arm was not stowed because Spot's arm remains locked."
-            success = False
-        else:
-            arm_stowed = False
-            if self._manager.ensure_control(take_by_force=False):
-                arm_stowed = self._manager.stow_arm()
+            return TriggerResponse(
+                success=False,
+                message="Spot's arm was not stowed because Spot's arm remains locked.",
+            )
 
-            success = arm_stowed
-            message = "Spot's arm has been stowed." if arm_stowed else "Could not stow Spot's arm."
+        arm_stowed = False
+        if self._manager.ensure_control(take_by_force=False):
+            arm_stowed = self._manager.stow_arm()
 
-        self._lidar_active = True
-        return TriggerResponse(success, message)
+        message = "Spot's arm has been stowed." if arm_stowed else "Could not stow Spot's arm."
+        return TriggerResponse(success=arm_stowed, message=message)
 
     def handle_deploy_arm(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to deploy Spot's arm.
@@ -431,9 +573,12 @@ class SpotROS1Wrapper:
         if self._manager.ensure_control(take_by_force=False):
             deployed = self._manager.deploy_arm()
 
-        message = "Spot's arm has been deployed." if deployed else "Could not deploy Spot's arm."
-
-        return TriggerResponse(success=deployed, message=message)
+        return TriggerResponse(
+            success=deployed,
+            message=(
+                "Spot's arm has been deployed." if deployed else "Could not deploy Spot's arm."
+            ),
+        )
 
     def handle_start_mapping(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to start mapping using GraphNav.
@@ -594,40 +739,42 @@ class SpotROS1Wrapper:
                 message="Cannot open the door because Spot's gripper was None.",
             )
 
-        self._lidar_active = False  # Pause LiDAR updates while opening the door
-
         # Navigate to the "open_door" waypoint, if Spot has one
         if "open_door" in self._navigation_server.waypoints:
             open_door_waypoint = self._navigation_server.waypoints["open_door"]
             self._navigation_server.navigate_to_pose(open_door_waypoint, timeout_s=15.0)
 
-        # Call the operations needed for door-opening, step-by-step
-        self.manipulator.gripper.open()
-        door_image = self._door_opener.capture_door_handle_image(request.body_pitch_rad)
+        with self._robot_rpc_manager.priority() as got_priority:
+            if not got_priority:
+                return OpenDoorResponse(
+                    success=False,
+                    message="Could not obtain RPC priority; background threads still active.",
+                )
 
-        if self._door_opener.detect_handle_xy(door_image) is None:
-            self._lidar_active = True
-            return OpenDoorResponse(
-                success=False,
-                message="Cannot open door because no door handle was detected.",
+            # Call the operations needed for door-opening, step-by-step
+            self.manipulator.gripper.open()
+            door_image = self._door_opener.capture_door_handle_image(request.body_pitch_rad)
+
+            if self._door_opener.detect_handle_xy(door_image) is None:
+                return OpenDoorResponse(
+                    success=False,
+                    message="Cannot open door because no door handle was detected.",
+                )
+
+            rospy.loginfo("SpotDoorOpener successfully detected a door handle.")
+
+            is_pull = bool(request.is_pull)
+            hinge_on_left = bool(request.hinge_on_left)
+
+            door_opened = self._door_opener.open_door(
+                is_pull=is_pull,
+                hinge_on_left=hinge_on_left,
+                door_offset_m=request.door_offset_m,
+                ray_search_dist_m=request.ray_search_dist_m,
             )
 
-        rospy.loginfo("SpotDoorOpener successfully detected a door handle.")
-
-        is_pull = bool(request.is_pull)
-        hinge_on_left = bool(request.hinge_on_left)
-
-        door_opened = self._door_opener.open_door(
-            is_pull=is_pull,
-            hinge_on_left=hinge_on_left,
-            door_offset_m=request.door_offset_m,
-            ray_search_dist_m=request.ray_search_dist_m,
-        )
-
-        self._lidar_active = True
-
-        message = "Spot opened the door." if door_opened else "Could not open the door."
-        return OpenDoorResponse(door_opened, message)
+            message = "Spot opened the door." if door_opened else "Could not open the door."
+            return OpenDoorResponse(door_opened, message)
 
     def handle_playback_trajectory(
         self,
@@ -653,20 +800,23 @@ class SpotROS1Wrapper:
             message = f"Cannot replay trajectory from {yaml_path} without control of Spot."
             return PlaybackTrajectoryResponse(success=False, message=message)
 
-        self._lidar_active = False  # Pause LiDAR updates during trajectory playback
+        with self._robot_rpc_manager.priority() as got_priority:
+            if not got_priority:
+                return PlaybackTrajectoryResponse(
+                    success=False,
+                    message="Unable to acquire RPC priority for trajectory playback.",
+                )
 
-        relative_poses = self.trajectory_replayer.load_relative_trajectory(yaml_path)
-        rospy.loginfo(f"Loaded {len(relative_poses)} poses from YAML file: {yaml_path}.")
-        success = self.trajectory_replayer.execute_hybrid_cartesian_sequence(relative_poses)
-        message = (
-            f"Successfully executed trajectory loaded from file: {yaml_path}"
-            if success
-            else f"Unable to execute trajectory loaded from file: {yaml_path}"
-        )
+            relative_poses = self.trajectory_replayer.load_relative_trajectory(yaml_path)
+            rospy.loginfo(f"Loaded {len(relative_poses)} poses from YAML file: {yaml_path}.")
+            success = self.trajectory_replayer.execute_hybrid_cartesian_sequence(relative_poses)
+            message = (
+                f"Successfully executed trajectory loaded from file: {yaml_path}"
+                if success
+                else f"Unable to execute trajectory loaded from file: {yaml_path}"
+            )
 
-        self._lidar_active = True
-
-        return PlaybackTrajectoryResponse(success, message)
+            return PlaybackTrajectoryResponse(success, message)
 
     def handle_erase_board(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to erase a whiteboard.
@@ -683,20 +833,20 @@ class SpotROS1Wrapper:
         if not self._manager.ensure_control(take_by_force=False):
             return TriggerResponse(success=False, message="Could not erase the whiteboard.")
 
-        self._lidar_active = False  # Pause LiDAR updates while erasing the board
+        with self._robot_rpc_manager.priority() as got_priority:
+            if not got_priority:
+                return TriggerResponse(success=False, message="Could not obtain RPC priority.")
 
-        erase_traj_path = get_ros_param(
-            "spot/erase_trajectory_path",
-            Path,
-            Path("/docker/spot_skills/src/spot_skills/config/erase_traj.yaml"),
-        )
-        erase_traj = Point3D.load_points_from_yaml(erase_traj_path, collection_name="points")
+            erase_traj_path = get_ros_param(
+                "spot/erase_trajectory_path",
+                Path,
+                Path("/docker/spot_skills/src/spot_skills/config/erase_traj.yaml"),
+            )
+            erase_traj = Point3D.load_points_from_yaml(erase_traj_path, collection_name="points")
 
-        erase_board(self._manager, erase_traj)
+            erase_board(self._manager, erase_traj)
 
-        self._lidar_active = True
-
-        return TriggerResponse(success=True, message="Erased the whiteboard.")
+            return TriggerResponse(success=True, message="Erased the whiteboard.")
 
     def handle_probe(self, request: ProbeSurfaceRequest) -> ProbeSurfaceResponse:
         """Handle a service request to probe for a surface using Spot's gripper.
@@ -710,28 +860,31 @@ class SpotROS1Wrapper:
                 message="Cannot probe for surface; SpotManager doesn't control Spot.",
             )
 
-        self._lidar_active = False  # Pause LiDAR updates while probing
+        with self._robot_rpc_manager.priority() as got_priority:
+            if not got_priority:
+                return ProbeSurfaceResponse(
+                    success=False,
+                    message="Could not obtain RPC priority before probing.",
+                )
 
-        plane_result = self._arm_controller.force_controller.probe_surface(
-            direction=point_from_vector3_msg(request.direction),
-            max_distance_m=request.max_distance_m,
-            velocity_mps=request.velocity_mps,
-            force_threshold_n=request.force_threshold_n,
-            force_check_hz=request.force_check_hz,
-            num_probes=request.num_probes,
-            probe_interval_s=request.probe_interval_s,
-        )
+            plane_result = self._arm_controller.force_controller.probe_surface(
+                direction=point_from_vector3_msg(request.direction),
+                max_distance_m=request.max_distance_m,
+                velocity_mps=request.velocity_mps,
+                force_threshold_n=request.force_threshold_n,
+                force_check_hz=request.force_check_hz,
+                num_probes=request.num_probes,
+                probe_interval_s=request.probe_interval_s,
+            )
 
-        success = plane_result is not None
-        message = (
-            f"Found surface: {plane_result}"
-            if success
-            else "Probed for surface but no surface was found."
-        )
+            success = plane_result is not None
+            message = (
+                f"Found surface: {plane_result}"
+                if success
+                else "Probed for surface but no surface was found."
+            )
 
-        self._lidar_active = True
-
-        return ProbeSurfaceResponse(success, message)
+            return ProbeSurfaceResponse(success, message)
 
     def handle_take_control(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to forcibly take control of Spot.
@@ -793,8 +946,14 @@ class SpotROS1Wrapper:
         """Handle a request to pause pose estimation for a specified object."""
         object_name = request.name
 
+        if object_name not in self._env_state.object_names:
+            return NameServiceResponse(
+                success=False,
+                message=f"Cannot pause pose estimation for unknown object '{object_name}'.",
+            )
+
         # Retrieve the object's current pose estimate and set it as the object's known pose
-        curr_pose = self.tag_tracker.get_object_pose(object_name)
+        curr_pose = self.tag_tracker.get_estimated_pose(object_name)
         if curr_pose is None:
             return NameServiceResponse(
                 success=False,
@@ -804,8 +963,7 @@ class SpotROS1Wrapper:
                 ),
             )
 
-        self.tag_tracker.kinematic_state.object_names.add(object_name)
-        self.tag_tracker.kinematic_state.set_object_pose(obj_name=object_name, new_pose=curr_pose)
+        self._env_state.set_object_pose(object_name, curr_pose)
 
         return NameServiceResponse(
             success=True,
@@ -816,14 +974,17 @@ class SpotROS1Wrapper:
         """Handle a request to resume pose estimation for a specified object."""
         object_name = request.name
 
-        self.tag_tracker.pose_averager.reset_frame(frame_name=object_name)
+        if object_name not in self._env_state.object_names:
+            return NameServiceResponse(
+                success=False,
+                message=f"Cannot resume pose estimation for unknown object '{object_name}'.",
+            )
 
         # If the object's pose is known, initialize its estimate accordingly
-        if object_name in self.tag_tracker.kinematic_state.object_names:
-            known_pose = self.tag_tracker.kinematic_state.clear_object_pose(object_name)
-            if known_pose is not None:
-                self.tag_tracker.pose_averager.update(object_name, known_pose)
-                TransformManager.broadcast_transform(object_name, known_pose)
+        known_pose = self._env_state.clear_object_pose(obj_name=object_name)
+        if known_pose is not None:
+            self.tag_tracker.pose_averager.reset_frame(frame_name=object_name)
+            self.tag_tracker.pose_averager.update(object_name, known_pose)
 
         return NameServiceResponse(
             success=True,
@@ -878,41 +1039,43 @@ class SpotROS1Wrapper:
             self._arm_action_server.set_aborted(result)
             return
 
-        self._lidar_active = False  # Pause LiDAR updates while controlling Spot's arm
+        with self._robot_rpc_manager.priority() as got_priority:
+            if not got_priority:
+                result.error_string = "Could not obtain RPC priority; other threads still active."
+                self._arm_action_server.set_aborted(result)
+                return
 
-        # Attempt to send the trajectory using the SpotArmController
-        outcome = self._arm_controller.command_trajectory(
-            trajectory,
-            self._arm_action_server,
-        )
-
-        # Update the ROS action server based on the outcome of the trajectory
-        if outcome == ArmCommandOutcome.SUCCESS:
-            rospy.sleep(delay_s)  # Delay after the end of any successful trajectory
-
-            result.error_code = int(outcome)
-            result.error_string = "Success!"
-            self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
-            self._arm_action_server.set_succeeded(result)
-
-        elif outcome == ArmCommandOutcome.INVALID_START:
-            result.error_string = (
-                "Could not follow trajectory because it did not begin "
-                "from the current configuration of Spot's arm."
+            # Attempt to send the trajectory using the SpotArmController
+            outcome = self._arm_controller.command_trajectory(
+                trajectory,
+                self._arm_action_server,
             )
 
-            self._arm_action_server.set_aborted(result)
+            # Update the ROS action server based on the outcome of the trajectory
+            if outcome == ArmCommandOutcome.SUCCESS:
+                rospy.sleep(delay_s)  # Delay after the end of any successful trajectory
 
-        elif outcome == ArmCommandOutcome.ARM_LOCKED:
-            result.error_string = "Could not follow trajectory because Spot's arm remains locked."
-            self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
+                result.error_code = int(outcome)
+                result.error_string = "Success!"
+                self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
+                self._arm_action_server.set_succeeded(result)
 
-            self._arm_action_server.set_aborted(result)
+            elif outcome == ArmCommandOutcome.INVALID_START:
+                result.error_string = (
+                    "Could not follow trajectory because it did not begin "
+                    "from the current configuration of Spot's arm."
+                )
 
-        elif outcome == ArmCommandOutcome.PREEMPTED:
-            self._arm_action_server.set_preempted()
+                self._arm_action_server.set_aborted(result)
 
-        self._lidar_active = True
+            elif outcome == ArmCommandOutcome.ARM_LOCKED:
+                result.error_string = "Could not follow trajectory because Spot's arm is locked."
+                self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
+
+                self._arm_action_server.set_aborted(result)
+
+            elif outcome == ArmCommandOutcome.PREEMPTED:
+                self._arm_action_server.set_preempted()
 
     def gripper_action_callback(self, goal: GripperCommandGoal, delay_s: float = 0.25) -> None:
         """Handle a new goal for the GripperCommandAction action server.
@@ -931,8 +1094,6 @@ class SpotROS1Wrapper:
             self._gripper_action_server.set_aborted(gripper_command_result)
             return
 
-        self._lidar_active = False  # Pause LiDAR updates while controlling Spot's gripper
-
         goal_position_rad = goal.command.position  # Ignoring goal.command.max_effort
 
         outcome = GripperCommandOutcome.FAILURE
@@ -948,5 +1109,3 @@ class SpotROS1Wrapper:
             gripper_command_result.stalled = outcome == GripperCommandOutcome.STALLED
 
             self._gripper_action_server.set_succeeded(gripper_command_result)
-
-        self._lidar_active = True

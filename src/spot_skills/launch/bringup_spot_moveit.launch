@@ -17,6 +17,10 @@
     <!-- If we're actively running TAMP, give the planner control over the robot joint states -->
     <arg name="tamp_controls_robot" default="false"/>
 
+    <!-- Path to a YAML file specifying the environment state -->
+    <arg name="env_yaml_path" default="$(find spot_skills)/config/env.yaml"/>
+    <param name="/spot/env_yaml_path" value="$(arg env_yaml_path)"/>
+
     <!-- Load an API key for Gemini Robotics-ER 1.5 from YAML -->
     <arg name="gemini_api_yaml" value="$(find spot_skills)/secrets/gemini_api_key.yaml" />
 

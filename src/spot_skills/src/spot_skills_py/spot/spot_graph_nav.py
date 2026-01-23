@@ -25,6 +25,7 @@ from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 if TYPE_CHECKING:
     from robotics_utils.kinematics import Pose2D
+    from robotics_utils.parallelism import ResourceManager
 
     from spot_skills_py.spot.spot_manager import SpotManager
 
@@ -39,14 +40,25 @@ class SpotGraphNav:
         *,
         mapping_mode: bool,
         load_map: bool,
+        resource_manager: ResourceManager | None = None,
     ) -> None:
-        """Initialize the GraphNav interface by storing a SpotManager instance."""
+        """Initialize the GraphNav interface.
+
+        :param manager: Interface for Spot using the Spot SDK
+        :param map_path: Path to an existing GraphNav map, or the output path for a new map
+        :param mapping_mode: Whether to continue to build the GraphNav map
+        :param load_map: Whether to load an existing GraphNav map from file
+        :param resource_manager: Optional resource manager for Spot's shared robot RPC API
+        """
         self._manager = manager
         self._robot = manager._robot
 
         self.map_path = map_path
         self.mapping_mode = mapping_mode
         self.should_load_map = load_map
+
+        if resource_manager is not None:  # Register that this constructor may use Spot's RPC API
+            resource_manager.register_thread("SpotGraphNav constructor")
 
         # Optional map-to-seed frame transform correction (defaults to None)
         self.map_t_seed: Pose3D | None = None
@@ -91,7 +103,12 @@ class SpotGraphNav:
 
         # Initialize threads to continually 1) broadcast and 2) update the latest odometry
         self._tf_broadcaster = PoseBroadcastThread()
-        self._tf_updater = CallLoopThread(self.update_odometry)
+        self._tf_updater = CallLoopThread(
+            self.update_odometry,
+            loop_hz=10.0,
+            name="SpotGraphNav odometry",
+            resource_manager=resource_manager,
+        )
 
         if self.should_load_map:
             if self.mapping_mode:
@@ -109,6 +126,9 @@ class SpotGraphNav:
         if self.mapping_mode:
             ok, msg = self.start_mapping()
             self._manager.log_info("Mapping started." if ok else f"Unable to start mapping: {msg}")
+
+        if resource_manager is not None:  # Record that the constructor is done using the RPC
+            resource_manager.unregister_thread("SpotGraphNav constructor")
 
     @property
     def currently_recording(self) -> bool:

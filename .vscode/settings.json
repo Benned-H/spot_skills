@@ -45,6 +45,12 @@
     "files.associations": {
         "*.launch": "xml"
     },
-    "python-envs.pythonProjects": [],
+    "python-envs.pythonProjects": [
+        {
+            "path": "src/spot_skills/src/robotics_utils/src/robotics_utils",
+            "envManager": "ms-python.python:venv",
+            "packageManager": "ms-python.python:pip"
+        }
+    ],
     "python-envs.defaultEnvManager": "ms-python.python:venv",
 }
