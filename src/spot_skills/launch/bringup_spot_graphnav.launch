@@ -30,6 +30,6 @@
     <param name="/spot/navigation/close_to_goal_rad" value="1.5708" />
 
     <!-- Duration (seconds) after which a navigation command will time out -->
-    <param name="/spot/navigation/timeout_s" value="20" />
+    <param name="/spot/navigation/timeout_s" value="120" />
 
 </launch>

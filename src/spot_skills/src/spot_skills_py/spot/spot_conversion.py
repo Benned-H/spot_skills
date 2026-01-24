@@ -8,6 +8,13 @@ HAND_T_FINGERTIP = Pose3D.from_xyz_rpy(x=0.04843, z=-0.015, ref_frame="hand")
 """Relative pose of the `fingertip` frame relative to the Spot-published `hand` frame."""
 
 
+NOMINAL_STAND_HEIGHT_M = 0.61
+"""Default height (m) of Spot's body when walking or standing.
+
+Reference: https://support.bostondynamics.com/s/article/Spot-Specifications-49916
+"""
+
+
 def quaternion_from_sdk(q: Quat) -> Quaternion:
     """Construct a Quaternion from a quaternion in the Spot SDK format."""
     return Quaternion(x=q.x, y=q.y, z=q.z, w=q.w)

@@ -18,6 +18,8 @@ from bosdyn.client.door import DoorClient
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.exceptions import Error as SDKError
 from bosdyn.client.frame_helpers import (
+    BODY_FRAME_NAME,
+    GRAV_ALIGNED_BODY_FRAME_NAME,
     HAND_FRAME_NAME,
     ODOM_FRAME_NAME,
     VISION_FRAME_NAME,
@@ -51,6 +53,7 @@ from rospy import loginfo as ros_loginfo
 
 from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
 from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
+from spot_skills_py.spot.spot_conversion import NOMINAL_STAND_HEIGHT_M
 from spot_skills_py.spot.spot_image_client import SpotImageClient
 from spot_skills_py.spot.spot_lidar import SpotLiDAR
 from spot_skills_py.spot.spot_sync import SpotTimeSync
@@ -182,6 +185,15 @@ class SpotManager:
 
         # Initialize the control status for the SpotManager
         self._control_status: SpotControlStatus = self._compute_status()
+
+        # Create reusable mobility params to prevent body compensation during arm motion
+        body_control = BodyControlParams(
+            body_assist_for_manipulation=BodyControlParams.BodyAssistForManipulation(
+                enable_body_yaw_assist=False,
+                enable_hip_height_assist=False,
+            ),
+        )
+        self._no_body_assist_params = MobilityParams(body_control=body_control)
 
     def wait_while_estopped(self, timeout_s: int = 30) -> bool:
         """Notify the user if Spot is e-stopped by spamming the ROS and Spot logs.
@@ -538,6 +550,57 @@ class SpotManager:
 
         return False
 
+    def build_hold_body_pose_command(self) -> RobotCommand:
+        """Build a stand command that holds Spot's current body pose.
+
+        If we don't explicitly command Spot to maintain its body pose when executing
+        ArmJointMoveCommands, it will reset to its default body pose.
+
+        :return: A RobotCommand that holds the current body pose without body assist
+        """
+        robot_state = self.get_robot_state()
+        transforms = robot_state.kinematic_state.transforms_snapshot
+
+        footprint_t_body = get_a_tform_b(transforms, GRAV_ALIGNED_BODY_FRAME_NAME, BODY_FRAME_NAME)
+        if not footprint_t_body:
+            raise RuntimeError("Unable to retrieve footprint-to-body transform from Spot.")
+
+        # For some reason, body height is specified relative to a "nominal stand height"
+        body_height_offset_m = footprint_t_body.z - NOMINAL_STAND_HEIGHT_M
+
+        quat = footprint_t_body.rot
+        body_orientation = EulerZXY(yaw=quat.to_yaw(), roll=quat.to_roll(), pitch=quat.to_pitch())
+
+        return RobotCommandBuilder.synchro_stand_command(
+            params=self._no_body_assist_params,
+            body_height=body_height_offset_m,
+            footprint_R_body=body_orientation,
+        )
+
+    def block_until_standing(self, command_id: int, timeout_s: float = 10.0) -> bool:
+        """Block until Spot achieves the specified stand command's target pose.
+
+        :param command_id: ID of an already-issued stand command
+        :param timeout_s: Timeout (seconds) for blocking (default: 10)
+        :return: True if the command completed, else False on timeout
+        """
+        end_time = time.time() + timeout_s
+        while time.time() < end_time:
+            response = self.command_client.robot_command_feedback(command_id)
+            sync_feedback = response.feedback.synchronized_feedback
+            status = sync_feedback.mobility_command_feedback.stand_feedback.status
+            standing_state = sync_feedback.mobility_command_feedback.stand_feedback.standing_state
+
+            if standing_state == StandCommand.Feedback.STANDING_FROZEN:
+                self.log_info("Spot is standing with its body frozen in place (STANDING_FROZEN).")
+
+            if status == StandCommand.Feedback.STATUS_IS_STANDING:
+                return True
+
+            time.sleep(0.25)
+
+        return False
+
     def block_until_arm_arrives(self, command_id: int) -> None:
         """Block until Spot's arm arrives at the identified command's goal.
 
@@ -560,9 +623,8 @@ class SpotManager:
         :return: Enum member indicating the outcome of the gripper command
         """
         end_time = time.time() + timeout_s
-        now = time.time()
 
-        while now < end_time:
+        while time.time() < end_time:
             response = self.command_client.robot_command_feedback(command_id)
             if response.feedback.HasField("synchronized_feedback"):
                 sync_fb = response.feedback.synchronized_feedback
@@ -580,8 +642,7 @@ class SpotManager:
                     if gripper_status == ClawGripperCommand.Feedback.STATUS_UNKNOWN:
                         return GripperCommandOutcome.FAILURE
 
-            time.sleep(0.1)
-            now = time.time()
+            time.sleep(0.25)
 
         return GripperCommandOutcome.FAILURE
 
@@ -638,12 +699,11 @@ class SpotManager:
             return False
 
         target_pose_v_b = TransformManager.convert_to_frame(pose, VISION_FRAME_NAME)
-        _, _, target_yaw_rad = target_pose_v_b.orientation.to_euler_rpy()
 
         trajectory_command = RobotCommandBuilder.synchro_se2_trajectory_point_command(
-            goal_x=target_pose_v_b.position.x,
-            goal_y=target_pose_v_b.position.y,
-            goal_heading=target_yaw_rad,
+            goal_x=target_pose_v_b.x,
+            goal_y=target_pose_v_b.y,
+            goal_heading=target_pose_v_b.yaw_rad,
             frame_name=VISION_FRAME_NAME,
             params=self._mobility_params,
         )
@@ -663,10 +723,17 @@ class SpotManager:
             reached_goal = spot_base.goal_reached(nav_goal, change_frames=True)
             time.sleep(0.2)
 
-        stop_command = RobotCommandBuilder.stop_command()
-        self.send_robot_command(stop_command)
+        self.stop_walking()
 
         return spot_base.goal_reached(nav_goal, change_frames=True)
+
+    def stop_walking(self) -> int | None:
+        """Command Spot to stop locomotion and stand in place.
+
+        :return: Command ID of the stop command
+        """
+        stop_command = RobotCommandBuilder.stop_command()
+        return self.send_robot_command(stop_command)
 
     def send_velocity_command(
         self,

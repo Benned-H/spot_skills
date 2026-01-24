@@ -6,17 +6,22 @@ import time
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
+from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client.exceptions import InvalidRequestError
+from bosdyn.client.frame_helpers import BODY_FRAME_NAME, GRAV_ALIGNED_BODY_FRAME_NAME, get_a_tform_b
 from bosdyn.client.robot_command import RobotCommandBuilder
+from bosdyn.geometry import EulerZXY
 from bosdyn.util import duration_to_seconds
 
 from spot_skills_py.spot.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
+from spot_skills_py.spot.spot_conversion import NOMINAL_STAND_HEIGHT_M
 from spot_skills_py.spot.spot_force_controller import SpotForceController
 from spot_skills_py.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
     from actionlib import SimpleActionServer
     from bosdyn.api.arm_command_pb2 import ArmJointTrajectory
+    from bosdyn.api.robot_command_pb2 import RobotCommand
 
     from spot_skills_py.joint_trajectory import JointTrajectory
     from spot_skills_py.segment_schedule import SegmentSchedule
@@ -70,6 +75,8 @@ class SpotArmController:
         self._locked = True
 
         self._DEBUG_MODE = False
+
+        # Create reusable mobility params to prevent body compensation during arm motion
 
     def unlock_arm(self) -> None:
         """Explicitly unlock Spot's arm, allowing the ArmController to control it."""
@@ -199,6 +206,9 @@ class SpotArmController:
             self._manager.log_info("Cannot command Spot's arm; SpotManager doesn't control Spot.")
             return ArmCommandOutcome.INVALID_START
 
+        # Build a robot command to prevent Spot from moving its body during the trajectory
+        body_command = self._manager.build_hold_body_pose_command()
+
         # Re-sync with Spot to ensure that round-trip times are up-to-date
         self._manager.time_sync.resync()
 
@@ -223,7 +233,7 @@ class SpotArmController:
         local_start_time_s = time.time() + self._future_proof_s
         trajectory.reference_timestamp = TimeStamp.from_time_s(local_start_time_s)
 
-        segments_schedule = trajectory.create_segment_schedule(self.max_segment_len)
+        segments_schedule = trajectory.create_segment_schedule(self.max_segment_len, body_command)
 
         preempted = False
         if action_server is None:  # Simpler case, where ROS can't preempt the command

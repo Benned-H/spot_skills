@@ -20,6 +20,7 @@ from bosdyn.client.recording import GraphNavRecordingServiceClient, NotReadyYetE
 from robotics_utils.geometry import Point3D
 from robotics_utils.ros import PoseBroadcastThread, TransformManager, get_ros_param
 from robotics_utils.ros.call_loop_thread import CallLoopThread
+from robotics_utils.skills import Outcome
 from robotics_utils.spatial import Pose2D, Pose3D, Quaternion
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
@@ -112,11 +113,12 @@ class SpotGraphNav:
 
         if self.should_load_map:
             if self.mapping_mode:
-                ok, msg = self.load_map(self.map_path, reanchor=False)
+                load_map_outcome = self.load_map(self.map_path, reanchor=False)
             else:
-                ok, msg = self.load_map_for_localization(self.map_path)
+                load_map_outcome = self.load_map_for_localization(self.map_path)
 
-            self._manager.log_info(f"Loading a map {'succeeded' if ok else 'failed'}: {msg}")
+            load_map_verb = "succeeded" if load_map_outcome.success else "failed"
+            self._manager.log_info(f"Loading a map {load_map_verb}: {load_map_outcome.message}")
 
             l_ok, l_msg = self.localize_nearest_fiducial()
             self._manager.log_info(f"Localization {'succeeded' if l_ok else 'failed'}: {l_msg}")
@@ -124,8 +126,13 @@ class SpotGraphNav:
             self.log_graph_info()
 
         if self.mapping_mode:
-            ok, msg = self.start_mapping()
-            self._manager.log_info("Mapping started." if ok else f"Unable to start mapping: {msg}")
+            start_outcome = self.start_mapping()
+
+            self._manager.log_info(
+                "Mapping started."
+                if start_outcome.success
+                else f"Unable to start mapping: {start_outcome.message}",
+            )
 
         if resource_manager is not None:  # Record that the constructor is done using the RPC
             resource_manager.unregister_thread("SpotGraphNav constructor")
@@ -161,7 +168,7 @@ class SpotGraphNav:
 
         return False
 
-    def localize_nearest_fiducial(self) -> tuple[bool, str]:
+    def localize_nearest_fiducial(self) -> Outcome:
         """Initialize localization using the nearest fiducial visible to Spot."""
         try:
             rs = self._manager.get_robot_state()
@@ -172,12 +179,11 @@ class SpotGraphNav:
             )
 
         except Exception as exc:
-            return False, f"Failed to localize to fiducial: {exc}"
+            return Outcome(success=False, message=f"Failed to localize to fiducial: {exc}")
 
-        else:
-            return True, "Localized to nearest fiducial."
+        return Outcome(success=True, message="Localized to nearest fiducial.")
 
-    def localize_to_waypoint(self, waypoint_id: str) -> tuple[bool, str]:
+    def localize_to_waypoint(self, waypoint_id: str) -> Outcome:
         """Initialize localization to a specific waypoint (must be exactly at that waypoint)."""
         try:
             rs = self._manager.get_robot_state()
@@ -194,10 +200,12 @@ class SpotGraphNav:
             )
 
         except Exception as exc:
-            return False, f"Failed to localize to waypoint '{waypoint_id}': {exc}"
+            return Outcome(
+                success=False,
+                message=f"Failed to localize to waypoint '{waypoint_id}': {exc}",
+            )
 
-        else:
-            return True, f"Localized to waypoint '{waypoint_id}'."
+        return Outcome(success=True, message=f"Localized to waypoint '{waypoint_id}'.")
 
     def handle_reload_map_to_seed(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a request to reload the map-to-seed transform from ROS parameters."""
@@ -217,8 +225,8 @@ class SpotGraphNav:
 
     def handle_relocalize(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a request to relocalize using the nearest visible fiducial."""
-        ok, msg = self.localize_nearest_fiducial()
-        return TriggerResponse(success=ok, message=msg)
+        l_outcome = self.localize_nearest_fiducial()
+        return TriggerResponse(success=l_outcome.success, message=l_outcome.message)
 
     def update_odometry(self) -> bool:
         """Update the current odometry estimate based on localization from GraphNav.
@@ -247,14 +255,15 @@ class SpotGraphNav:
             )
 
             # Treat GraphNav's seed frame as TF's map frame (apply correction if provided)
-            pose_m_v = pose_s_v if self.map_t_seed is None else (self.map_t_seed @ pose_s_v)
-            pose_m_v = replace(pose_m_v, ref_frame="map")
+            pose_m_s = self.map_t_seed if self.map_t_seed else Pose3D.identity(ref_frame="map")
+            pose_m_v = pose_m_s @ pose_s_v
 
         except Exception as exc:
             self._manager.log_info(f"update_odometry failed: {exc}")
             return False
 
         else:
+            self._tf_broadcaster.poses["seed"] = pose_m_s  # Seed w.r.t. map
             self._tf_broadcaster.poses["vision"] = pose_m_v  # Vision w.r.t. map
             return True
 
@@ -271,25 +280,28 @@ class SpotGraphNav:
                 return False
         return True
 
-    def start_mapping(self) -> tuple[bool, str]:
+    def start_mapping(self) -> Outcome:
         """Begin GraphNav recording (i.e., mapping) on the robot."""
         if self.currently_recording:
-            return True, "GraphNav was already recording a map."
+            return Outcome(success=True, message="GraphNav was already recording a map.")
 
         should_start = self.should_we_start_recording()
         if not should_start:
-            return False, "GraphNav isn't in the proper state to begin recording."
+            return Outcome(
+                success=False,
+                message="GraphNav isn't in the proper state to begin recording.",
+            )
 
         try:
             self.recording_client.start_recording(
                 recording_environment=self._recording_env,
             )
         except Exception as exc:
-            return False, f"Failed to start recording: {exc}"
-        else:
-            return True, "Recording started."
+            return Outcome(success=False, message=f"Failed to start recording: {exc}")
 
-    def stop_mapping(self) -> tuple[bool, str]:
+        return Outcome(success=True, message="Recording started.")
+
+    def stop_mapping(self) -> Outcome:
         """Stop recording and attempt to process/anchor/connect the GraphNav map."""
         first_iter = True
         while self.currently_recording:
@@ -304,7 +316,7 @@ class SpotGraphNav:
                 time.sleep(1.0)
                 continue
             except Exception as exc:
-                return False, f"Failed to stop recording: {exc}"
+                return Outcome(success=False, message=f"Failed to stop recording: {exc}")
 
         topo_ok = False
         anchor_ok = False
@@ -328,15 +340,21 @@ class SpotGraphNav:
             self._manager.log_info(f"Anchor processing failed: {exc}")
 
         if topo_ok and anchor_ok:
-            return True, "Recording stopped; topology processed and anchoring completed."
-
-        if topo_ok or anchor_ok:
-            return True, (
-                "Recording stopped; partial processing "
-                f"(topology={topo_ok}, anchoring={anchor_ok})."
+            return Outcome(
+                success=True,
+                message="Recording stopped; topology processed and anchoring completed.",
             )
 
-        return False, "Recording stopped but no processing completed."
+        if topo_ok or anchor_ok:
+            return Outcome(
+                success=True,
+                message=(
+                    "Recording stopped; partial processing "
+                    f"(topology={topo_ok}, anchoring={anchor_ok})."
+                ),
+            )
+
+        return Outcome(success=False, message="Recording stopped but no processing completed.")
 
     def log_graph_info(self) -> None:
         """Debugging function that logs information about the current graph.
@@ -359,7 +377,7 @@ class SpotGraphNav:
         except Exception as exc:
             self._manager.log_info(f"Exception while logging graph info: {exc}")
 
-    def save_map(self, output_dir: str | Path) -> tuple[bool, str]:
+    def save_map(self, output_dir: str | Path) -> Outcome:
         """Save the on-robot GraphNav map to the given directory.
 
         Note: Mapping is paused, if active, during this method.
@@ -368,16 +386,16 @@ class SpotGraphNav:
         :return: Boolean success indicator and a message describing the outcome
         """
         if self.currently_recording:
-            ok, msg = self.stop_mapping()
-            if ok:
-                self._manager.log_info(f"Successfully stopped mapping: {msg}")
+            stop_outcome = self.stop_mapping()
+            if stop_outcome.success:
+                self._manager.log_info(f"Successfully stopped mapping: {stop_outcome.message}")
             else:
-                self._manager.log_info(f"Unable to stop mapping: {msg}")
+                self._manager.log_info(f"Unable to stop mapping: {stop_outcome.message}")
 
         try:
             graph = self.graph_nav_client.download_graph()
             if not graph or len(graph.waypoints) == 0:
-                return False, "No graph present on robot to save."
+                return Outcome(success=False, message="No graph present on robot to save.")
 
             base = Path(output_dir)
             (base / "waypoint_snapshots").mkdir(parents=True, exist_ok=True)
@@ -406,7 +424,7 @@ class SpotGraphNav:
                     e_saved += 1
 
         except Exception as exc:
-            return False, f"Failed to save map: {exc}"
+            return Outcome(success=False, message=f"Failed to save map: {exc}")
 
         else:
             summary = (
@@ -416,15 +434,15 @@ class SpotGraphNav:
             )
 
             any_saved = (wp_saved > 0 or wp_total == 0) and (e_saved > 0 or e_total == 0)
-            return any_saved, summary
+            return Outcome(success=any_saved, message=summary)
 
-    def load_map(self, directory: str | Path, *, reanchor: bool = False) -> tuple[bool, str]:
+    def load_map(self, directory: str | Path, *, reanchor: bool = False) -> Outcome:
         """Load a GraphNav map from a directory and upload it to Spot."""
         try:
             base = Path(directory)
             graph_path = base / "graph"
             if not graph_path.exists():
-                return False, f"Missing map file: '{graph_path}'."
+                return Outcome(success=False, message=f"Missing map file: '{graph_path}'.")
 
             graph = map_pb2.Graph()
             graph.ParseFromString(graph_path.read_bytes())
@@ -445,7 +463,10 @@ class SpotGraphNav:
             for wid in response.unknown_waypoint_snapshot_ids:
                 p = wp_files.get(wid)
                 if not p:
-                    return False, f"Missing waypoint snapshot file on disk: '{wid}'."
+                    return Outcome(
+                        success=False,
+                        message=f"Missing waypoint snapshot file on disk: '{wid}'.",
+                    )
                 snap = map_pb2.WaypointSnapshot()
                 snap.ParseFromString(p.read_bytes())
                 self.graph_nav_client.upload_waypoint_snapshot(snap)
@@ -454,82 +475,112 @@ class SpotGraphNav:
             for eid in response.unknown_edge_snapshot_ids:
                 p = e_files.get(eid)
                 if not p:
-                    return False, f"Missing edge snapshot file on disk: '{eid}'."
+                    return Outcome(
+                        success=False,
+                        message=f"Missing edge snapshot file on disk: '{eid}'.",
+                    )
                 snap = map_pb2.EdgeSnapshot()
                 snap.ParseFromString(p.read_bytes())
                 self.graph_nav_client.upload_edge_snapshot(snap)
 
         except Exception as exc:
-            return False, f"Failed to load GraphNav map: {exc}"
+            return Outcome(success=False, message=f"Failed to load GraphNav map: {exc}")
 
-        else:
-            return True, f"Map loaded from '{base!r}' (reanchor={reanchor})."
+        return Outcome(success=True, message=f"Map loaded from '{base!r}' (reanchor={reanchor}).")
 
-    def load_map_for_localization(self, directory: str | Path) -> tuple[bool, str]:
+    def load_map_for_localization(self, directory: str | Path) -> Outcome:
         """Load a previously recorded map strictly for localization (no reanchor)."""
-        ok, msg = self.load_map(directory, reanchor=False)
-        if ok:
-            msg = f"{msg}\nNow localize (fiducial or waypoint) before navigating."
-        return ok, msg
+        outcome = self.load_map(directory, reanchor=False)
+        message = outcome.message
+        if outcome.success:
+            message += "\nNow localize (fiducial or waypoint) before navigating."
 
-    def navigate_to_pose(self, target_pose: Pose2D, timeout_s: float = 30.0) -> tuple[bool, str]:
-        """Navigate to the given base pose using GraphNav.
+        return Outcome(success=outcome.success, message=message)
 
-        :param target_pose: Target base pose for navigation
+    def navigate_to_pose(
+        self,
+        goal_wrt_seed: Pose2D,
+        body_z_m: float,
+        timeout_s: float = 30.0,
+    ) -> Outcome:
+        """Navigate to the given base pose in the "seed" frame using GraphNav.
+
+        :param goal_wrt_seed: Target base pose in the seed frame
+        :param body_z_m: z-coordinate of Spot's body frame w.r.t. the seed frame
         :param timeout_s: Duration (seconds) after which navigation times out, defaults to 30 s
-        :return: Tuple containing Boolean success and an outcome message
+        :return: Boolean success indicator and an outcome message
         """
+        if goal_wrt_seed.ref_frame != "seed":
+            actual_frame = goal_wrt_seed.ref_frame
+            return Outcome(
+                success=False,
+                message=f"Expected navigation target in 'seed' frame, not '{actual_frame}'.",
+            )
+
         if not self._manager.ensure_control(take_by_force=True):
-            return False, "SpotManager doesn't have control of the robot."
+            return Outcome(success=False, message="SpotManager doesn't have control of the robot.")
 
         if not self.check_localized():
-            return False, "Spot is not currently localized."
+            return Outcome(success=False, message="Spot is not currently localized.")
 
-        curr_pose_s_b = TransformManager.lookup_transform("body", "map")
-        if curr_pose_s_b is None:
-            return False, "Unable to find current transform from map frame to body frame."
-        curr_z = curr_pose_s_b.position.z
+        quat = Quat.from_yaw(goal_wrt_seed.yaw_rad)
+        goal_proto = SE3Pose(x=goal_wrt_seed.x, y=goal_wrt_seed.y, z=body_z_m, rot=quat).to_proto()
 
-        target_pose = TransformManager.convert_to_frame(target_pose, target_frame="map").to_2d()
+        self._manager.log_info(f"Starting GraphNav navigation to: {goal_wrt_seed}")
+        self._manager.log_info(f"Goal SE3Pose proto: {goal_proto}")
 
-        quat = Quat.from_yaw(target_pose.yaw_rad)
-        target_proto = SE3Pose(x=target_pose.x, y=target_pose.y, z=curr_z, rot=quat).to_proto()
-
-        nav_to_cmd_id: int | None = None
         end_time = time.time() + timeout_s
 
-        self._manager.log_info(f"Starting GraphNav navigation to: {target_pose}")
-
-        while time.time() < end_time:
-            try:
-                nav_to_cmd_id = self.graph_nav_client.navigate_to_anchor(
-                    target_proto,
-                    cmd_duration=1.0,
-                    command_id=nav_to_cmd_id,
-                )
-            except ResponseError as re:
-                return False, f"Error during navigation: {re}"
-
-            time.sleep(0.5)  # Sleep for half a second to allow for command execution
-
-            # Poll the robot for feedback to determine if the navigation command is complete
-            finished = self.check_finished(nav_to_cmd_id)
-            self._manager.log_info(f"Navigation has {'' if finished else 'not '}finished.")
-
-            if finished:
-                break
+        # Issue the navigation command once, then poll for completion and exit early
+        try:
+            nav_to_cmd_id = self.graph_nav_client.navigate_to_anchor(
+                goal_proto,
+                cmd_duration=timeout_s,
+            )
+        except ResponseError as re:
+            return Outcome(success=False, message=f"Error during navigation: {re}")
 
         if nav_to_cmd_id is None:
-            return False, "Navigation failed to start."
+            return Outcome(success=False, message="Navigation failed to start.")
+
+        while time.time() < end_time:
+            if self.check_finished(nav_to_cmd_id):  # TODO: Won't odometry be stale?
+                break
+
+            time.sleep(0.2)
+
+        self._manager.stop_walking()
+
+        # while time.time() < end_time:
+        #     try:
+        #         loc_state = self.graph_nav_client.get_localization_state()
+        #         self._manager.log_info(f"seed_t_body: {loc_state.localization.seed_tform_body}")
+
+        #         nav_to_cmd_id = self.graph_nav_client.navigate_to_anchor(
+        #             goal_proto,
+        #             cmd_duration=1.0,
+        #             command_id=nav_to_cmd_id,
+        #         )
+        #     except ResponseError as re:
+        #         return Outcome(success=False, message=f"Error during navigation: {re}")
+
+        #     time.sleep(0.5)  # Sleep for half a second to allow for command execution
+
+        #     # Poll the robot for feedback to determine if the navigation command is complete
+        #     finished = self.check_finished(nav_to_cmd_id)
+        #     self._manager.log_info(f"Navigation has {'' if finished else 'not '}finished.")
+
+        #     if finished:
+        #         break
 
         status = self.graph_nav_client.navigation_feedback(nav_to_cmd_id).status
         if status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_REACHED_GOAL:
-            return True, "Successfully completed graph navigation!"
+            return Outcome(True, "Successfully completed graph navigation!")
         if status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_LOST:
-            return False, "Robot got lost during navigation."
+            return Outcome(False, "Robot got lost during navigation.")
         if status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_STUCK:
-            return False, "Robot got stuck during navigation."
+            return Outcome(False, "Robot got stuck during navigation.")
         if status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_ROBOT_IMPAIRED:
-            return False, "Robot is impaired."
+            return Outcome(False, "Robot is impaired.")
 
-        return False, f"Navigation command timed out or did not succeed (status {status})."
+        return Outcome(False, f"Navigation command timed out or failed (status {status}).")

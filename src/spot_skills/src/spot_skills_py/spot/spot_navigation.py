@@ -9,24 +9,20 @@ import rospy
 from geometry_msgs.msg import Twist
 from robotics_utils.kinematics import Waypoints
 from robotics_utils.motion_planning.navigation_goal import NavigationGoal
+from robotics_utils.parallelism import ResourceManager
 from robotics_utils.robots.mobile_robot import MobileRobot
-from robotics_utils.ros.msg_conversion import pose_from_msg
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
+from robotics_utils.skills import Outcome
 from robotics_utils.spatial import DEFAULT_FRAME, Pose2D
 
 from spot_skills.srv import (
     NameService,
     NameServiceRequest,
     NameServiceResponse,
-    NavigateToPose,
-    NavigateToPoseRequest,
-    NavigateToPoseResponse,
 )
 
 if TYPE_CHECKING:
-    from robotics_utils.skills.skill import Outcome
-
     from spot_skills_py.spot.spot_graph_nav import SpotGraphNav
     from spot_skills_py.spot.spot_manager import SpotManager
 
@@ -42,18 +38,6 @@ class SpotNavigationServer(MobileRobot):
         self._manager = manager
         self._graph_nav = graph_nav
         self.base_frame = "body"
-
-        self._nav_to_pose_srv = rospy.Service(
-            "/spot/navigation/to_pose",
-            NavigateToPose,
-            self.handle_pose,
-        )
-
-        self._nav_to_waypoint_srv = rospy.Service(
-            "/spot/navigation/to_waypoint",
-            NameService,
-            self.handle_waypoint,
-        )
 
         # Provide a service to create new waypoints at Spot's current base pose
         self._new_waypoint_srv = rospy.Service(
@@ -71,7 +55,9 @@ class SpotNavigationServer(MobileRobot):
         # Load thresholds for when Spot is considered "close to a goal" from ROS params
         self.close_to_goal_m = get_ros_param("/spot/navigation/close_to_goal_m", float)
         self.close_to_goal_rad = get_ros_param("/spot/navigation/close_to_goal_rad", float)
-        self.timeout_s = get_ros_param("/spot/navigation/timeout_s", float)
+
+        # Ensure that we can access this ROS parameter, which we'll look up online later
+        get_ros_param("/spot/navigation/timeout_s", float)
 
         # Subscribe to a topic providing body-frame velocity commands
         self._cmd_vel_sub = rospy.Subscriber("cmd_vel", Twist, self.handle_cmd_vel, queue_size=1)
@@ -114,53 +100,34 @@ class SpotNavigationServer(MobileRobot):
 
         return NameServiceResponse(success=success, message=message)
 
-    def handle_pose(self, request: NavigateToPoseRequest) -> NavigateToPoseResponse:
-        """Handle a ROS service request for Spot to navigate to a given pose.
+    def navigate_to_pose(self, goal_pose: Pose2D, resource_manager: ResourceManager) -> Outcome:
+        """Navigate using GraphNav to the given target base pose in the seed frame.
 
-        :param request: Request specifying a pose to navigate to
-        :return: Response specifying whether the navigation succeeded
+        :param goal_pose: Target base pose for the robot
+        :param resource_manager: Resource manager for Spot's RPC client
+        :return: Boolean success indicator and an outcome message
         """
-        self._manager.log_info("Handling 'NavigateToPose' request...")
+        timeout_s = get_ros_param("/spot/navigation/timeout_s", float)
 
-        target_base_pose_2d = pose_from_msg(request.target_base_pose).to_2d()
-        success, message = self.navigate_to_pose(target_base_pose_2d, self.timeout_s)
-        return NavigateToPoseResponse(success, message)
+        goal_wrt_seed = TransformManager.convert_to_frame(goal_pose, target_frame="seed")
 
-    def handle_waypoint(self, request: NameServiceRequest) -> NameServiceResponse:
-        """Handle a ROS service request for Spot to navigate to a named waypoint.
+        body_in_seed = TransformManager.lookup_transform(child_frame="body", parent_frame="seed")
+        if body_in_seed is None:
+            return Outcome(False, "Unable to find current transform from map frame to body frame.")
+        body_z_m = body_in_seed.position.z
 
-        :param request: Request specifying a waypoint to navigate to
-        :return: Response specifying whether the navigation succeeded
-        """
-        if request.name not in self.waypoints:
-            available_waypoints = list(self.waypoints.keys())
-            message = (
-                f"Cannot navigate to unknown waypoint '{request.name}'.\n "
-                f"Available waypoints: {available_waypoints}"
-            )
-            return NameServiceResponse(success=False, message=message)
+        with resource_manager.priority() as got_priority:
+            if not got_priority:
+                rospy.logwarn(f"Navigating to pose {goal_wrt_seed} without RPC priority...")
 
-        self._manager.log_info(
-            f"Handling 'NavigateToWaypoint' request for waypoint '{request.name}'...",
-        )
-        target_pose = self.waypoints[request.name]
-        self._manager.log_info(f"Waypoint '{request.name}' has target pose: {target_pose}.")
+            nav_outcome = self._graph_nav.navigate_to_pose(goal_wrt_seed, body_z_m, timeout_s)
 
-        success, message = self.navigate_to_pose(target_pose, self.timeout_s)
-        return NameServiceResponse(success, message)
-
-    def navigate_to_pose(self, goal_pose: Pose2D, timeout_s: float) -> Outcome:
-        """Navigate using graph nav when available, fallback to global path planning.
-
-        :param goal_pose: Target base pose for the robot (in DEFAULT_FRAME/"map")
-        :param timeout_s: Total duration (seconds) after which navigation will time out
-        :return: Tuple containing Boolean success and an outcome message
-        """
-        success, message = self._graph_nav.navigate_to_pose(goal_pose, timeout_s)
+        success = nav_outcome.success
+        message = nav_outcome.message
 
         # If the Spot SDK thought Spot was stuck, but we're close enough, mark as successful
         nav_goal = NavigationGoal(
-            goal_pose,
+            goal_wrt_seed,
             self._manager.goal_reached_m,
             self._manager.goal_yaw_tolerance_rad,
         )
@@ -176,7 +143,7 @@ class SpotNavigationServer(MobileRobot):
 
         :param base_pose: Target base pose for the robot
         :param timeout_s: Timeout (seconds) for the movement command
-        :return: Tuple containing Boolean success and an outcome message
+        :return: Boolean success indicator and an outcome message
         """
         self._manager.ensure_control(take_by_force=True)  # Forcefully ensure control of Spot
 
