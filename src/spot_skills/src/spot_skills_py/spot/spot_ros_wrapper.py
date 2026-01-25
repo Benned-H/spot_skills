@@ -213,7 +213,7 @@ class SpotROS1Wrapper:
             NameService,
             self.handle_pause_pose_estimation,
         )
-        self._resumse_est_srv = rospy.Service(
+        self._resume_est_srv = rospy.Service(
             "spot/pose_estimation/resume",
             NameService,
             self.handle_resume_pose_estimation,
@@ -272,7 +272,11 @@ class SpotROS1Wrapper:
                 self._graph_nav.graph_nav_client,
                 resource_manager=self._robot_rpc_manager,
             )
-            self._navigation_server = SpotNavigationServer(self._manager, self._graph_nav)
+            self._navigation_server = SpotNavigationServer(
+                self._manager,
+                self._graph_nav,
+                self._robot_rpc_manager,
+            )
 
             rospy.loginfo("Now initializing the SpotNavigationServer...")
 
@@ -448,6 +452,7 @@ class SpotROS1Wrapper:
     def handle_release(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a request to release the named object."""
         object_name = request.name
+        surface_name = "TODO: Refactor the `handle_released` service!"
 
         if object_name not in self._env_state.object_names:
             return NameServiceResponse(
@@ -455,20 +460,11 @@ class SpotROS1Wrapper:
                 message=f"Cannot release unknown object: '{object_name}'.",
             )
 
-        outcome = self.manipulator.release(object_name=object_name)
+        outcome = self.manipulator.release(object_name=object_name, placed_frame=surface_name)
+
+        # TODO: Update the kinematic state using the object's new pose, etc.
+
         return NameServiceResponse(success=outcome.success, message=outcome.message)
-
-    # TODO
-    # # Look up the pose of the end-effector w.r.t. the surface before releasing
-    # curr_pose_s_ee = TransformManager.lookup_transform(self._arm.ee_link_name, surface_name)
-    # if curr_pose_s_ee is None:
-    #     return Outcome(False, f"Unable to place '{object_name}' due to pose lookup failure.")
-    # pose_ee_o = grasped_pose_o_ee.inverse(pose_frame=self._arm.ee_link_name)
-    # curr_pose_s_o = curr_pose_s_ee @ pose_ee_o
-
-    # # Then actually release
-
-    # TransformManager.broadcast_transform(object_name, curr_pose_s_o)
 
     def handle_set_container_open(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a request that the named container's state be set as open."""
@@ -568,8 +564,9 @@ class SpotROS1Wrapper:
         self._manager.log_info("Handling 'NavigateToPose' request...")
 
         target_2d = pose_from_msg(request.target_base_pose).to_2d()
+        timeout_s = request.timeout_s
 
-        outcome = self._navigation_server.navigate_to_pose(target_2d, self._robot_rpc_manager)
+        outcome = self._navigation_server.navigate_to_pose(target_2d, timeout_s)
         return NavigateToPoseResponse(outcome.success, outcome.message)
 
     def handle_waypoint(self, request: NameServiceRequest) -> NameServiceResponse:
@@ -592,7 +589,7 @@ class SpotROS1Wrapper:
         target_pose = self._navigation_server.waypoints[request.name]
         self._manager.log_info(f"Waypoint '{request.name}' has target pose: {target_pose}.")
 
-        outcome = self._navigation_server.navigate_to_pose(target_pose, self._robot_rpc_manager)
+        outcome = self._navigation_server.navigate_to_pose(target_pose)
         return NameServiceResponse(outcome.success, outcome.message)
 
     def handle_shutdown(self, _: TriggerRequest) -> TriggerResponse:
@@ -626,8 +623,6 @@ class SpotROS1Wrapper:
 
     def handle_stow_arm(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to stow Spot's arm.
-
-        TODO: If Spot is believed to be holding something, prevent stowing.
 
         :param _: Message representing a request to stow Spot's arm
         :return: Response conveying whether Spot's arm has been stowed
@@ -818,12 +813,6 @@ class SpotROS1Wrapper:
         if not self._manager.ensure_control(take_by_force=False):
             message = "Could not open door because SpotManager could not take control of Spot."
             return OpenDoorResponse(success=False, message=message)
-
-        if self.manipulator.gripper is None:
-            return OpenDoorResponse(
-                success=False,
-                message="Cannot open the door because Spot's gripper was None.",
-            )
 
         with self._robot_rpc_manager.priority() as got_priority:
             if not got_priority:

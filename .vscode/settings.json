@@ -53,4 +53,5 @@
         }
     ],
     "python-envs.defaultEnvManager": "ms-python.python:venv",
+    "cmake.sourceDirectory": "/home/benned/git/spot_skills/build/catkin_tools_prebuild",
 }

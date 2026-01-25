@@ -2,6 +2,7 @@
 
 from bosdyn.client.math_helpers import Quat, SE3Pose
 from robotics_utils.geometry import Point3D
+from robotics_utils.kinematics import Configuration
 from robotics_utils.spatial import Pose3D, Quaternion
 
 HAND_T_FINGERTIP = Pose3D.from_xyz_rpy(x=0.04843, z=-0.015, ref_frame="hand")
@@ -13,6 +14,15 @@ NOMINAL_STAND_HEIGHT_M = 0.61
 
 Reference: https://support.bostondynamics.com/s/article/Spot-Specifications-49916
 """
+
+STOW_CONFIGURATION: Configuration = {
+    "arm_el0": 3.1415,
+    "arm_el1": 0,
+    "arm_sh0": 0,
+    "arm_sh1": -3.1415,
+    "arm_wr0": 0,
+    "arm_wr1": 0,
+}
 
 
 def quaternion_from_sdk(q: Quat) -> Quaternion:

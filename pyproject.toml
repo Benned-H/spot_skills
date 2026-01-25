@@ -22,7 +22,7 @@ dependencies = ["numpy>=1.20", # np.typing was introduced in 1.20
     "bosdyn-client==5.0.1",
     "bosdyn-choreography-client==5.0.1",
     "bosdyn-mission==5.0.1",
-    "spot_wrapper",
+    # "spot_wrapper",
     "opencv-python",
     "transforms3d",
     "robotics_utils[vision]"
@@ -34,14 +34,14 @@ dev-dependencies = ["ruff", "pytest", "hypothesis", "pytest-cov", "mypy"]
 
 [tool.uv.sources] # Here, `workspace = true` tells uv to resolve the dependency using a workspace member
 robotics_utils = { workspace = true }
-spot_wrapper = { workspace = true }
+# spot_wrapper = { workspace = true }
 
 [tool.uv.workspace]
 # Workspace: "a collection of one or more packages, called workspace members, that are managed together."
 # Reference: https://docs.astral.sh/uv/concepts/projects/workspaces/
 
 # Each member directory must contain a pyproject.toml file
-members = ["src/spot_skills/src/robotics_utils", "src/spot_ros/spot_wrapper"]
+members = ["src/spot_skills/src/robotics_utils"]#, "src/spot_ros/spot_wrapper"]
 
 
 [tool.hatch.build.targets.wheel]

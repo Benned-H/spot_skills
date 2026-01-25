@@ -1,5 +1,6 @@
 # Command the robot to navigate to a pose
 geometry_msgs/PoseStamped target_base_pose
+float32 timeout_s
 ---
 bool success
 string message

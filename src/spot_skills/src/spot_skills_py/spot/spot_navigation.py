@@ -9,8 +9,7 @@ import rospy
 from geometry_msgs.msg import Twist
 from robotics_utils.kinematics import Waypoints
 from robotics_utils.motion_planning.navigation_goal import NavigationGoal
-from robotics_utils.parallelism import ResourceManager
-from robotics_utils.robots.mobile_robot import MobileRobot
+from robotics_utils.robots import MobileRobot
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.skills import Outcome
@@ -23,6 +22,8 @@ from spot_skills.srv import (
 )
 
 if TYPE_CHECKING:
+    from robotics_utils.parallelism import ResourceManager
+
     from spot_skills_py.spot.spot_graph_nav import SpotGraphNav
     from spot_skills_py.spot.spot_manager import SpotManager
 
@@ -30,13 +31,19 @@ if TYPE_CHECKING:
 class SpotNavigationServer(MobileRobot):
     """A wrapper for ROS services controlling Spot's navigation."""
 
-    def __init__(self, manager: SpotManager, graph_nav: SpotGraphNav) -> None:
+    def __init__(
+        self,
+        manager: SpotManager,
+        graph_nav: SpotGraphNav,
+        resource_manager: ResourceManager,
+    ) -> None:
         """Initialize the ROS services provided by this class.
 
         :param manager: SpotManager object used to control Spot through the Spot SDK
         """
         self._manager = manager
         self._graph_nav = graph_nav
+        self._resource_manager = resource_manager
         self.base_frame = "body"
 
         # Provide a service to create new waypoints at Spot's current base pose
@@ -72,7 +79,7 @@ class SpotNavigationServer(MobileRobot):
     @property
     def current_base_pose(self) -> Pose2D:
         """Retrieve the robot's current base pose."""
-        pose_w_r = TransformManager.lookup_transform(self.base_frame, DEFAULT_FRAME, rospy.Time(0))
+        pose_w_r = TransformManager.lookup_transform(self.base_frame, DEFAULT_FRAME)
         if pose_w_r is None:
             raise RuntimeError("Unable to find Spot's base pose.")
         return pose_w_r.to_2d()
@@ -100,14 +107,37 @@ class SpotNavigationServer(MobileRobot):
 
         return NameServiceResponse(success=success, message=message)
 
-    def navigate_to_pose(self, goal_pose: Pose2D, resource_manager: ResourceManager) -> Outcome:
+    def compute_navigation_plan(self, initial: Pose2D, goal: Pose2D) -> list[Pose2D] | None:
+        """Compute a navigation plan between the two given robot base poses.
+
+        :param initial: Robot base pose from which the plan begins
+        :param goal: Target base pose to be reached by the navigation plan
+        :return: Navigation plan (list of base pose waypoints), or None if no plan is found
+        """
+        # TODO: Replicate what SimulatedRobotBase does
+
+    def execute_navigation_plan(self, nav_plan: list[Pose2D], timeout_s: float = 60.0) -> Outcome:
+        """Execute the given navigation plan on the mobile robot.
+
+        :param nav_plan: Navigation plan of 2D base pose waypoints
+        :param timeout_s: Duration (seconds) after which the plan times out (default: 60 seconds)
+        :return: Boolean success indicator and explanatory message
+        """
+        if not nav_plan:
+            return Outcome(success=False, message="Cannot execute an empty navigation plan.")
+
+        final_pose = nav_plan[-1]
+        return self.navigate_to_pose(goal_pose=final_pose, timeout_s=timeout_s)
+
+    def navigate_to_pose(self, goal_pose: Pose2D, timeout_s: float | None = None) -> Outcome:
         """Navigate using GraphNav to the given target base pose in the seed frame.
 
         :param goal_pose: Target base pose for the robot
-        :param resource_manager: Resource manager for Spot's RPC client
+        :param timeout_s: Optional duration (seconds) after which navigation times out
         :return: Boolean success indicator and an outcome message
         """
-        timeout_s = get_ros_param("/spot/navigation/timeout_s", float)
+        if timeout_s is None:
+            timeout_s = get_ros_param("/spot/navigation/timeout_s", float)
 
         goal_wrt_seed = TransformManager.convert_to_frame(goal_pose, target_frame="seed")
 
@@ -116,7 +146,7 @@ class SpotNavigationServer(MobileRobot):
             return Outcome(False, "Unable to find current transform from map frame to body frame.")
         body_z_m = body_in_seed.position.z
 
-        with resource_manager.priority() as got_priority:
+        with self._resource_manager.priority() as got_priority:
             if not got_priority:
                 rospy.logwarn(f"Navigating to pose {goal_wrt_seed} without RPC priority...")
 
