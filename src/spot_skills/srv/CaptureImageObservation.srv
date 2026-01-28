@@ -1,0 +1,7 @@
+# Request that Spot capture an image observation (RGB image + camera pose) and save it to file
+string camera
+string ref_frame
+string image_path
+---
+bool success
+string message

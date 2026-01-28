@@ -66,6 +66,7 @@ add_service_files(
   GetRGBImages.srv
   OpenDoor.srv
   ProbeSurface.srv
+  CaptureImageObservation.srv
 )
 
 ## Generate actions in the 'action' folder

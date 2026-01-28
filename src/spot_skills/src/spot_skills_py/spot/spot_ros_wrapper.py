@@ -16,6 +16,8 @@ from control_msgs.msg import (
 )
 from nav_msgs.msg import OccupancyGrid as OccupancyGridMsg
 from robotics_utils.geometry import Point3D
+from robotics_utils.io import make_unique_path
+from robotics_utils.io.yaml_utils import export_yaml_data
 from robotics_utils.motion_planning import DiscreteGrid2D
 from robotics_utils.parallelism import ResourceManager
 from robotics_utils.perception import LaserScan2D, OccupancyGrid2D
@@ -39,6 +41,9 @@ from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 from spot_skills.msg import RGBDPair
 from spot_skills.msg import RGBImage as RGBImageMsg
 from spot_skills.srv import (
+    CaptureImageObservation,
+    CaptureImageObservationRequest,
+    CaptureImageObservationResponse,
     GetRGBDPairs,
     GetRGBDPairsRequest,
     GetRGBDPairsResponse,
@@ -252,6 +257,11 @@ class SpotROS1Wrapper:
             GetRGBImages,
             self.handle_get_rgb_images,
         )
+        self._capoture_image_obs_srv = rospy.Service(
+            "spot/capture_image_observation",
+            CaptureImageObservation,
+            self.handle_capture_image_observation,
+        )
 
         self._graph_nav: SpotGraphNav | None = None
         graph_nav_active = get_ros_param("/spot/graph_nav/active", bool, default_value=False)
@@ -303,10 +313,11 @@ class SpotROS1Wrapper:
         env_yaml_param = get_ros_param("/spot/env_yaml_path", str)
         rospy.loginfo(f"Loading object-centric state from file: {env_yaml_param}")
         self._env_state = ObjectCentricState.from_yaml(Path(env_yaml_param))
-        self.manipulator.planning_scene.set_state(self._env_state)
 
         # Begin synchronizing the environment state with TF in a loop
         self._state_thread = CallLoopThread(func=self._broadcast_frames, loop_hz=5.0)
+
+        self.manipulator.planning_scene.set_state(self._env_state)
         self._planning_scene_thread = CallLoopThread(func=self._sync_planning_scene, loop_hz=5.0)
 
         self.stamped_cloud: StampedPointCloud | None = None
@@ -800,6 +811,61 @@ class SpotROS1Wrapper:
 
         return response_msg
 
+    def handle_capture_image_observation(
+        self,
+        request: CaptureImageObservationResponse,
+    ) -> CaptureImageObservationResponse:
+        """Handle a service request to capture an image and camera pose, then save them to file.
+
+        Captures an ImageObservation (image + camera pose) and exports both:
+            - The RGB image to the requested filepath
+            - The observation schema (image path + pose) to a YAML file alongside the image
+
+        :param request: ROS message specifying which camera to use and where to save the image
+        :return: Response conveying whether the capture succeeded, with path to the YAML schema
+        """
+        response = CaptureImageObservationResponse(success=False, message="")
+
+        camera_name = request.camera
+        ref_frame = request.ref_frame
+        image_path = Path(request.image_path)
+
+        # Get a unique filepath if the requested one already exists
+        image_path = make_unique_path(image_path)
+        if image_path.exists():
+            response.message = f"Supposedly unused filepath already exists: {image_path}"
+            return response
+
+        try:
+            observation = self._manager.image_client.get_image_observation(camera_name, ref_frame)
+        except RuntimeError as e:
+            response.message = f"Failed to capture image observation from '{camera_name}': {e}"
+            return response
+
+        try:
+            observation.image.to_file(image_path)
+        except (RuntimeError, OSError) as e:
+            response.message = f"Failed to save image to '{image_path}': {e}"
+            return response
+
+        if not image_path.exists():
+            response.message = f"Failed to create image file '{image_path}'."
+            return response
+
+        # Export the observation schema (image path + pose) to a YAML file
+        yaml_path = image_path.with_suffix(".yaml")
+        try:
+            schema = observation.to_schema()
+            schema_data = schema.model_dump(mode="json")
+            export_yaml_data(data=schema_data, filepath=yaml_path)
+        except (ValueError, FileNotFoundError) as e:
+            response.message = f"Image saved to '{image_path}' but failed to export schema: {e}"
+            return response
+
+        response.success = True
+        response.message = str(yaml_path)
+        return response
+
     def handle_open_door(self, request: OpenDoorRequest) -> OpenDoorResponse:
         """Handle a service request to open a door in front of Spot.
 
@@ -1003,7 +1069,7 @@ class SpotROS1Wrapper:
         if relative_pose is not None:
             return PoseLookupResponse(
                 success=True,
-                message=str(relative_pose.to_yaml_data()),
+                message=str(relative_pose.to_schema().model_dump(mode="json")),
                 relative_pose=pose_to_stamped_msg(relative_pose),
             )
 

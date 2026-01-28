@@ -14,6 +14,7 @@ from bosdyn.client.lease import LeaseWallet, add_lease_wallet_processors
 from cv_bridge import CvBridge
 from robotics_utils.ros import TransformManager
 from robotics_utils.spatial import Pose3D
+from robotics_utils.states.visual_states import ImageObservation
 from robotics_utils.vision import DepthImage, RGBImage
 from robotics_utils.vision.cameras import CameraIntrinsics, RGBCamera
 from sensor_msgs.msg import CameraInfo
@@ -185,6 +186,26 @@ class SpotImageClient:
             results[camera_name] = (rgb_image, intrinsics, pose)
 
         return results
+
+    def get_image_observation(
+        self,
+        camera_name: str,
+        ref_frame: str = "body",
+    ) -> ImageObservation[RGBImage]:
+        """Capture an RGB image observation and the camera pose at the time of capture.
+
+        :param camera_name: Name of the camera used to capture the image (e.g., "hand")
+        :param ref_frame: Reference frame to use for the camera pose (default: "body")
+        :return: ImageObservation containing the RGB image and capture-time camera pose
+        :raises RuntimeError: If Spot fails to capture the image
+        """
+        results = self.get_rgb_images_with_poses([camera_name], ref_frame=ref_frame)
+
+        if camera_name not in results:
+            raise RuntimeError(f"Failed to capture image observation from camera '{camera_name}'.")
+
+        rgb_image, _intrinsics, pose = results[camera_name]
+        return ImageObservation(image=rgb_image, pose_o_c=pose)
 
     def get_depth_images(self, camera_names: list[str]) -> dict[str, DepthImage]:
         """Request depth images from the robot.
