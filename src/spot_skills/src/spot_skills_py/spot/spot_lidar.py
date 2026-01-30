@@ -16,7 +16,7 @@ from bosdyn.client.frame_helpers import (
 )
 from bosdyn.client.point_cloud import build_pc_request
 from bosdyn.util import timestamp_to_sec
-from robotics_utils.reconstruction import PointCloud
+from robotics_utils.perception import PointCloud
 
 from spot_skills_py.spot.spot_conversion import pose_from_sdk
 
@@ -43,9 +43,6 @@ class StampedPointCloud:
     cloud: PointCloud
     cloud_frame: str
     """Reference frame of the XYZ data in the point cloud."""
-
-    sensor_frame_name: str
-    """Name of the sensor's reference frame."""
 
     sensor_pose: Pose3D
     timestamp_s: float
@@ -182,7 +179,6 @@ class SpotLiDAR:
         return StampedPointCloud(
             cloud=point_cloud_wrt_output,
             cloud_frame=output_frame,
-            sensor_frame_name=sensor_frame,
             sensor_pose=pose_o_s,
             timestamp_s=acquisition_time_s,
         )

@@ -322,12 +322,14 @@ class SpotROS1Wrapper:
 
         self.stamped_cloud: StampedPointCloud | None = None
 
-        grid_parameters = DiscreteGrid2D(
-            Pose2D(x=-0.5, y=2.5, yaw_rad=0, ref_frame="map"),
-            resolution_m=0.1,
-            width_cells=100,
-            height_cells=100,
+        grid_parameters = DiscreteGrid2D.from_bounds(
+            resolution_m=0.05,
+            x_min=-1,
+            x_max=7,
+            y_min=-7,
+            y_max=1,
         )
+
         self.occupancy_grid = OccupancyGrid2D(grid=grid_parameters, min_obstacle_depth_m=0.05)
         self._last_occ_update_timestamp_s: float | None = None
 
@@ -401,22 +403,39 @@ class SpotROS1Wrapper:
             if self.stamped_cloud is None:
                 return
 
-            # Convert the point cloud into a 2D laser scan
-            # The point cloud is in the vision frame, so compute ranges and bearings
-            #   relative to the sensor position and heading, not the world origin
-            sensor_pose_2d = self.stamped_cloud.sensor_pose.to_2d()
+            # Convert the point cloud into a 2D laser scan in the map frame
+            cloud_ref_frame = self.stamped_cloud.cloud_frame
+            rospy.loginfo(f"Original reference frame of stamped point cloud: '{cloud_ref_frame}'.")
+
+            sensor_ref_frame = self.stamped_cloud.sensor_pose.ref_frame
+            rospy.loginfo(f"Original reference frame of LiDAR sensor pose: '{sensor_ref_frame}'.")
+
+            map_t_cloud = TransformManager.lookup_transform(cloud_ref_frame, parent_frame="map")
+            if map_t_cloud is None:
+                rospy.logerr(f"Unable to look up transform from '{cloud_ref_frame}' to 'map'.")
+                return
+
+            cloud_wrt_map = self.stamped_cloud.cloud.transform(pose_t_c=map_t_cloud)
+
+            map_t_sen_ref = TransformManager.lookup_transform(sensor_ref_frame, parent_frame="map")
+            if map_t_sen_ref is None:
+                rospy.logerr(f"Unable to look up transform from '{sensor_ref_frame}' to 'map'.")
+                return
+            pose_m_s = map_t_sen_ref @ self.stamped_cloud.sensor_pose
+
+            sensor_pose_2d = pose_m_s.to_2d()
             sensor_x = sensor_pose_2d.x
             sensor_y = sensor_pose_2d.y
             sensor_yaw = sensor_pose_2d.yaw_rad
 
-            x_coords = self.stamped_cloud.cloud.points[:, 0]
-            y_coords = self.stamped_cloud.cloud.points[:, 1]
+            x_coords = cloud_wrt_map.points[:, 0]
+            y_coords = cloud_wrt_map.points[:, 1]
 
             # Vector from sensor to each point
             x_rel = x_coords - sensor_x
             y_rel = y_coords - sensor_y
 
-            ranges_m = np.sqrt(x_rel**2 + y_rel**2)
+            ranges_m = np.sqrt(x_rel * x_rel + y_rel * y_rel)
 
             # Compute angles in vision frame, then convert to bearings relative to sensor heading
             world_angles_rad = np.arctan2(y_rel, x_rel)
@@ -424,17 +443,18 @@ class SpotROS1Wrapper:
             beam_data = np.stack([ranges_m, angles_rad], axis=1).astype(np.float32)  # (r, θ)
 
             laser_scan = LaserScan2D(
-                sensor_pose=self.stamped_cloud.sensor_pose.to_2d(),
+                sensor_pose=sensor_pose_2d,
                 beam_data=beam_data,
                 range_min_m=0.5,
                 range_max_m=60,
-            )
+            ).filter_per_angle_bin()
 
             self.occupancy_grid.update(laser_scan)
             self._last_occ_update_timestamp_s = self.stamped_cloud.timestamp_s
 
             occupancy_msg = occupancy_grid_to_msg(grid=self.occupancy_grid)
             self._occ_pub.publish(occupancy_msg)
+
         except Exception as exc:
             self._manager.log_info(f"Exception during occupancy grid update: {exc}")
 
