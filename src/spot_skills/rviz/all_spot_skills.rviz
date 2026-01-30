@@ -3,8 +3,7 @@ Panels:
     Help Height: 84
     Name: Displays
     Property Tree Widget:
-      Expanded:
-        - /Grid1
+      Expanded: ~
       Splitter Ratio: 0.5052192211151123
     Tree Height: 738
   - Class: rviz/Help
@@ -70,15 +69,9 @@ Visualization Manager:
           Value: true
         base_link:
           Value: true
-        black_dresser:
-          Value: true
         body:
           Value: true
-        dock:
-          Value: true
         dock_520:
-          Value: true
-        eraser1:
           Value: true
         feet_center:
           Value: true
@@ -86,9 +79,13 @@ Visualization Manager:
           Value: true
         fiducial_2:
           Value: true
+        fiducial_520:
+          Value: true
         filtered_fiducial_1:
           Value: true
         filtered_fiducial_2:
+          Value: true
+        filtered_fiducial_520:
           Value: true
         flat_body:
           Value: true
@@ -132,15 +129,7 @@ Visualization Manager:
           Value: true
         link_wr1:
           Value: true
-        map:
-          Value: true
         odom:
-          Value: true
-        open_door:
-          Value: true
-        open_drawer:
-          Value: true
-        pick_from_drawer:
           Value: true
         rear_left_foot:
           Value: true
@@ -164,8 +153,6 @@ Visualization Manager:
           Value: true
         right_fisheye:
           Value: true
-        seed:
-          Value: true
         sensor:
           Value: true
         sensor_origin_velodyne-point-cloud:
@@ -179,105 +166,95 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        map:
-          black_dresser:
-            eraser1:
+        vision:
+          body:
+            arm0.link_wr1:
+              hand_color_image_sensor:
+                {}
+            arm_link_sh0:
+              arm_link_sh1:
+                arm_link_hr0:
+                  arm_link_el0:
+                    arm_link_el1:
+                      arm_link_wr0:
+                        arm_link_wr1:
+                          arm_link_fngr:
+                            {}
+            base_link:
               {}
-            open_drawer:
+            feet_center:
               {}
-          dock:
-            {}
-          open_door:
-            {}
-          pick_from_drawer:
-            {}
-          seed:
-            {}
-          vision:
-            body:
-              arm0.link_wr1:
-                hand_color_image_sensor:
+            flat_body:
+              {}
+            front_left_foot:
+              {}
+            front_left_hip:
+              front_left_upper_leg:
+                front_left_lower_leg:
                   {}
-              arm_link_sh0:
-                arm_link_sh1:
-                  arm_link_hr0:
-                    arm_link_el0:
-                      arm_link_el1:
-                        arm_link_wr0:
-                          arm_link_wr1:
-                            arm_link_fngr:
-                              {}
-              base_link:
-                {}
-              feet_center:
-                {}
-              flat_body:
-                {}
-              front_left_foot:
-                {}
-              front_left_hip:
-                front_left_upper_leg:
-                  front_left_lower_leg:
-                    {}
-              front_rail:
-                {}
-              front_right_foot:
-                {}
-              front_right_hip:
-                front_right_upper_leg:
-                  front_right_lower_leg:
-                    {}
-              hand:
-                {}
-              head:
-                back:
-                  back_fisheye:
-                    {}
-                frontleft:
-                  frontleft_fisheye:
-                    {}
-                frontright:
-                  frontright_fisheye:
-                    {}
-                left:
-                  left_fisheye:
-                    {}
-                right:
-                  right_fisheye:
-                    {}
-              link_wr1:
-                {}
-              odom:
-                gpe:
+            front_rail:
+              {}
+            front_right_foot:
+              {}
+            front_right_hip:
+              front_right_upper_leg:
+                front_right_lower_leg:
                   {}
-                sensor_origin_velodyne-point-cloud:
+            hand:
+              {}
+            head:
+              back:
+                back_fisheye:
                   {}
-              rear_left_foot:
+              frontleft:
+                frontleft_fisheye:
+                  {}
+              frontright:
+                frontright_fisheye:
+                  {}
+              left:
+                left_fisheye:
+                  {}
+              right:
+                right_fisheye:
+                  {}
+            link_wr1:
+              {}
+            odom:
+              gpe:
                 {}
-              rear_left_hip:
-                rear_left_upper_leg:
-                  rear_left_lower_leg:
-                    {}
-              rear_rail:
+              sensor_origin_velodyne-point-cloud:
                 {}
-              rear_right_foot:
-                {}
-              rear_right_hip:
-                rear_right_upper_leg:
-                  rear_right_lower_leg:
-                    {}
-              sensor:
-                {}
-            dock_520:
+            rear_left_foot:
               {}
-            fiducial_1:
+            rear_left_hip:
+              rear_left_upper_leg:
+                rear_left_lower_leg:
+                  {}
+            rear_rail:
               {}
-            fiducial_2:
+            rear_right_foot:
               {}
-            filtered_fiducial_1:
+            rear_right_hip:
+              rear_right_upper_leg:
+                rear_right_lower_leg:
+                  {}
+            sensor:
               {}
-            filtered_fiducial_2:
-              {}
+          dock_520:
+            {}
+          fiducial_1:
+            {}
+          fiducial_2:
+            {}
+          fiducial_520:
+            {}
+          filtered_fiducial_1:
+            {}
+          filtered_fiducial_2:
+            {}
+          filtered_fiducial_520:
+            {}
       Update Interval: 0
       Value: true
     - Class: moveit_rviz_plugin/PlanningScene
@@ -930,7 +907,7 @@ Window Geometry:
   Hide Right Dock: false
   Image:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000100000000000001e100000505fc020000000bfb000000100044006900730070006c006100790073010000003b00000371000000c700fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a00560069006500770073000000010c000000a4000000a000fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006700000002b8000002880000000000000000fb0000000a0049006d00610067006501000003b20000018e0000001600fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000001600000016fb0000000a0049006d00610067006501000004010000013f0000000000000000000002f80000050500000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000100000000000001dc00000505fc020000000bfb000000100044006900730070006c006100790073010000003b00000371000000c700fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a00560069006500770073000000010c000000a4000000a000fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006700000002b8000002880000000000000000fb0000000a0049006d00610067006501000003b20000018e0000001600fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000001600000016fb0000000a0049006d00610067006501000004010000013f0000000000000000000002fd0000050500000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Trajectory - Trajectory Slider:
     collapsed: false
   Views:

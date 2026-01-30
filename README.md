@@ -87,10 +87,15 @@ stated, you need to move to the top-level `spot_skills` folder, build the worksp
 # In Docker
 uv venv --clear --system-site-packages --python 3.8
 uv pip install -e .
+uv pip install -e src/spot_ros/spot_wrapper
 source .venv/bin/activate
 
 catkin build
 source devel/setup.bash
+
+# Temporary stopgap for missing deps
+apt-get update
+apt-get install python3-tk
 ```
 
 If a demo requires a second or third terminal tab to be opened into Docker, move to the same directory and source the following:
@@ -112,7 +117,6 @@ In this real-world demonstration, Spot will use its arm to follow a 20-second tr
 2. Use the tablet to make Spot sit, which may be hidden under the _Stand_ menu. Then,
    release tablet control of Spot by entering the _Power Button_ menu (top of the
    screen), then tapping _Advanced_, and selecting **Release Control**.
-
    - _Check_: Are Spot's front lights now flashing rainbow?
 
 3. On your computer, make sure you've followed the **Docker Demo Setup** instructions above.
@@ -158,7 +162,6 @@ control the simulated Spot's arm.
 2. Use the tablet to make Spot sit, which may be hidden under the _Stand_ menu. Then,
    release tablet control of Spot by entering the _Power Button_ menu (top of the
    screen), then tapping _Advanced_, and selecting **Release Control**.
-
    - _Check_: Are Spot's front lights now flashing rainbow?
 
 3. On your computer, make sure you've followed the **Docker Demo Setup** instructions above.
@@ -191,7 +194,6 @@ In this real-world demonstration, we'll use ROS to trigger Spot's off-the-shelf 
 2. Use the tablet to make Spot sit, which may be hidden under the _Stand_ menu. Then,
    release tablet control of Spot by entering the _Power Button_ menu (top of the
    screen), then tapping _Advanced_, and selecting **Release Control**.
-
    - _Check_: Are Spot's front lights now flashing rainbow?
 
 3. On your computer, launch the `spot_skills` Docker and the `pose` Docker using their respective instructions.

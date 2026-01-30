@@ -405,10 +405,10 @@ class SpotROS1Wrapper:
 
             # Convert the point cloud into a 2D laser scan in the map frame
             cloud_ref_frame = self.stamped_cloud.cloud_frame
-            rospy.loginfo(f"Original reference frame of stamped point cloud: '{cloud_ref_frame}'.")
+            # rospy.loginfo(f"Original reference frame of stamped point cloud: '{cloud_ref_frame}'.")
 
             sensor_ref_frame = self.stamped_cloud.sensor_pose.ref_frame
-            rospy.loginfo(f"Original reference frame of LiDAR sensor pose: '{sensor_ref_frame}'.")
+            # rospy.loginfo(f"Original reference frame of LiDAR sensor pose: '{sensor_ref_frame}'.")
 
             map_t_cloud = TransformManager.lookup_transform(cloud_ref_frame, parent_frame="map")
             if map_t_cloud is None:
@@ -442,14 +442,15 @@ class SpotROS1Wrapper:
             angles_rad = world_angles_rad - sensor_yaw
             beam_data = np.stack([ranges_m, angles_rad], axis=1).astype(np.float32)  # (r, θ)
 
-            laser_scan = LaserScan2D(
+            hits_scan = LaserScan2D(
                 sensor_pose=sensor_pose_2d,
                 beam_data=beam_data,
                 range_min_m=0.5,
                 range_max_m=60,
-            ).filter_per_angle_bin()
+            )
+            clearing_scan = hits_scan.filter_per_angle_bin()
 
-            self.occupancy_grid.update(laser_scan)
+            self.occupancy_grid.update(scan=hits_scan, clearing_scan=clearing_scan)
             self._last_occ_update_timestamp_s = self.stamped_cloud.timestamp_s
 
             occupancy_msg = occupancy_grid_to_msg(grid=self.occupancy_grid)
