@@ -21,7 +21,7 @@ from robotics_utils.geometry import Point3D
 from robotics_utils.ros import PoseBroadcastThread, TransformManager, get_ros_param
 from robotics_utils.ros.call_loop_thread import CallLoopThread
 from robotics_utils.skills import Outcome
-from robotics_utils.spatial import Pose2D, Pose3D, Quaternion
+from robotics_utils.spatial import EulerRPY, Pose2D, Pose3D, Quaternion
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 if TYPE_CHECKING:
@@ -526,52 +526,85 @@ class SpotGraphNav:
         quat = Quat.from_yaw(goal_wrt_seed.yaw_rad)
         goal_proto = SE3Pose(x=goal_wrt_seed.x, y=goal_wrt_seed.y, z=body_z_m, rot=quat).to_proto()
 
-        self._manager.log_info(f"Starting GraphNav navigation to: {goal_wrt_seed}")
-        self._manager.log_info(f"Goal SE3Pose proto: {goal_proto}")
+        # self._manager.log_info(f"Goal SE3Pose proto: {goal_proto}")
 
+        # # DEBUG: Broadcast the actual navigation goal as a TF frame for RViz visualization
+        # from spot_skills_py.spot.spot_conversion import quaternion_from_sdk
+
+        # goal_3d = Pose3D(
+        #     position=Point3D(goal_wrt_seed.x, goal_wrt_seed.y, body_z_m),
+        #     orientation=quaternion_from_sdk(quat),
+        #     ref_frame="seed",
+        # )
+        # self._tf_broadcaster.poses["nav_goal_debug"] = goal_3d
+        # rospy.loginfo(
+        #     f"[GRAPHNAV DEBUG] Broadcasting 'nav_goal_debug' frame at "
+        #     f"(x={goal_wrt_seed.x:.3f}, y={goal_wrt_seed.y:.3f}, z={body_z_m:.3f}) in seed frame",
+        # )
+
+        # # DEBUG: Log the current localization state
+        # try:
+        #     loc_state = self.graph_nav_client.get_localization_state()
+        #     loc = loc_state.localization
+        #     if loc.waypoint_id:
+        #         seed_t_body = SE3Pose.from_proto(loc.seed_tform_body)
+        #         rospy.loginfo(
+        #             f"[GRAPHNAV DEBUG] Current seed_t_body from localization: "
+        #             f"(x={seed_t_body.x:.3f}, y={seed_t_body.y:.3f}, z={seed_t_body.z:.3f})",
+        #         )
+        #         rospy.loginfo(
+        #             f"[GRAPHNAV DEBUG] Distance to goal in seed frame: "
+        #             f"dx={goal_wrt_seed.x - seed_t_body.x:.3f}, "
+        #             f"dy={goal_wrt_seed.y - seed_t_body.y:.3f}",
+        #         )
+        # except Exception as exc:
+        #     rospy.logwarn(f"[GRAPHNAV DEBUG] Could not get localization state: {exc}")
+
+        nav_to_cmd_id: int | None = None
         end_time = time.time() + timeout_s
 
-        # Issue the navigation command once, then poll for completion and exit early
-        try:
-            nav_to_cmd_id = self.graph_nav_client.navigate_to_anchor(
-                goal_proto,
-                cmd_duration=timeout_s,
-            )
-        except ResponseError as re:
-            return Outcome(success=False, message=f"Error during navigation: {re}")
+        self._manager.log_info(f"Starting GraphNav navigation to: {goal_wrt_seed}")
+
+        while time.time() < end_time:
+            try:
+                nav_to_cmd_id = self.graph_nav_client.navigate_to_anchor(
+                    goal_proto,
+                    cmd_duration=1.0,
+                    command_id=nav_to_cmd_id,
+                )
+            except ResponseError as re:
+                return Outcome(success=False, message=f"Error during navigation: {re}")
+
+            time.sleep(0.5)  # Sleep for half a second to allow for command execution
+
+            # Poll the robot for feedback to determine if the navigation command is complete
+            if self.check_finished(nav_to_cmd_id):
+                break
 
         if nav_to_cmd_id is None:
             return Outcome(success=False, message="Navigation failed to start.")
 
-        while time.time() < end_time:
-            if self.check_finished(nav_to_cmd_id):  # TODO: Won't odometry be stale?
-                break
-
-            time.sleep(0.2)
-
-        self._manager.stop_walking()
-
-        # while time.time() < end_time:
-        #     try:
-        #         loc_state = self.graph_nav_client.get_localization_state()
-        #         self._manager.log_info(f"seed_t_body: {loc_state.localization.seed_tform_body}")
-
-        #         nav_to_cmd_id = self.graph_nav_client.navigate_to_anchor(
-        #             goal_proto,
-        #             cmd_duration=1.0,
-        #             command_id=nav_to_cmd_id,
+        # # DEBUG: Log final position after navigation
+        # try:
+        #     loc_state = self.graph_nav_client.get_localization_state()
+        #     loc = loc_state.localization
+        #     if loc.waypoint_id:
+        #         seed_t_body = SE3Pose.from_proto(loc.seed_tform_body)
+        #         rospy.loginfo(
+        #             f"[GRAPHNAV DEBUG] FINAL position - seed_t_body: "
+        #             f"(x={seed_t_body.x:.3f}, y={seed_t_body.y:.3f})",
         #         )
-        #     except ResponseError as re:
-        #         return Outcome(success=False, message=f"Error during navigation: {re}")
+        #         rospy.loginfo(
+        #             f"[GRAPHNAV DEBUG] FINAL error from goal: "
+        #             f"dx={goal_wrt_seed.x - seed_t_body.x:.3f}, "
+        #             f"dy={goal_wrt_seed.y - seed_t_body.y:.3f}",
+        #         )
+        # except Exception as exc:
+        #     rospy.logwarn(f"[GRAPHNAV DEBUG] Could not get final localization state: {exc}")
 
-        #     time.sleep(0.5)  # Sleep for half a second to allow for command execution
-
-        #     # Poll the robot for feedback to determine if the navigation command is complete
-        #     finished = self.check_finished(nav_to_cmd_id)
-        #     self._manager.log_info(f"Navigation has {'' if finished else 'not '}finished.")
-
-        #     if finished:
-        #         break
+        # # DEBUG: Clear the debug goal frame after navigation completes
+        # if "nav_goal_debug" in self._tf_broadcaster.poses:
+        #     del self._tf_broadcaster.poses["nav_goal_debug"]
 
         status = self.graph_nav_client.navigation_feedback(nav_to_cmd_id).status
         if status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_REACHED_GOAL:

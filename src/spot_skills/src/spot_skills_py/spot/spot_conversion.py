@@ -3,6 +3,7 @@
 from bosdyn.client.math_helpers import Quat, SE3Pose
 from robotics_utils.geometry import Point3D
 from robotics_utils.kinematics import Configuration
+from robotics_utils.motion_planning import RectangularFootprint
 from robotics_utils.spatial import Pose3D, Quaternion
 
 HAND_T_FINGERTIP = Pose3D.from_xyz_rpy(x=0.04843, z=-0.015, ref_frame="hand")
@@ -37,3 +38,7 @@ def pose_from_sdk(se3_pose: SE3Pose, ref_frame: str) -> Pose3D:
         orientation=quaternion_from_sdk(se3_pose.rotation),
         ref_frame=ref_frame,
     )
+
+
+SPOT_FOOTPRINT = RectangularFootprint(max_x_m=0.63, min_x_m=-0.49, half_length_y_m=0.25)
+"""Rectangular footprint in Spot's body frame (includes the stowed arm)."""

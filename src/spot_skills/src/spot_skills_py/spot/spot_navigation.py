@@ -139,34 +139,57 @@ class SpotNavigationServer(MobileRobot):
         if timeout_s is None:
             timeout_s = get_ros_param("/spot/navigation/timeout_s", float)
 
+        # # DEBUG: Log the input goal pose and converted goal
+        # rospy.loginfo(f"[NAV DEBUG] Input goal_pose: {goal_pose}")
+
         goal_wrt_seed = TransformManager.convert_to_frame(goal_pose, target_frame="seed")
+        # rospy.loginfo(f"[NAV DEBUG] goal_wrt_seed: {goal_wrt_seed}")
+
+        # # DEBUG: Log current body pose in map and seed frames
+        # body_in_map = TransformManager.lookup_transform(
+        #     child_frame="body",
+        #     parent_frame=DEFAULT_FRAME,
+        # )
+        # if body_in_map is not None:
+        #     rospy.loginfo(f"[NAV DEBUG] Current body in map: {body_in_map.to_2d()}")
 
         body_in_seed = TransformManager.lookup_transform(child_frame="body", parent_frame="seed")
         if body_in_seed is None:
             return Outcome(False, "Unable to find current transform from map frame to body frame.")
         body_z_m = body_in_seed.position.z
+        # rospy.loginfo(f"[NAV DEBUG] Current body in seed: {body_in_seed.to_2d()}")
+
+        # # DEBUG: Log the seed-to-map transform
+        # seed_in_map = TransformManager.lookup_transform(
+        #     child_frame="seed",
+        #     parent_frame=DEFAULT_FRAME,
+        # )
+        # if seed_in_map is not None:
+        #     rospy.loginfo(f"[NAV DEBUG] seed frame in map: {seed_in_map.to_2d()}")
 
         with self._resource_manager.priority() as got_priority:
             if not got_priority:
                 rospy.logwarn(f"Navigating to pose {goal_wrt_seed} without RPC priority...")
 
-            nav_outcome = self._graph_nav.navigate_to_pose(goal_wrt_seed, body_z_m, timeout_s)
+            # nav_outcome = self._graph_nav.navigate_to_pose(goal_wrt_seed, body_z_m, timeout_s)
+            return self.go_to_pose(base_pose=goal_pose, timeout_s=timeout_s)
 
-        success = nav_outcome.success
-        message = nav_outcome.message
+        # success = nav_outcome.success
+        # message = nav_outcome.message
 
-        # If the Spot SDK thought Spot was stuck, but we're close enough, mark as successful
-        nav_goal = NavigationGoal(
-            goal_wrt_seed,
-            self._manager.goal_reached_m,
-            self._manager.goal_yaw_tolerance_rad,
-        )
-        if self.goal_reached(nav_goal, change_frames=True):
-            success = True
-            message = "Spot has reached the navigation goal."
+        # # If the Spot SDK thought Spot was stuck, but we're close enough, mark as successful
+        # nav_goal = NavigationGoal(
+        #     goal_wrt_seed,
+        #     self._manager.goal_reached_m,
+        #     self._manager.goal_yaw_tolerance_rad,
+        # )
+        # if self.goal_reached(nav_goal, change_frames=True):
+        #     success = True
+        #     message = "Spot has reached the navigation goal."
+        #     meta_message = "GraphNav successful: " if success else "GraphNav unsuccessful: "
+        #     return Outcome(success, f"{meta_message}{message}")
 
-        meta_message = "GraphNav successful: " if success else "GraphNav unsuccessful: "
-        return Outcome(success, f"{meta_message}{message}")
+        # return self.go_to_pose(base_pose=goal_pose, timeout_s=timeout_s)
 
     def go_to_pose(self, base_pose: Pose2D, timeout_s: float) -> Outcome:
         """Move directly to the specified base pose.

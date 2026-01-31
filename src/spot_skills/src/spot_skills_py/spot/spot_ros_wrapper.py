@@ -153,6 +153,17 @@ class SpotROS1Wrapper:
         self._grasp_srv = rospy.Service("spot/grasp_object", NameService, self.handle_grasp)
         self._release_srv = rospy.Service("spot/release_object", NameService, self.handle_release)
 
+        self._hide_object_srv = rospy.Service(
+            "spot/moveit/hide_object",
+            NameService,
+            self.handle_hide_object,
+        )
+        self._unhide_object_srv = rospy.Service(
+            "spot/moveit/unhide_object",
+            NameService,
+            self.handle_unhide_object,
+        )
+
         self._reset_srv = rospy.Service("spot/reset_state", NameService, self.handle_reset_state)
         self._open_container_srv = rospy.Service(
             "spot/set_container_open",
@@ -200,6 +211,11 @@ class SpotROS1Wrapper:
         self._start_map = rospy.Service("spot/start_mapping", Trigger, self.handle_start_mapping)
         self._stop_map = rospy.Service("spot/stop_mapping", Trigger, self.handle_stop_mapping)
         self._save_map = rospy.Service("spot/save_map", Trigger, self.handle_save_map)
+        self._save_occ_grid = rospy.Service(
+            "spot/export_occupancy_grid",
+            NameService,
+            self.handle_export_occupancy_grid,
+        )
 
         self._nav_to_pose_srv = rospy.Service(
             "/spot/navigation/to_pose",
@@ -223,6 +239,17 @@ class SpotROS1Wrapper:
             NameService,
             self.handle_resume_pose_estimation,
         )
+        self._pause_lidar_srv = rospy.Service(
+            "spot/pause_lidar",
+            Trigger,
+            self.handle_pause_lidar,
+        )
+        self._resume_lidar_srv = rospy.Service(
+            "spot/resume_lidar",
+            Trigger,
+            self.handle_resume_lidar,
+        )
+        self._lidar_paused = False
 
         gripper = ROSAngularGripper(
             limits=GripperAngleLimits(
@@ -325,8 +352,8 @@ class SpotROS1Wrapper:
         grid_parameters = DiscreteGrid2D.from_bounds(
             resolution_m=0.05,
             x_min=-1,
-            x_max=7,
-            y_min=-7,
+            x_max=8,  # was 7
+            y_min=-8,  # was -7
             y_max=1,
         )
 
@@ -379,6 +406,9 @@ class SpotROS1Wrapper:
 
     def _update_lidar(self) -> None:
         """Update the stored stamped pointcloud using new LiDAR data from Spot."""
+        if self._lidar_paused:
+            return
+
         try:
             self.stamped_cloud = self._manager.lidar_interface.get_stamped_pointcloud()
             if self.stamped_cloud is None:
@@ -445,7 +475,7 @@ class SpotROS1Wrapper:
             hits_scan = LaserScan2D(
                 sensor_pose=sensor_pose_2d,
                 beam_data=beam_data,
-                range_min_m=0.5,
+                range_min_m=1,
                 range_max_m=60,
             )
             clearing_scan = hits_scan.filter_per_angle_bin()
@@ -497,6 +527,28 @@ class SpotROS1Wrapper:
         # TODO: Update the kinematic state using the object's new pose, etc.
 
         return NameServiceResponse(success=outcome.success, message=outcome.message)
+
+    def handle_hide_object(self, request: NameServiceRequest) -> NameServiceResponse:
+        """Handle a request to hide an object in the MoveIt planning scene."""
+        self._env_state.hide_object(obj_name=request.name)
+        success = request.name in self._env_state.hidden_object_names
+        message = (
+            f"Successfully hid object '{request.name}'."
+            if success
+            else f"Unable to hide object '{request.name}'."
+        )
+        return NameServiceResponse(success=success, message=message)
+
+    def handle_unhide_object(self, request: NameServiceRequest) -> NameServiceResponse:
+        """Handle a request to unhide an object in the MoveIt planning scene."""
+        self._env_state.unhide_object(obj_name=request.name)
+        success = request.name not in self._env_state.hidden_object_names
+        message = (
+            f"Successfully unhid object '{request.name}'."
+            if success
+            else f"Unable to unhide object '{request.name}'."
+        )
+        return NameServiceResponse(success=success, message=message)
 
     def handle_set_container_open(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a request that the named container's state be set as open."""
@@ -621,6 +673,25 @@ class SpotROS1Wrapper:
         target_pose = self._navigation_server.waypoints[request.name]
         self._manager.log_info(f"Waypoint '{request.name}' has target pose: {target_pose}.")
 
+        # DEBUG: Log detailed waypoint information
+        rospy.loginfo(f"[WAYPOINT DEBUG] Waypoint '{request.name}' stored: {target_pose}")
+
+        # DEBUG: Look up waypoint in map and seed frames for comparison
+        waypoint_in_map = TransformManager.lookup_transform(request.name, DEFAULT_FRAME)
+        if waypoint_in_map is not None:
+            rospy.loginfo(f"[WAYPOINT DEBUG] Waypoint in map (via TF): {waypoint_in_map.to_2d()}")
+
+        waypoint_in_seed = TransformManager.lookup_transform(request.name, "seed")
+        if waypoint_in_seed is not None:
+            rospy.loginfo(f"[WAYPOINT DEBUG] Waypoint in seed (via TF): {waypoint_in_seed.to_2d()}")
+
+        # DEBUG: Log parent frame transform
+        parent_frame = target_pose.ref_frame
+        parent_in_seed = TransformManager.lookup_transform(parent_frame, "seed")
+        if parent_in_seed is not None:
+            parent_2d = parent_in_seed.to_2d()
+            rospy.loginfo(f"[WAYPOINT DEBUG] Parent '{parent_frame}' in seed: {parent_2d}")
+
         outcome = self._navigation_server.navigate_to_pose(target_pose)
         return NameServiceResponse(outcome.success, outcome.message)
 
@@ -738,6 +809,43 @@ class SpotROS1Wrapper:
         self._manager.log_info("Saving GraphNav map (this may take some time)...")
         save_outcome = self._graph_nav.save_map(self._graph_nav.map_path)
         return TriggerResponse(save_outcome.success, save_outcome.message)
+
+    def handle_export_occupancy_grid(self, request: NameServiceRequest) -> NameServiceResponse:
+        """Handle a request to export the occupancy grid to the specified filepath.
+
+        Exports the occupancy grid as:
+        - A 16-bit grayscale PNG image containing the log-odds occupancy values
+        - A YAML file containing the grid metadata and image normalization parameters
+
+        :param request: Request containing the base filepath (without extension)
+        :return: Response indicating success if both files were created
+        """
+        base_path = Path(request.name)
+        image_path = base_path.with_suffix(".png")
+        yaml_path = base_path.with_suffix(".yaml")
+
+        base_path.parent.mkdir(parents=True, exist_ok=True)
+
+        schema = self.occupancy_grid.to_schema(image_path=image_path)
+        schema_dict = schema.model_dump(mode="json")
+        export_yaml_data(data=schema_dict, filepath=yaml_path)
+
+        # Determine success based on whether both files exist
+        image_exists = image_path.exists()
+        yaml_exists = yaml_path.exists()
+        success = image_exists and yaml_exists
+
+        if success:
+            message = f"Exported occupancy grid to {yaml_path} and {image_path}"
+        else:
+            missing = []
+            if not image_exists:
+                missing.append(str(image_path))
+            if not yaml_exists:
+                missing.append(str(yaml_path))
+            message = f"Failed to create files: {', '.join(missing)}"
+
+        return NameServiceResponse(success=success, message=message)
 
     def handle_get_rgbd_pairs(self, request_msg: GetRGBDPairsRequest) -> GetRGBDPairsResponse:
         """Handle a request to capture RGBD image pairs from the specified camera(s) on Spot.
@@ -1098,6 +1206,16 @@ class SpotROS1Wrapper:
         response.success = False
         response.message = "Relative pose was None."
         return response
+
+    def handle_pause_lidar(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a request to pause collecting LiDAR data to update the occupancy grid."""
+        self._lidar_paused = True
+        return TriggerResponse(success=True, message="Paused LiDAR updates.")
+
+    def handle_resume_lidar(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a request to resume collecting LiDAR data to update the occupancy grid."""
+        self._lidar_paused = False
+        return TriggerResponse(success=True, message="Resumed LiDAR updates.")
 
     def handle_pause_pose_estimation(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a request to pause pose estimation for a specified object."""

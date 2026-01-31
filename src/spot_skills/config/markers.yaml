@@ -5,7 +5,7 @@ markers:
   marker_42:
     size_cm: 7.6
     relative_frames:
-      black_dresser: [0.37, -0.214, 0.71, 3.14159, 0, 1.5708]
+      black_dresser: [0.32, -0.164, 0.7, 3.14159, 0, 1.5708]
 
   marker_500: # Attached on top of the eraser
     size_cm: 3.6

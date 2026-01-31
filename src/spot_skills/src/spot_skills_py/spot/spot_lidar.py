@@ -17,6 +17,7 @@ from bosdyn.client.frame_helpers import (
 from bosdyn.client.point_cloud import build_pc_request
 from bosdyn.util import timestamp_to_sec
 from robotics_utils.perception import PointCloud
+from robotics_utils.ros import TransformManager
 
 from spot_skills_py.spot.spot_conversion import pose_from_sdk
 
@@ -46,6 +47,9 @@ class StampedPointCloud:
 
     sensor_pose: Pose3D
     timestamp_s: float
+
+
+SENSOR_FRAME_NAME = "sensor"
 
 
 class SpotLiDAR:
@@ -114,20 +118,21 @@ class SpotLiDAR:
         # https://dev.bostondynamics.com/protos/bosdyn/api/proto_reference.html#pointcloudresponse
         cloud_proto = response.point_cloud
         source = cloud_proto.source
-        sensor_frame = source.frame_name_sensor
+        cloud_origin_frame = source.frame_name_sensor
+        sensor_frame = SENSOR_FRAME_NAME
         acquisition_time_s = timestamp_to_sec(source.acquisition_time)
 
-        # Find the sensor pose in the robot's body frame
+        # Find the pose of the cloud origin frame in the robot's body frame
         snapshot = source.transforms_snapshot
-        body_t_sensor = get_a_tform_b(snapshot, BODY_FRAME_NAME, sensor_frame)
-        if body_t_sensor is None:
+        body_t_cloud_origin = get_a_tform_b(snapshot, BODY_FRAME_NAME, cloud_origin_frame)
+        if body_t_cloud_origin is None:
             self._manager.log_info(
-                f"Could not find transform from '{sensor_frame}' to '{BODY_FRAME_NAME}'.",
+                f"Could not find transform from '{cloud_origin_frame}' to '{BODY_FRAME_NAME}'.",
             )
             self._log_snapshot_frames(snapshot)
             return None
 
-        pose_b_s = pose_from_sdk(body_t_sensor, ref_frame=BODY_FRAME_NAME)
+        pose_b_co = pose_from_sdk(body_t_cloud_origin, ref_frame=BODY_FRAME_NAME)
 
         # Find the body frame's pose in the output frame
         robot_snapshot = robot_state.kinematic_state.transforms_snapshot
@@ -140,7 +145,7 @@ class SpotLiDAR:
             return None
 
         pose_o_b = pose_from_sdk(output_t_body, ref_frame=output_frame)
-        pose_o_s = pose_o_b @ pose_b_s  # Sensor w.r.t. the output frame
+        pose_o_co = pose_o_b @ pose_b_co  # Cloud origin w.r.t. the output frame
 
         # Find the body frame's pose in the ground-plane estimate frame
         gpe_t_body = get_a_tform_b(robot_snapshot, GROUND_PLANE_FRAME_NAME, BODY_FRAME_NAME)
@@ -152,7 +157,20 @@ class SpotLiDAR:
             return None
 
         pose_gpe_b = pose_from_sdk(gpe_t_body, ref_frame=GROUND_PLANE_FRAME_NAME)
-        pose_gpe_s = pose_gpe_b @ pose_b_s  # Sensor w.r.t. GPE frame
+        pose_gpe_co = pose_gpe_b @ pose_b_co  # Cloud origin frame w.r.t. GPE frame
+
+        # self._manager.log_info(f"Cloud origin w.r.t. output frame ({output_frame}): {pose_o_co}")
+        # self._manager.log_info(f"Cloud origin w.r.t. GPE frame: {pose_gpe_co}")
+
+        # Find the sensor pose in the output frame
+        pose_o_s = TransformManager.lookup_transform(sensor_frame, parent_frame=output_frame)
+        if pose_o_s is None:
+            self._manager.log_info(
+                f"Could not find transform from '{sensor_frame}' to '{output_frame}'.",
+            )
+            return None
+
+        # self._manager.log_info(f"Sensor pose w.r.t. output frame: {pose_o_s}")
 
         # Parse point cloud data into a NumPy array
         if cloud_proto.encoding != PointCloudProto.ENCODING_XYZ_32F:
@@ -167,14 +185,14 @@ class SpotLiDAR:
         valid_point_cloud = PointCloud(points=valid_points)
 
         # Filter out points based on their height in the ground-plane estimate frame
-        point_cloud_gpe = valid_point_cloud.transform(pose_gpe_s)
+        point_cloud_gpe = valid_point_cloud.transform(pose_gpe_co)
         z_coords_gpe = point_cloud_gpe.points[:, 2]
         height_mask = (z_coords_gpe >= min_height_m) & (z_coords_gpe <= max_height_m)
         filtered_points = valid_points[height_mask]  # Shape (N, 3)
 
         # Transform the remaining points into the requested output frame
-        point_cloud_wrt_sensor = PointCloud(points=filtered_points)
-        point_cloud_wrt_output = point_cloud_wrt_sensor.transform(pose_o_s)
+        point_cloud_wrt_origin = PointCloud(points=filtered_points)
+        point_cloud_wrt_output = point_cloud_wrt_origin.transform(pose_o_co)
 
         return StampedPointCloud(
             cloud=point_cloud_wrt_output,
