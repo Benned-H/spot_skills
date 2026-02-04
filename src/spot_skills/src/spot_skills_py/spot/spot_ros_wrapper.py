@@ -32,7 +32,7 @@ from robotics_utils.ros.msg_conversion import (
 )
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
-from robotics_utils.spatial import DEFAULT_FRAME, Pose2D
+from robotics_utils.spatial import DEFAULT_FRAME
 from robotics_utils.states import ObjectCentricState
 from robotics_utils.vision.fiducials import FiducialMarker, FiducialSystem
 from sensor_msgs.msg import PointCloud2
@@ -290,7 +290,30 @@ class SpotROS1Wrapper:
             self.handle_capture_image_observation,
         )
 
+        # Create occupancy grid before navigation server so it can be passed in
+        # Check if the occupancy grid map should be loaded from file
+        occ_grid_yaml = get_ros_param("/spot/navigation/occ_grid_yaml", str, default_value="")
+        if occ_grid_yaml:
+            self.occupancy_grid = OccupancyGrid2D.from_file(yaml_path=Path(occ_grid_yaml))
+
+            # If we've loaded the occupancy grid from file, "lock in" its values by default
+            self._lidar_paused = True
+            rospy.loginfo(f"Loaded occupancy grid from file: {occ_grid_yaml} (and paused LiDAR)")
+
+            occupancy_msg = occupancy_grid_to_msg(grid=self.occupancy_grid)
+            self._occ_pub.publish(occupancy_msg)
+        else:
+            grid_parameters = DiscreteGrid2D.from_bounds(
+                resolution_m=0.05,
+                x_min=-1,
+                x_max=8,
+                y_min=-8,
+                y_max=1,
+            )
+            self.occupancy_grid = OccupancyGrid2D(grid=grid_parameters, min_obstacle_depth_m=0.05)
+
         self._graph_nav: SpotGraphNav | None = None
+        self._navigation_server: SpotNavigationServer | None = None
         graph_nav_active = get_ros_param("/spot/graph_nav/active", bool, default_value=False)
         if graph_nav_active:
             map_path = get_ros_param("/spot/graph_nav/map_path", Path)
@@ -309,10 +332,12 @@ class SpotROS1Wrapper:
                 self._graph_nav.graph_nav_client,
                 resource_manager=self._robot_rpc_manager,
             )
+
             self._navigation_server = SpotNavigationServer(
                 self._manager,
                 self._graph_nav,
                 self._robot_rpc_manager,
+                occupancy_grid=self.occupancy_grid,
             )
 
             rospy.loginfo("Now initializing the SpotNavigationServer...")
@@ -348,16 +373,6 @@ class SpotROS1Wrapper:
         self._planning_scene_thread = CallLoopThread(func=self._sync_planning_scene, loop_hz=5.0)
 
         self.stamped_cloud: StampedPointCloud | None = None
-
-        grid_parameters = DiscreteGrid2D.from_bounds(
-            resolution_m=0.05,
-            x_min=-1,
-            x_max=8,  # was 7
-            y_min=-8,  # was -7
-            y_max=1,
-        )
-
-        self.occupancy_grid = OccupancyGrid2D(grid=grid_parameters, min_obstacle_depth_m=0.05)
         self._last_occ_update_timestamp_s: float | None = None
 
         self._lidar_thread = CallLoopThread(
@@ -673,24 +688,24 @@ class SpotROS1Wrapper:
         target_pose = self._navigation_server.waypoints[request.name]
         self._manager.log_info(f"Waypoint '{request.name}' has target pose: {target_pose}.")
 
-        # DEBUG: Log detailed waypoint information
-        rospy.loginfo(f"[WAYPOINT DEBUG] Waypoint '{request.name}' stored: {target_pose}")
+        # # DEBUG: Log detailed waypoint information
+        # rospy.loginfo(f"[WAYPOINT DEBUG] Waypoint '{request.name}' stored: {target_pose}")
 
-        # DEBUG: Look up waypoint in map and seed frames for comparison
-        waypoint_in_map = TransformManager.lookup_transform(request.name, DEFAULT_FRAME)
-        if waypoint_in_map is not None:
-            rospy.loginfo(f"[WAYPOINT DEBUG] Waypoint in map (via TF): {waypoint_in_map.to_2d()}")
+        # # DEBUG: Look up waypoint in map and seed frames for comparison
+        # waypoint_in_map = TransformManager.lookup_transform(request.name, DEFAULT_FRAME)
+        # if waypoint_in_map is not None:
+        #     rospy.loginfo(f"[WAYPOINT DEBUG] Waypoint in map (via TF): {waypoint_in_map.to_2d()}")
 
-        waypoint_in_seed = TransformManager.lookup_transform(request.name, "seed")
-        if waypoint_in_seed is not None:
-            rospy.loginfo(f"[WAYPOINT DEBUG] Waypoint in seed (via TF): {waypoint_in_seed.to_2d()}")
+        # waypoint_in_seed = TransformManager.lookup_transform(request.name, "seed")
+        # if waypoint_in_seed is not None:
+        #     rospy.loginfo(f"[WAYPOINT DEBUG] Waypoint in seed (via TF): {waypoint_in_seed.to_2d()}")
 
-        # DEBUG: Log parent frame transform
-        parent_frame = target_pose.ref_frame
-        parent_in_seed = TransformManager.lookup_transform(parent_frame, "seed")
-        if parent_in_seed is not None:
-            parent_2d = parent_in_seed.to_2d()
-            rospy.loginfo(f"[WAYPOINT DEBUG] Parent '{parent_frame}' in seed: {parent_2d}")
+        # # DEBUG: Log parent frame transform
+        # parent_frame = target_pose.ref_frame
+        # parent_in_seed = TransformManager.lookup_transform(parent_frame, "seed")
+        # if parent_in_seed is not None:
+        #     parent_2d = parent_in_seed.to_2d()
+        #     rospy.loginfo(f"[WAYPOINT DEBUG] Parent '{parent_frame}' in seed: {parent_2d}")
 
         outcome = self._navigation_server.navigate_to_pose(target_pose)
         return NameServiceResponse(outcome.success, outcome.message)
@@ -942,7 +957,7 @@ class SpotROS1Wrapper:
 
     def handle_capture_image_observation(
         self,
-        request: CaptureImageObservationResponse,
+        request: CaptureImageObservationRequest,
     ) -> CaptureImageObservationResponse:
         """Handle a service request to capture an image and camera pose, then save them to file.
 

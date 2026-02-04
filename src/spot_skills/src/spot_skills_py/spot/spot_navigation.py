@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING
 import rospy
 from geometry_msgs.msg import Twist
 from robotics_utils.kinematics import Waypoints
-from robotics_utils.motion_planning.navigation_goal import NavigationGoal
+from robotics_utils.motion_planning import (
+    NavigationQuery,
+    PurePursuitConfig,
+    PurePursuitFollower,
+    plan_se2_path,
+)
 from robotics_utils.robots import MobileRobot
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
@@ -20,9 +25,11 @@ from spot_skills.srv import (
     NameServiceRequest,
     NameServiceResponse,
 )
+from spot_skills_py.spot.spot_conversion import SPOT_FOOTPRINT
 
 if TYPE_CHECKING:
     from robotics_utils.parallelism import ResourceManager
+    from robotics_utils.perception import OccupancyGrid2D
 
     from spot_skills_py.spot.spot_graph_nav import SpotGraphNav
     from spot_skills_py.spot.spot_manager import SpotManager
@@ -36,15 +43,27 @@ class SpotNavigationServer(MobileRobot):
         manager: SpotManager,
         graph_nav: SpotGraphNav,
         resource_manager: ResourceManager,
+        occupancy_grid: OccupancyGrid2D | None = None,
     ) -> None:
         """Initialize the ROS services provided by this class.
 
         :param manager: SpotManager object used to control Spot through the Spot SDK
+        :param graph_nav: SpotGraphNav object for GraphNav localization
+        :param resource_manager: Resource manager for RPC priority
+        :param occupancy_grid: Optional occupancy grid for path planning
         """
         self._manager = manager
         self._graph_nav = graph_nav
         self._resource_manager = resource_manager
         self.base_frame = "body"
+
+        # Path planning infrastructure
+        self._occupancy_grid = occupancy_grid
+        self._robot_footprint = SPOT_FOOTPRINT
+
+        # Pure pursuit configuration
+        self._lookahead_distance_m = 0.8  # Look 80cm ahead on the path
+        self._pursuit_step_timeout_s = 2.0  # Short timeout per pursuit iteration
 
         # Provide a service to create new waypoints at Spot's current base pose
         self._new_waypoint_srv = rospy.Service(
@@ -110,14 +129,46 @@ class SpotNavigationServer(MobileRobot):
     def compute_navigation_plan(self, initial: Pose2D, goal: Pose2D) -> list[Pose2D] | None:
         """Compute a navigation plan between the two given robot base poses.
 
+        Uses A* path planning on the occupancy grid to find a collision-free path.
+
         :param initial: Robot base pose from which the plan begins
         :param goal: Target base pose to be reached by the navigation plan
         :return: Navigation plan (list of base pose waypoints), or None if no plan is found
         """
-        # TODO: Replicate what SimulatedRobotBase does
+        if self._occupancy_grid is None:
+            rospy.logwarn("No occupancy grid available; returning direct path.")
+            return [initial, goal]
+
+        grid_frame = self._occupancy_grid.grid.origin.ref_frame
+
+        try:
+            start_in_grid_frame = TransformManager.convert_to_frame(initial, grid_frame)
+            goal_in_grid_frame = TransformManager.convert_to_frame(goal, grid_frame)
+        except RuntimeError as e:
+            rospy.logerr(f"Frame conversion failed during path planning: {e}")
+            return None
+
+        query = NavigationQuery(
+            start_pose=start_in_grid_frame,
+            goal_pose=goal_in_grid_frame,
+            occupancy_grid=self._occupancy_grid,
+            robot_footprint=self._robot_footprint,
+        )
+
+        rospy.loginfo("About to call plan_se2_path...")
+        path = plan_se2_path(query)
+
+        if path is None:
+            rospy.logwarn(
+                f"A* planner found no path from {start_in_grid_frame} to {goal_in_grid_frame}",
+            )
+            return None
+
+        rospy.loginfo(f"A* planner found path with {len(path)} waypoints")
+        return path
 
     def execute_navigation_plan(self, nav_plan: list[Pose2D], timeout_s: float = 60.0) -> Outcome:
-        """Execute the given navigation plan on the mobile robot.
+        """Execute the given navigation plan using pure pursuit.
 
         :param nav_plan: Navigation plan of 2D base pose waypoints
         :param timeout_s: Duration (seconds) after which the plan times out (default: 60 seconds)
@@ -126,11 +177,65 @@ class SpotNavigationServer(MobileRobot):
         if not nav_plan:
             return Outcome(success=False, message="Cannot execute an empty navigation plan.")
 
-        final_pose = nav_plan[-1]
-        return self.navigate_to_pose(goal_pose=final_pose, timeout_s=timeout_s)
+        # Initialize pure pursuit follower
+        pursuit_config = PurePursuitConfig(
+            lookahead_distance_m=self._lookahead_distance_m,
+            goal_tolerance_m=self.close_to_goal_m,
+        )
+        follower = PurePursuitFollower(path=nav_plan, config=pursuit_config)
+
+        start_time = rospy.get_time()
+        iteration = 0
+        max_iterations = 1000  # Safety limit
+
+        while iteration < max_iterations:
+            iteration += 1
+
+            # Check timeout
+            elapsed_s = rospy.get_time() - start_time
+            if elapsed_s >= timeout_s:
+                return Outcome(False, f"Path following timed out after {elapsed_s:.1f}s")
+
+            # Get current pose
+            try:
+                current_pose = self.current_base_pose
+            except RuntimeError as e:
+                return Outcome(False, f"Lost localization: {e}")
+
+            # Convert to path frame for pure pursuit
+            grid_frame = nav_plan[0].ref_frame
+            current_in_grid = TransformManager.convert_to_frame(current_pose, grid_frame)
+
+            # Get target from pure pursuit
+            target_pose, is_complete = follower.get_target_pose(current_in_grid)
+
+            if is_complete:
+                rospy.loginfo("Pure pursuit: Reached goal")
+                # Final approach to exact goal pose
+                remaining_time_s = timeout_s - elapsed_s
+                return self.go_to_pose(
+                    base_pose=nav_plan[-1],
+                    timeout_s=min(10.0, remaining_time_s),
+                )
+
+            # Command Spot toward the lookahead target
+            # Use short timeout since we'll update the target next iteration
+            remaining_time_s = timeout_s - elapsed_s
+            step_timeout_s = min(self._pursuit_step_timeout_s, remaining_time_s)
+
+            rospy.logdebug(f"Pure pursuit: targeting {target_pose}")
+            outcome = self.go_to_pose(base_pose=target_pose, timeout_s=step_timeout_s)
+
+            # Don't treat intermediate step failures as fatal - the pursuit loop will retry
+            if not outcome.success:
+                rospy.logwarn(f"Pursuit step issue: {outcome.message}")
+
+        return Outcome(False, "Path following exceeded maximum iterations")
 
     def navigate_to_pose(self, goal_pose: Pose2D, timeout_s: float | None = None) -> Outcome:
-        """Navigate using GraphNav to the given target base pose in the seed frame.
+        """Navigate to the given target base pose using A* path planning and pure pursuit.
+
+        Falls back to direct navigation if path planning fails.
 
         :param goal_pose: Target base pose for the robot
         :param timeout_s: Optional duration (seconds) after which navigation times out
@@ -139,57 +244,28 @@ class SpotNavigationServer(MobileRobot):
         if timeout_s is None:
             timeout_s = get_ros_param("/spot/navigation/timeout_s", float)
 
-        # # DEBUG: Log the input goal pose and converted goal
-        # rospy.loginfo(f"[NAV DEBUG] Input goal_pose: {goal_pose}")
+        # Get current pose for path planning
+        try:
+            current_pose = self.current_base_pose
+        except RuntimeError as e:
+            return Outcome(success=False, message=f"Unable to get current pose: {e}")
 
-        goal_wrt_seed = TransformManager.convert_to_frame(goal_pose, target_frame="seed")
-        # rospy.loginfo(f"[NAV DEBUG] goal_wrt_seed: {goal_wrt_seed}")
+        # Compute path using A* planner
+        rospy.loginfo(f"Now planning a path to pose: {goal_pose}")
+        nav_plan = self.compute_navigation_plan(current_pose, goal_pose)
 
-        # # DEBUG: Log current body pose in map and seed frames
-        # body_in_map = TransformManager.lookup_transform(
-        #     child_frame="body",
-        #     parent_frame=DEFAULT_FRAME,
-        # )
-        # if body_in_map is not None:
-        #     rospy.loginfo(f"[NAV DEBUG] Current body in map: {body_in_map.to_2d()}")
+        if nav_plan is None:
+            rospy.logwarn("Path planning failed; attempting direct navigation as fallback")
+            with self._resource_manager.priority() as got_priority:
+                if not got_priority:
+                    rospy.logwarn(f"Navigating to pose {goal_pose} without RPC priority...")
+                return self.go_to_pose(base_pose=goal_pose, timeout_s=timeout_s)
 
-        body_in_seed = TransformManager.lookup_transform(child_frame="body", parent_frame="seed")
-        if body_in_seed is None:
-            return Outcome(False, "Unable to find current transform from map frame to body frame.")
-        body_z_m = body_in_seed.position.z
-        # rospy.loginfo(f"[NAV DEBUG] Current body in seed: {body_in_seed.to_2d()}")
-
-        # # DEBUG: Log the seed-to-map transform
-        # seed_in_map = TransformManager.lookup_transform(
-        #     child_frame="seed",
-        #     parent_frame=DEFAULT_FRAME,
-        # )
-        # if seed_in_map is not None:
-        #     rospy.loginfo(f"[NAV DEBUG] seed frame in map: {seed_in_map.to_2d()}")
-
+        # Execute the planned path using pure pursuit
         with self._resource_manager.priority() as got_priority:
             if not got_priority:
-                rospy.logwarn(f"Navigating to pose {goal_wrt_seed} without RPC priority...")
-
-            # nav_outcome = self._graph_nav.navigate_to_pose(goal_wrt_seed, body_z_m, timeout_s)
-            return self.go_to_pose(base_pose=goal_pose, timeout_s=timeout_s)
-
-        # success = nav_outcome.success
-        # message = nav_outcome.message
-
-        # # If the Spot SDK thought Spot was stuck, but we're close enough, mark as successful
-        # nav_goal = NavigationGoal(
-        #     goal_wrt_seed,
-        #     self._manager.goal_reached_m,
-        #     self._manager.goal_yaw_tolerance_rad,
-        # )
-        # if self.goal_reached(nav_goal, change_frames=True):
-        #     success = True
-        #     message = "Spot has reached the navigation goal."
-        #     meta_message = "GraphNav successful: " if success else "GraphNav unsuccessful: "
-        #     return Outcome(success, f"{meta_message}{message}")
-
-        # return self.go_to_pose(base_pose=goal_pose, timeout_s=timeout_s)
+                rospy.logwarn("Executing navigation plan without RPC priority...")
+            return self.execute_navigation_plan(nav_plan, timeout_s=timeout_s)
 
     def go_to_pose(self, base_pose: Pose2D, timeout_s: float) -> Outcome:
         """Move directly to the specified base pose.
