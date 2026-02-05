@@ -69,9 +69,15 @@ Visualization Manager:
           Value: true
         base_link:
           Value: true
+        black_dresser:
+          Value: true
         body:
           Value: true
-        dock_520:
+        dock:
+          Value: true
+        erase:
+          Value: true
+        eraser1:
           Value: true
         feet_center:
           Value: true
@@ -79,13 +85,9 @@ Visualization Manager:
           Value: true
         fiducial_2:
           Value: true
-        fiducial_520:
-          Value: true
         filtered_fiducial_1:
           Value: true
         filtered_fiducial_2:
-          Value: true
-        filtered_fiducial_520:
           Value: true
         flat_body:
           Value: true
@@ -129,7 +131,15 @@ Visualization Manager:
           Value: true
         link_wr1:
           Value: true
+        map:
+          Value: true
         odom:
+          Value: true
+        open_door:
+          Value: true
+        open_drawer:
+          Value: true
+        pick_from_drawer:
           Value: true
         rear_left_foot:
           Value: true
@@ -153,9 +163,13 @@ Visualization Manager:
           Value: true
         right_fisheye:
           Value: true
+        seed:
+          Value: true
         sensor:
           Value: true
         sensor_origin_velodyne-point-cloud:
+          Value: true
+        view_door_handle:
           Value: true
         vision:
           Value: true
@@ -166,96 +180,146 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        vision:
-          body:
-            arm0.link_wr1:
-              hand_color_image_sensor:
+        map:
+          black_dresser:
+            open_drawer:
+              {}
+            pick_from_drawer:
+              {}
+          dock:
+            {}
+          erase:
+            {}
+          eraser1:
+            {}
+          open_door:
+            {}
+          seed:
+            {}
+          view_door_handle:
+            {}
+          vision:
+            body:
+              arm0.link_wr1:
+                hand_color_image_sensor:
+                  {}
+              arm_link_sh0:
+                arm_link_sh1:
+                  arm_link_hr0:
+                    arm_link_el0:
+                      arm_link_el1:
+                        arm_link_wr0:
+                          arm_link_wr1:
+                            arm_link_fngr:
+                              {}
+              base_link:
                 {}
-            arm_link_sh0:
-              arm_link_sh1:
-                arm_link_hr0:
-                  arm_link_el0:
-                    arm_link_el1:
-                      arm_link_wr0:
-                        arm_link_wr1:
-                          arm_link_fngr:
-                            {}
-            base_link:
-              {}
-            feet_center:
-              {}
-            flat_body:
-              {}
-            front_left_foot:
-              {}
-            front_left_hip:
-              front_left_upper_leg:
-                front_left_lower_leg:
-                  {}
-            front_rail:
-              {}
-            front_right_foot:
-              {}
-            front_right_hip:
-              front_right_upper_leg:
-                front_right_lower_leg:
-                  {}
-            hand:
-              {}
-            head:
-              back:
-                back_fisheye:
-                  {}
-              frontleft:
-                frontleft_fisheye:
-                  {}
-              frontright:
-                frontright_fisheye:
-                  {}
-              left:
-                left_fisheye:
-                  {}
-              right:
-                right_fisheye:
-                  {}
-            link_wr1:
-              {}
-            odom:
-              gpe:
+              feet_center:
                 {}
-              sensor_origin_velodyne-point-cloud:
+              flat_body:
                 {}
-            rear_left_foot:
-              {}
-            rear_left_hip:
-              rear_left_upper_leg:
-                rear_left_lower_leg:
+              front_left_foot:
+                {}
+              front_left_hip:
+                front_left_upper_leg:
+                  front_left_lower_leg:
+                    {}
+              front_rail:
+                {}
+              front_right_foot:
+                {}
+              front_right_hip:
+                front_right_upper_leg:
+                  front_right_lower_leg:
+                    {}
+              hand:
+                {}
+              head:
+                back:
+                  back_fisheye:
+                    {}
+                frontleft:
+                  frontleft_fisheye:
+                    {}
+                frontright:
+                  frontright_fisheye:
+                    {}
+                left:
+                  left_fisheye:
+                    {}
+                right:
+                  right_fisheye:
+                    {}
+              link_wr1:
+                {}
+              odom:
+                gpe:
                   {}
-            rear_rail:
-              {}
-            rear_right_foot:
-              {}
-            rear_right_hip:
-              rear_right_upper_leg:
-                rear_right_lower_leg:
+                sensor_origin_velodyne-point-cloud:
                   {}
-            sensor:
+              rear_left_foot:
+                {}
+              rear_left_hip:
+                rear_left_upper_leg:
+                  rear_left_lower_leg:
+                    {}
+              rear_rail:
+                {}
+              rear_right_foot:
+                {}
+              rear_right_hip:
+                rear_right_upper_leg:
+                  rear_right_lower_leg:
+                    {}
+              sensor:
+                {}
+            fiducial_1:
               {}
-          dock_520:
-            {}
-          fiducial_1:
-            {}
-          fiducial_2:
-            {}
-          fiducial_520:
-            {}
-          filtered_fiducial_1:
-            {}
-          filtered_fiducial_2:
-            {}
-          filtered_fiducial_520:
-            {}
+            fiducial_2:
+              {}
+            filtered_fiducial_1:
+              {}
+            filtered_fiducial_2:
+              {}
       Update Interval: 0
+      Value: true
+    - Alpha: 0.699999988079071
+      Class: rviz/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: true
+      Name: Occupancy Grid
+      Topic: /occupancy_grid
+      Unreliable: false
+      Use Timestamp: false
+      Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: Intensity
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Min Color: 0; 0; 0
+      Name: PointCloud2
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.009999999776482582
+      Style: Flat Squares
+      Topic: /spot/lidar_cloud
+      Unreliable: false
+      Use Fixed Frame: true
+      Use rainbow: true
       Value: true
     - Class: moveit_rviz_plugin/PlanningScene
       Enabled: true
@@ -399,328 +463,6 @@ Visualization Manager:
         Show Robot Collision: false
         Show Robot Visual: true
       Value: true
-    - Class: rviz/Group
-      Displays:
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: RGB8
-          Decay Time: 0
-          Enabled: true
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: RTAB-Map Cloud Map
-          Position Transformer: XYZ
-          Queue Size: 10
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.009999999776482582
-          Style: Flat Squares
-          Topic: /rtabmap/cloud_map
-          Unreliable: false
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: true
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: RGB8
-          Decay Time: 0
-          Enabled: false
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: RTAB-Map Obstacles
-          Position Transformer: XYZ
-          Queue Size: 10
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.009999999776482582
-          Style: Flat Squares
-          Topic: /rtabmap/cloud_obstacles
-          Unreliable: false
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: false
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: RGB8
-          Decay Time: 0
-          Enabled: false
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: RTAB-Map Ground
-          Position Transformer: XYZ
-          Queue Size: 10
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.009999999776482582
-          Style: Flat Squares
-          Topic: /rtabmap/cloud_ground
-          Unreliable: false
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: false
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: RGB8
-          Decay Time: 0
-          Enabled: true
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: Octomap Occupied
-          Position Transformer: XYZ
-          Queue Size: 10
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.009999999776482582
-          Style: Flat Squares
-          Topic: /rtabmap/octomap_occupied_space
-          Unreliable: false
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: true
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: RGB8
-          Decay Time: 0
-          Enabled: false
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: Octomap Ground
-          Position Transformer: XYZ
-          Queue Size: 10
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.009999999776482582
-          Style: Flat Squares
-          Topic: /rtabmap/octomap_ground
-          Unreliable: false
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: false
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: RGB8
-          Decay Time: 0
-          Enabled: false
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: Octomap Obstacles
-          Position Transformer: XYZ
-          Queue Size: 10
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.009999999776482582
-          Style: Flat Squares
-          Topic: /rtabmap/octomap_obstacles
-          Unreliable: false
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: false
-        - Alpha: 0.20000000298023224
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/PointCloud2
-          Color: 255; 255; 0
-          Color Transformer: FlatColor
-          Decay Time: 0
-          Enabled: true
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: Filtered Points Inside Spot
-          Position Transformer: XYZ
-          Queue Size: 10
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.009999999776482582
-          Style: Flat Squares
-          Topic: /rtabmap/scan_point_cloud_inside
-          Unreliable: false
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: true
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: Intensity
-          Decay Time: 0
-          Enabled: false
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: Spot LiDAR Filtered Points
-          Position Transformer: XYZ
-          Queue Size: 10
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.009999999776482582
-          Style: Flat Squares
-          Topic: /spot/lidar/filtered_points
-          Unreliable: false
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: false
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: Intensity
-          Decay Time: 0
-          Enabled: false
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: Spot LiDAR Octomap Filtered
-          Position Transformer: XYZ
-          Queue Size: 10
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.009999999776482582
-          Style: Flat Squares
-          Topic: /spot/lidar/octomap_filtered_points
-          Unreliable: false
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: false
-      Enabled: false
-      Name: PointCloud2 Topics
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /visualization_marker
-      Name: Visualization Markers
-      Namespaces:
-        {}
-      Queue Size: 100
-      Value: true
-    - Class: rviz/Image
-      Enabled: true
-      Image Topic: /spot/camera/hand_color/image
-      Max Value: 1
-      Median window: 5
-      Min Value: 0
-      Name: Image
-      Normalize Range: true
-      Queue Size: 2
-      Transport Hint: raw
-      Unreliable: false
-      Value: true
-    - Class: rviz/MarkerArray
-      Enabled: false
-      Marker Topic: /graphnav_markers
-      Name: GraphNav Markers
-      Namespaces:
-        {}
-      Queue Size: 100
-      Value: false
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/PointCloud2
-      Color: 255; 255; 255
-      Color Transformer: Intensity
-      Decay Time: 0
-      Enabled: true
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Min Color: 0; 0; 0
-      Name: PointCloud2
-      Position Transformer: XYZ
-      Queue Size: 10
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.009999999776482582
-      Style: Flat Squares
-      Topic: /spot/lidar_cloud
-      Unreliable: false
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: true
-    - Alpha: 0.699999988079071
-      Class: rviz/Map
-      Color Scheme: map
-      Draw Behind: false
-      Enabled: true
-      Name: Occupancy Grid
-      Topic: /occupancy_grid
-      Unreliable: false
-      Use Timestamp: false
-      Value: true
     - Class: moveit_rviz_plugin/Trajectory
       Color Enabled: false
       Enabled: true
@@ -861,6 +603,58 @@ Visualization Manager:
       Trajectory Topic: move_group/display_planned_path
       Use Sim Time: false
       Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /visualization_marker
+      Name: Visualization Markers
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: false
+      Marker Topic: /graphnav_markers
+      Name: GraphNav Markers
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: false
+    - Class: rviz/Image
+      Enabled: true
+      Image Topic: /spot/camera/hand_color/image
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Image
+      Normalize Range: true
+      Queue Size: 2
+      Transport Hint: raw
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 25; 255; 0
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Queue Size: 10
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /spot/navigation/planned_path
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -877,7 +671,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 9.865509033203125
+      Distance: 9.286548614501953
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -885,17 +679,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -0.8394970297813416
-        Y: -0.9727345108985901
-        Z: 0.8778660297393799
+        X: -0.46404650807380676
+        Y: 2.267702102661133
+        Z: -1.3086105585098267
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.529796838760376
+      Pitch: 0.2197975069284439
       Target Frame: body
-      Yaw: 2.2918694019317627
+      Yaw: 1.6368657350540161
     Saved: ~
 Window Geometry:
   Displays:

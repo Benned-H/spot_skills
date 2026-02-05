@@ -684,23 +684,15 @@ class SpotManager:
         self.log_info("Arm is now stowed.")
         return True
 
-    def move_to_base_pose(self, pose: Pose2D, spot_base: MobileRobot, timeout_s: float) -> bool:
-        """Send a command to Spot to move directly to a base pose.
+    def _make_trajectory_command(self, base_pose: Pose2D) -> RobotCommand:
+        """Construct a trajectory command to move Spot toward the given base pose.
 
-        Note: By default, the command is converted into the "vision" frame.
-
-        :param pose: Target base pose of the movement
-        :param spot_base: General-purpose interface for Spot's mobile base
-        :param timeout_s: Duration (seconds) after which the command times out
-        :return: True if the Spot reaches the goal, else False
+        :param base_pose: Target base pose for the trajectory
+        :return: RobotCommand Protobuf message containing the trajectory
         """
-        if not self.has_control:
-            self.log_info("Can't move to base pose because SpotManager doesn't control Spot.")
-            return False
+        target_pose_v_b = TransformManager.convert_to_frame(base_pose, VISION_FRAME_NAME)
 
-        target_pose_v_b = TransformManager.convert_to_frame(pose, VISION_FRAME_NAME)
-
-        trajectory_command = RobotCommandBuilder.synchro_se2_trajectory_point_command(
+        return RobotCommandBuilder.synchro_se2_trajectory_point_command(
             goal_x=target_pose_v_b.x,
             goal_y=target_pose_v_b.y,
             goal_heading=target_pose_v_b.yaw_rad,
@@ -708,11 +700,42 @@ class SpotManager:
             params=self._mobility_params,
         )
 
-        # Repeatedly send the trajectory command to Spot until timeout or the goal is reached
-        nav_goal = NavigationGoal(pose, self.goal_reached_m, self.goal_yaw_tolerance_rad)
+    def send_trajectory_command(self, pose: Pose2D, duration_s: float) -> bool:
+        """Send a single trajectory command to move toward a base pose (non-blocking).
 
+        Use this for ongoing path following where the caller handles goal checking.
+
+        :param pose: Target base pose for the trajectory
+        :param duration_s: Duration (seconds) for the command
+        :return: True if command was successfully sent, else False
+        """
+        if not self.has_control:
+            self.log_info("Can't send trajectory command; SpotManager doesn't control Spot.")
+            return False
+
+        trajectory_command = self._make_trajectory_command(base_pose=pose)
+        command_id = self.send_robot_command(trajectory_command, duration_s=duration_s)
+
+        return command_id is not None
+
+    def move_to_base_pose(self, pose: Pose2D, spot_base: MobileRobot, timeout_s: float) -> bool:
+        """Move to a base pose, polling until the goal is reached, then stop the robot.
+
+        :param pose: Target base pose of the movement
+        :param spot_base: General-purpose interface for Spot's mobile base
+        :param timeout_s: Duration (seconds) after which the command times out
+        :return: True if Spot reaches the goal, else False
+        """
+        if not self.has_control:
+            self.log_info("Can't move to base pose because SpotManager doesn't control Spot.")
+            return False
+
+        trajectory_command = self._make_trajectory_command(base_pose=pose)
+
+        nav_goal = NavigationGoal(pose, self.goal_reached_m, self.goal_yaw_tolerance_rad)
         end_time_s = time.time() + timeout_s
 
+        # Repeatedly send the trajectory command to Spot until timeout or the goal is reached
         reached_goal = spot_base.goal_reached(nav_goal, change_frames=True)
         while not reached_goal and time.time() < end_time_s:
             command_id = self.send_robot_command(trajectory_command, duration_s=5)
@@ -724,7 +747,6 @@ class SpotManager:
             time.sleep(0.2)
 
         self.stop_walking()
-
         return spot_base.goal_reached(nav_goal, change_frames=True)
 
     def stop_walking(self) -> int | None:
@@ -735,20 +757,20 @@ class SpotManager:
         stop_command = RobotCommandBuilder.stop_command()
         return self.send_robot_command(stop_command)
 
-    def send_velocity_command(
+    def send_velocity_command_nonblocking(
         self,
         linear_x_mps: float,
         linear_y_mps: float,
         angular_z_radps: float,
         duration_s: float,
-    ) -> bool:
-        """Send a velocity command to Spot.
+    ) -> int | None:
+        """Send a velocity command to Spot without blocking.
 
         :param linear_x_mps: Linear velocity in the X direction (m/s)
         :param linear_y_mps: Linear velocity in the Y direction (m/s)
         :param angular_z_radps: Angular velocity about the Z axis (rad/s)
         :param duration_s: Duration (seconds) of the sent command
-        :return: Boolean indicating if the command was successfully sent
+        :return: Command ID if command was successfully sent, else None
         """
         if not self.has_control:
             return False
@@ -761,7 +783,30 @@ class SpotManager:
         )
 
         self.log_info(f"Sending velocity command to Spot with duration of {duration_s} seconds...")
-        command_id = self.send_robot_command(velocity_cmd, duration_s)
+        return self.send_robot_command(velocity_cmd, duration_s)
+
+    def send_velocity_command(
+        self,
+        linear_x_mps: float,
+        linear_y_mps: float,
+        angular_z_radps: float,
+        duration_s: float,
+    ) -> bool:
+        """Send a velocity command to Spot and block until it finishes.
+
+        :param linear_x_mps: Linear velocity in the X direction (m/s)
+        :param linear_y_mps: Linear velocity in the Y direction (m/s)
+        :param angular_z_radps: Angular velocity about the Z axis (rad/s)
+        :param duration_s: Duration (seconds) of the sent command
+        :return: Boolean indicating if the command was successfully sent
+        """
+        command_id = self.send_velocity_command_nonblocking(
+            linear_x_mps=linear_x_mps,
+            linear_y_mps=linear_y_mps,
+            angular_z_radps=angular_z_radps,
+            duration_s=duration_s,
+        )
+
         if command_id is None:
             self.log_info("Velocity command returned None instead of a command ID.")
             return False

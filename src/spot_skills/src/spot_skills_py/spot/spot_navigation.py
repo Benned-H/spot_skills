@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import rospy
 from geometry_msgs.msg import Twist
+from nav_msgs.msg import Path as PathMsg
 from robotics_utils.kinematics import Waypoints
 from robotics_utils.motion_planning import (
     NavigationQuery,
@@ -15,6 +16,7 @@ from robotics_utils.motion_planning import (
     plan_se2_path,
 )
 from robotics_utils.robots import MobileRobot
+from robotics_utils.ros.msg_conversion import path_to_msg
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.skills import Outcome
@@ -62,8 +64,8 @@ class SpotNavigationServer(MobileRobot):
         self._robot_footprint = SPOT_FOOTPRINT
 
         # Pure pursuit configuration
-        self._lookahead_distance_m = 0.8  # Look 80cm ahead on the path
-        self._pursuit_step_timeout_s = 2.0  # Short timeout per pursuit iteration
+        self._lookahead_distance_m = 2.0  # Look 2 m ahead on the path
+        self._pursuit_cmd_duration_s = 3.0  # Duration (s) of each trajectory command
 
         # Provide a service to create new waypoints at Spot's current base pose
         self._new_waypoint_srv = rospy.Service(
@@ -87,6 +89,9 @@ class SpotNavigationServer(MobileRobot):
 
         # Subscribe to a topic providing body-frame velocity commands
         self._cmd_vel_sub = rospy.Subscriber("cmd_vel", Twist, self.handle_cmd_vel, queue_size=1)
+
+        # Publisher to visualize planned paths in RViz
+        self._path_pub = rospy.Publisher("/spot/navigation/planned_path", PathMsg, queue_size=1)
 
         self._CMD_VEL_DURATION_S = 1.0  # Duration (seconds) to execute each velocity command
 
@@ -156,7 +161,15 @@ class SpotNavigationServer(MobileRobot):
         )
 
         rospy.loginfo("About to call plan_se2_path...")
+
+        start_time = rospy.get_time()
+
         path = plan_se2_path(query)
+
+        end_time = rospy.get_time()
+        planning_duration_s = end_time - start_time
+
+        rospy.loginfo(f"Path planning using A* took {planning_duration_s:.2f} seconds.")
 
         if path is None:
             rospy.logwarn(
@@ -165,6 +178,11 @@ class SpotNavigationServer(MobileRobot):
             return None
 
         rospy.loginfo(f"A* planner found path with {len(path)} waypoints")
+
+        # Publish the planned path for RViz visualization
+        path_msg = path_to_msg(path)
+        self._path_pub.publish(path_msg)
+
         return path
 
     def execute_navigation_plan(self, nav_plan: list[Pose2D], timeout_s: float = 60.0) -> Outcome:
@@ -186,21 +204,23 @@ class SpotNavigationServer(MobileRobot):
 
         start_time = rospy.get_time()
         iteration = 0
-        max_iterations = 1000  # Safety limit
+        max_iterations = 2000  # Safety limit
 
         while iteration < max_iterations:
             iteration += 1
 
-            # Check timeout
             elapsed_s = rospy.get_time() - start_time
             if elapsed_s >= timeout_s:
-                return Outcome(False, f"Path following timed out after {elapsed_s:.1f}s")
+                self._manager.stop_walking()
+                return Outcome(
+                    success=False,
+                    message=f"Path following timed out after {elapsed_s:.1f} seconds.",
+                )
 
-            # Get current pose
             try:
                 current_pose = self.current_base_pose
             except RuntimeError as e:
-                return Outcome(False, f"Lost localization: {e}")
+                return Outcome(success=False, message=f"Lost localization: {e}")
 
             # Convert to path frame for pure pursuit
             grid_frame = nav_plan[0].ref_frame
@@ -218,19 +238,17 @@ class SpotNavigationServer(MobileRobot):
                     timeout_s=min(10.0, remaining_time_s),
                 )
 
-            # Command Spot toward the lookahead target
-            # Use short timeout since we'll update the target next iteration
-            remaining_time_s = timeout_s - elapsed_s
-            step_timeout_s = min(self._pursuit_step_timeout_s, remaining_time_s)
+            rospy.logdebug(f"Pure pursuit target: {target_pose}.")
 
-            rospy.logdebug(f"Pure pursuit: targeting {target_pose}")
-            outcome = self.go_to_pose(base_pose=target_pose, timeout_s=step_timeout_s)
+            # Send trajectory command to the lookahead target (non-blocking)
+            self._manager.send_trajectory_command(
+                pose=target_pose,
+                duration_s=self._pursuit_cmd_duration_s,
+            )
 
-            # Don't treat intermediate step failures as fatal - the pursuit loop will retry
-            if not outcome.success:
-                rospy.logwarn(f"Pursuit step issue: {outcome.message}")
+            rospy.sleep(0.01)
 
-        return Outcome(False, "Path following exceeded maximum iterations")
+        return Outcome(success=False, message="Path following exceeded maximum iterations")
 
     def navigate_to_pose(self, goal_pose: Pose2D, timeout_s: float | None = None) -> Outcome:
         """Navigate to the given target base pose using A* path planning and pure pursuit.
@@ -268,13 +286,13 @@ class SpotNavigationServer(MobileRobot):
             return self.execute_navigation_plan(nav_plan, timeout_s=timeout_s)
 
     def go_to_pose(self, base_pose: Pose2D, timeout_s: float) -> Outcome:
-        """Move directly to the specified base pose.
+        """Move directly to the specified base pose and stop the robot after reaching it.
 
         :param base_pose: Target base pose for the robot
         :param timeout_s: Timeout (seconds) for the movement command
         :return: Boolean success indicator and an outcome message
         """
-        self._manager.ensure_control(take_by_force=True)  # Forcefully ensure control of Spot
+        self._manager.ensure_control(take_by_force=True)
 
         if not self._manager.has_control:
             return Outcome(False, "Could not obtain control of Spot using the SpotManager.")

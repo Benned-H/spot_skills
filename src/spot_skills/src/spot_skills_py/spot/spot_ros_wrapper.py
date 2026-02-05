@@ -29,14 +29,16 @@ from robotics_utils.ros.msg_conversion import (
     pointcloud_to_msg,
     pose_from_msg,
     pose_to_stamped_msg,
+    poses_to_marker_msg,
 )
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
-from robotics_utils.spatial import DEFAULT_FRAME
+from robotics_utils.spatial import DEFAULT_FRAME, Pose3D, Quaternion
 from robotics_utils.states import ObjectCentricState
 from robotics_utils.vision.fiducials import FiducialMarker, FiducialSystem
 from sensor_msgs.msg import PointCloud2
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
+from visualization_msgs.msg import Marker
 
 from spot_skills.msg import RGBDPair
 from spot_skills.msg import RGBImage as RGBImageMsg
@@ -75,7 +77,7 @@ from spot_skills_py.spot.spot_arm_controller import (
     GripperCommandOutcome,
     SpotArmController,
 )
-from spot_skills_py.spot.spot_erase import erase_board
+from spot_skills_py.spot.spot_erase import erase_board, estimate_whiteboard_depth
 from spot_skills_py.spot.spot_graph_nav import SpotGraphNav
 from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient, SpotRGBCamera
 from spot_skills_py.spot.spot_lidar import StampedPointCloud
@@ -204,6 +206,7 @@ class SpotROS1Wrapper:
 
         self._pcd_pub = rospy.Publisher("spot/lidar_cloud", PointCloud2, latch=True, queue_size=1)
         self._occ_pub = rospy.Publisher("occupancy_grid", OccupancyGridMsg, queue_size=1)
+        self._rviz_pub = rospy.Publisher("visualization_marker", Marker, queue_size=1)
 
         self._pose_lookup_srv = rospy.Service("pose_lookup", PoseLookup, self.handle_pose_lookup)
         self._dock_srv = rospy.Service("spot/dock", Trigger, self.handle_dock)
@@ -300,7 +303,7 @@ class SpotROS1Wrapper:
             self._lidar_paused = True
             rospy.loginfo(f"Loaded occupancy grid from file: {occ_grid_yaml} (and paused LiDAR)")
 
-            occupancy_msg = occupancy_grid_to_msg(grid=self.occupancy_grid)
+            occupancy_msg = occupancy_grid_to_msg(grid=self.occupancy_grid, z_height_m=-0.55)
             self._occ_pub.publish(occupancy_msg)
         else:
             grid_parameters = DiscreteGrid2D.from_bounds(
@@ -498,7 +501,7 @@ class SpotROS1Wrapper:
             self.occupancy_grid.update(scan=hits_scan, clearing_scan=clearing_scan)
             self._last_occ_update_timestamp_s = self.stamped_cloud.timestamp_s
 
-            occupancy_msg = occupancy_grid_to_msg(grid=self.occupancy_grid)
+            occupancy_msg = occupancy_grid_to_msg(grid=self.occupancy_grid, z_height_m=-0.55)
             self._occ_pub.publish(occupancy_msg)
 
         except Exception as exc:
@@ -1117,14 +1120,49 @@ class SpotROS1Wrapper:
             if not got_priority:
                 return TriggerResponse(success=False, message="Could not obtain RPC priority.")
 
+            # Update the LiDAR displayed in RViz to clarify what's going on
+            lidar_was_paused = self._lidar_paused
+            self._lidar_paused = False
+            self._update_lidar()
+            self._lidar_paused = lidar_was_paused
+
+            # Estimate the whiteboard depth using RANSAC plane fitting on LiDAR data
+            whiteboard_estimate = estimate_whiteboard_depth(self._manager.lidar_interface)
+            if whiteboard_estimate is None:
+                return TriggerResponse(
+                    success=False,
+                    message="Failed to estimate whiteboard depth from LiDAR.",
+                )
+
+            estimated_depth_m = whiteboard_estimate.depth_m
+            rospy.loginfo(f"Estimated whiteboard depth: {estimated_depth_m:.3f} m.")
+
+            erase_at_depth_m = estimated_depth_m + 0.03  # Nudge forward 3 cm to ensure contact
+
+            # Load the erase trajectory points (y, z coordinates) from YAML
             erase_traj_path = get_ros_param(
                 "spot/erase_trajectory_path",
                 Path,
                 Path("/docker/spot_skills/src/spot_skills/config/erase_traj.yaml"),
             )
-            erase_traj = Point3D.load_points_from_yaml(erase_traj_path, collection_name="points")
+            erase_points = Point3D.load_points_from_yaml(erase_traj_path, collection_name="points")
+            adjusted_points = [Point3D(x=erase_at_depth_m, y=p.y, z=p.z) for p in erase_points]
 
-            erase_board(self._manager, erase_traj)
+            # Create poses in body frame with adjusted x-values
+            erase_poses_body = [
+                Pose3D(point, Quaternion.identity(), "body") for point in adjusted_points
+            ]
+
+            # Convert poses to odom frame for execution
+            erase_poses_odom = [
+                TransformManager.convert_to_frame(p, "odom") for p in erase_poses_body
+            ]
+
+            # Visualize the erase trajectory in RViz (in odom frame)
+            marker_msg = poses_to_marker_msg(erase_poses_odom)
+            self._rviz_pub.publish(marker_msg)
+
+            erase_board(self._manager, erase_poses_odom)
 
             return TriggerResponse(success=True, message="Erased the whiteboard.")
 

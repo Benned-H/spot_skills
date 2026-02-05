@@ -1,6 +1,7 @@
 """Define utilities and constants to convert to and from Spot SDK data structures."""
 
-from bosdyn.client.math_helpers import Quat, SE3Pose
+from bosdyn.client.math_helpers import Quat as QuatSDK
+from bosdyn.client.math_helpers import SE3Pose
 from robotics_utils.geometry import Point3D
 from robotics_utils.kinematics import Configuration
 from robotics_utils.motion_planning import RectangularFootprint
@@ -26,9 +27,14 @@ STOW_CONFIGURATION: Configuration = {
 }
 
 
-def quaternion_from_sdk(q: Quat) -> Quaternion:
+def quaternion_from_sdk(q: QuatSDK) -> Quaternion:
     """Construct a Quaternion from a quaternion in the Spot SDK format."""
     return Quaternion(x=q.x, y=q.y, z=q.z, w=q.w)
+
+
+def quaternion_to_sdk(q: Quaternion) -> QuatSDK:
+    """Convert a Quaternion to the Spot SDK Quat format."""
+    return QuatSDK(w=q.w, x=q.x, y=q.y, z=q.z)
 
 
 def pose_from_sdk(se3_pose: SE3Pose, ref_frame: str) -> Pose3D:
@@ -37,6 +43,23 @@ def pose_from_sdk(se3_pose: SE3Pose, ref_frame: str) -> Pose3D:
         position=Point3D(se3_pose.x, se3_pose.y, se3_pose.z),
         orientation=quaternion_from_sdk(se3_pose.rotation),
         ref_frame=ref_frame,
+    )
+
+
+def pose_to_sdk(pose: Pose3D) -> SE3Pose:
+    """Convert a Pose3D to the Spot SDK SE3Pose format.
+
+    Note: The reference frame is NOT encoded in SE3Pose; the caller must
+    ensure the pose is expressed in the intended frame before conversion.
+
+    :param pose: Pose3D with position and orientation
+    :return: Spot SDK SE3Pose object (math_helpers version, not proto)
+    """
+    return SE3Pose(
+        x=pose.position.x,
+        y=pose.position.y,
+        z=pose.position.z,
+        rot=quaternion_to_sdk(pose.orientation),
     )
 
 
