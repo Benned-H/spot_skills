@@ -1,0 +1,8 @@
+# Compute a motion plan for the arm to reach a target end-effector pose
+geometry_msgs/PoseStamped target_pose
+string[] ignored_objects
+bool ignore_all_collisions
+---
+bool success
+string message
+trajectory_msgs/JointTrajectory trajectory

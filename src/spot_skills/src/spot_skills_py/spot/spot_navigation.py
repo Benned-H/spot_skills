@@ -65,7 +65,8 @@ class SpotNavigationServer(MobileRobot):
 
         # Pure pursuit configuration
         self._lookahead_distance_m = 2.0  # Look 2 m ahead on the path
-        self._pursuit_cmd_duration_s = 3.0  # Duration (s) of each trajectory command
+        self._min_pursuit_cmd_duration_s = 3.0  # Min. duration (s) of each trajectory command
+        self._max_speed_mps = 0.5  # Maximum speed (meters/second) during pure pursuit
 
         # Provide a service to create new waypoints at Spot's current base pose
         self._new_waypoint_srv = rospy.Service(
@@ -83,9 +84,6 @@ class SpotNavigationServer(MobileRobot):
         # Load thresholds for when Spot is considered "close to a goal" from ROS params
         self.close_to_goal_m = get_ros_param("/spot/navigation/close_to_goal_m", float)
         self.close_to_goal_rad = get_ros_param("/spot/navigation/close_to_goal_rad", float)
-
-        # Ensure that we can access this ROS parameter, which we'll look up online later
-        get_ros_param("/spot/navigation/timeout_s", float)
 
         # Subscribe to a topic providing body-frame velocity commands
         self._cmd_vel_sub = rospy.Subscriber("cmd_vel", Twist, self.handle_cmd_vel, queue_size=1)
@@ -241,27 +239,28 @@ class SpotNavigationServer(MobileRobot):
             rospy.logdebug(f"Pure pursuit target: {target_pose}.")
 
             # Send trajectory command to the lookahead target (non-blocking)
+            max_speed_cmd_duration_s = self._lookahead_distance_m / self._max_speed_mps + 1.0
+            cmd_duration_s = max(self._min_pursuit_cmd_duration_s, max_speed_cmd_duration_s)
+
             self._manager.send_trajectory_command(
                 pose=target_pose,
-                duration_s=self._pursuit_cmd_duration_s,
+                duration_s=cmd_duration_s,
+                max_speed_mps=self._max_speed_mps,
             )
 
             rospy.sleep(0.01)
 
         return Outcome(success=False, message="Path following exceeded maximum iterations")
 
-    def navigate_to_pose(self, goal_pose: Pose2D, timeout_s: float | None = None) -> Outcome:
+    def navigate_to_pose(self, goal_pose: Pose2D, timeout_s: float = 120.0) -> Outcome:
         """Navigate to the given target base pose using A* path planning and pure pursuit.
 
         Falls back to direct navigation if path planning fails.
 
         :param goal_pose: Target base pose for the robot
-        :param timeout_s: Optional duration (seconds) after which navigation times out
+        :param timeout_s: Duration (seconds) after which navigation times out (default: 120 s)
         :return: Boolean success indicator and an outcome message
         """
-        if timeout_s is None:
-            timeout_s = get_ros_param("/spot/navigation/timeout_s", float)
-
         # Get current pose for path planning
         try:
             current_pose = self.current_base_pose
@@ -273,11 +272,13 @@ class SpotNavigationServer(MobileRobot):
         nav_plan = self.compute_navigation_plan(current_pose, goal_pose)
 
         if nav_plan is None:
-            rospy.logwarn("Path planning failed; attempting direct navigation as fallback")
-            with self._resource_manager.priority() as got_priority:
-                if not got_priority:
-                    rospy.logwarn(f"Navigating to pose {goal_pose} without RPC priority...")
-                return self.go_to_pose(base_pose=goal_pose, timeout_s=timeout_s)
+            return Outcome(success=False, message=f"Unable to plan a path to pose: {goal_pose}")
+
+            # rospy.logwarn("Path planning failed; attempting direct navigation as fallback")
+            # with self._resource_manager.priority() as got_priority:
+            #     if not got_priority:
+            #         rospy.logwarn(f"Navigating to pose {goal_pose} without RPC priority...")
+            #     return self.go_to_pose(base_pose=goal_pose, timeout_s=timeout_s)
 
         # Execute the planned path using pure pursuit
         with self._resource_manager.priority() as got_priority:

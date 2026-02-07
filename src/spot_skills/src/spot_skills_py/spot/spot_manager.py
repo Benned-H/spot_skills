@@ -11,6 +11,7 @@ from bosdyn.api.basic_command_pb2 import StandCommand
 from bosdyn.api.docking.docking_pb2 import DockState
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
+from bosdyn.api.geometry_pb2 import SE2Velocity, SE2VelocityLimit, Vec2
 from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.docking import DockingClient, blocking_dock_robot, blocking_undock
@@ -684,36 +685,64 @@ class SpotManager:
         self.log_info("Arm is now stowed.")
         return True
 
-    def _make_trajectory_command(self, base_pose: Pose2D) -> RobotCommand:
+    def _make_trajectory_command(
+        self,
+        base_pose: Pose2D,
+        mobility_params: MobilityParams | None = None,
+    ) -> RobotCommand:
         """Construct a trajectory command to move Spot toward the given base pose.
 
         :param base_pose: Target base pose for the trajectory
+        :param mobility_params: Optional mobility params (uses default if None)
         :return: RobotCommand Protobuf message containing the trajectory
         """
         target_pose_v_b = TransformManager.convert_to_frame(base_pose, VISION_FRAME_NAME)
+        params = mobility_params if mobility_params is not None else self._mobility_params
 
         return RobotCommandBuilder.synchro_se2_trajectory_point_command(
             goal_x=target_pose_v_b.x,
             goal_y=target_pose_v_b.y,
             goal_heading=target_pose_v_b.yaw_rad,
             frame_name=VISION_FRAME_NAME,
-            params=self._mobility_params,
+            params=params,
         )
 
-    def send_trajectory_command(self, pose: Pose2D, duration_s: float) -> bool:
+    def send_trajectory_command(
+        self,
+        pose: Pose2D,
+        duration_s: float,
+        max_speed_mps: float | None = None,
+    ) -> bool:
         """Send a single trajectory command to move toward a base pose (non-blocking).
 
         Use this for ongoing path following where the caller handles goal checking.
 
         :param pose: Target base pose for the trajectory
         :param duration_s: Duration (seconds) for the command
+        :param max_speed_mps: Optional max linear speed in m/s (default: no limit)
         :return: True if command was successfully sent, else False
         """
         if not self.has_control:
             self.log_info("Can't send trajectory command; SpotManager doesn't control Spot.")
             return False
 
-        trajectory_command = self._make_trajectory_command(base_pose=pose)
+        # Create mobility params with velocity limit if max_speed_mps is specified
+        mobility_params = None
+        if max_speed_mps is not None:
+            # Scale angular velocity proportionally (Spot's max is ~1.5 rad/s at ~1.6 m/s)
+            max_angular_radps = max_speed_mps * 0.9
+            vel_limit = SE2VelocityLimit(
+                max_vel=SE2Velocity(
+                    linear=Vec2(x=max_speed_mps, y=max_speed_mps),
+                    angular=max_angular_radps,
+                ),
+            )
+            mobility_params = MobilityParams(vel_limit=vel_limit)
+
+        trajectory_command = self._make_trajectory_command(
+            base_pose=pose,
+            mobility_params=mobility_params,
+        )
         command_id = self.send_robot_command(trajectory_command, duration_s=duration_s)
 
         return command_id is not None

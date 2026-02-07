@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   sensor_msgs
   geometry_msgs
+  trajectory_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -67,6 +68,7 @@ add_service_files(
   OpenDoor.srv
   ProbeSurface.srv
   CaptureImageObservation.srv
+  ComputeMotionPlan.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -82,6 +84,7 @@ generate_messages(
   std_msgs
   sensor_msgs
   geometry_msgs
+  trajectory_msgs
 )
 
 ################################################
@@ -116,7 +119,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES spot_skills
-  CATKIN_DEPENDS rospy message_runtime std_msgs sensor_msgs geometry_msgs
+  CATKIN_DEPENDS rospy message_runtime std_msgs sensor_msgs geometry_msgs trajectory_msgs
 #  DEPENDS system_lib
 )
 

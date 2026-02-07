@@ -10,6 +10,8 @@ from robotics_utils.spatial import Pose3D, Quaternion
 HAND_T_FINGERTIP = Pose3D.from_xyz_rpy(x=0.04843, z=-0.015, ref_frame="hand")
 """Relative pose of the `fingertip` frame relative to the Spot-published `hand` frame."""
 
+SPOT_GRIPPER_OPEN_RAD = -1.5707
+SPOT_GRIPPER_CLOSED_RAD = 0.0
 
 NOMINAL_STAND_HEIGHT_M = 0.61
 """Default height (m) of Spot's body when walking or standing.
@@ -63,5 +65,12 @@ def pose_to_sdk(pose: Pose3D) -> SE3Pose:
     )
 
 
-SPOT_FOOTPRINT = RectangularFootprint(max_x_m=0.63, min_x_m=-0.49, half_length_y_m=0.25)
+_FRONT_BACK_PADDING_M = 0.05  # Extra clearance for conservative planning
+_SIDE_PADDING_M = 0.1  # Try to discourage corner-cutting
+
+SPOT_FOOTPRINT = RectangularFootprint(
+    max_x_m=0.63 + _FRONT_BACK_PADDING_M,
+    min_x_m=-0.49 - _FRONT_BACK_PADDING_M,
+    half_length_y_m=0.25 + _SIDE_PADDING_M,
+)
 """Rectangular footprint in Spot's body frame (includes the stowed arm)."""

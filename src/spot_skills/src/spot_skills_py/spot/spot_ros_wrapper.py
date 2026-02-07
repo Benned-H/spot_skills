@@ -1,5 +1,6 @@
 """Define a class providing a ROS 1 interface to the Spot robot."""
 
+import threading
 from copy import deepcopy
 from pathlib import Path
 
@@ -18,7 +19,7 @@ from nav_msgs.msg import OccupancyGrid as OccupancyGridMsg
 from robotics_utils.geometry import Point3D
 from robotics_utils.io import make_unique_path
 from robotics_utils.io.yaml_utils import export_yaml_data
-from robotics_utils.motion_planning import DiscreteGrid2D
+from robotics_utils.motion_planning import DiscreteGrid2D, MotionPlanningQuery
 from robotics_utils.parallelism import ResourceManager
 from robotics_utils.perception import LaserScan2D, OccupancyGrid2D
 from robotics_utils.robots import GripperAngleLimits
@@ -33,7 +34,8 @@ from robotics_utils.ros.msg_conversion import (
 )
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
-from robotics_utils.spatial import DEFAULT_FRAME, Pose3D, Quaternion
+from robotics_utils.skills.protocols.spot_skills import SpotSkillsProtocol
+from robotics_utils.spatial import DEFAULT_FRAME, Pose2D, Pose3D, Quaternion
 from robotics_utils.states import ObjectCentricState
 from robotics_utils.vision.fiducials import FiducialMarker, FiducialSystem
 from sensor_msgs.msg import PointCloud2
@@ -46,6 +48,9 @@ from spot_skills.srv import (
     CaptureImageObservation,
     CaptureImageObservationRequest,
     CaptureImageObservationResponse,
+    ComputeMotionPlan,
+    ComputeMotionPlanRequest,
+    ComputeMotionPlanResponse,
     GetRGBDPairs,
     GetRGBDPairsRequest,
     GetRGBDPairsResponse,
@@ -77,7 +82,13 @@ from spot_skills_py.spot.spot_arm_controller import (
     GripperCommandOutcome,
     SpotArmController,
 )
-from spot_skills_py.spot.spot_erase import erase_board, estimate_whiteboard_depth
+from spot_skills_py.spot.spot_conversion import SPOT_GRIPPER_CLOSED_RAD, SPOT_GRIPPER_OPEN_RAD
+from spot_skills_py.spot.spot_erase import (
+    erase_board,
+    # estimate_whiteboard_depth,  # COMMENTED OUT: using fixed board_y param instead
+    generate_zigzag_erase_pattern,
+    group_points_into_swaths,
+)
 from spot_skills_py.spot.spot_graph_nav import SpotGraphNav
 from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient, SpotRGBCamera
 from spot_skills_py.spot.spot_lidar import StampedPointCloud
@@ -85,9 +96,6 @@ from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.spot.spot_navigation import SpotNavigationServer
 from spot_skills_py.spot.spot_open_door import SpotDoorOpener
 from spot_skills_py.visualize_graphnav import GraphNavRViz
-
-SPOT_GRIPPER_OPEN_RAD = -1.5707
-SPOT_GRIPPER_CLOSED_RAD = 0.0
 
 
 class SpotROS1Wrapper:
@@ -180,6 +188,7 @@ class SpotROS1Wrapper:
             Trigger,
             self.handle_default_body_pose,
         )
+        self._body_in_default_pose = False  # Conservatively assume non-default pose
 
         self._shutdown_service = rospy.Service("spot/shutdown", Trigger, self.handle_shutdown)
         self._unlock_arm_service = rospy.Service("spot/unlock_arm", Trigger, self.handle_unlock_arm)
@@ -207,6 +216,8 @@ class SpotROS1Wrapper:
         self._pcd_pub = rospy.Publisher("spot/lidar_cloud", PointCloud2, latch=True, queue_size=1)
         self._occ_pub = rospy.Publisher("occupancy_grid", OccupancyGridMsg, queue_size=1)
         self._rviz_pub = rospy.Publisher("visualization_marker", Marker, queue_size=1)
+
+        self._open_drawer_srv = rospy.Service("spot/open_drawer", Trigger, self.handle_open_drawer)
 
         self._pose_lookup_srv = rospy.Service("pose_lookup", PoseLookup, self.handle_pose_lookup)
         self._dock_srv = rospy.Service("spot/dock", Trigger, self.handle_dock)
@@ -253,6 +264,13 @@ class SpotROS1Wrapper:
             self.handle_resume_lidar,
         )
         self._lidar_paused = False
+
+        self._planning_scene_lock = threading.Lock()
+        self._compute_motion_plan_srv = rospy.Service(
+            "spot/compute_motion_plan",
+            ComputeMotionPlan,
+            self.handle_compute_motion_plan,
+        )
 
         gripper = ROSAngularGripper(
             limits=GripperAngleLimits(
@@ -391,6 +409,8 @@ class SpotROS1Wrapper:
             resource_manager=self._robot_rpc_manager,
         )
 
+        self.spot_skills = SpotSkillsProtocol(self.manipulator)
+
     def _broadcast_frames(self) -> None:
         """Broadcast the current known and estimated reference frames to /tf."""
         # First, synchronize the object-centric state with the current pose estimates
@@ -419,8 +439,9 @@ class SpotROS1Wrapper:
 
     def _sync_planning_scene(self) -> None:
         """Synchronize the MoveIt planning scene with the stored environment state."""
-        if not self.manipulator.planning_scene.set_state(self._env_state):
-            rospy.logwarn("Failed to sync the MoveIt planning scene with the current state.")
+        with self._planning_scene_lock:
+            if not self.manipulator.planning_scene.set_state(self._env_state):
+                rospy.logwarn("Failed to sync the MoveIt planning scene with the current state.")
 
     def _update_lidar(self) -> None:
         """Update the stored stamped pointcloud using new LiDAR data from Spot."""
@@ -568,6 +589,52 @@ class SpotROS1Wrapper:
         )
         return NameServiceResponse(success=success, message=message)
 
+    def handle_compute_motion_plan(
+        self,
+        request: ComputeMotionPlanRequest,
+    ) -> ComputeMotionPlanResponse:
+        """Handle a request to compute a motion plan for Spot's arm.
+
+        This centralizes motion planning in SpotROS1Wrapper, which owns the planning scene.
+        The lock prevents race conditions with the _sync_planning_scene thread.
+
+        :param request: Request containing target pose, ignored objects, and collision settings
+        :return: Response with success status, message, and computed trajectory
+        """
+        response = ComputeMotionPlanResponse()
+        response.success = False
+
+        with self._planning_scene_lock:
+            for obj_name in request.ignored_objects:  # Hide ignored objects before planning
+                self._env_state.hide_object(obj_name=obj_name)
+
+            # Sync the planning scene with the updated state (objects now hidden)
+            self.manipulator.planning_scene.set_state(self._env_state)
+
+            target_pose = pose_from_msg(request.target_pose)
+            query = MotionPlanningQuery(
+                ee_target=target_pose,
+                ignore_all_collisions=request.ignore_all_collisions,
+            )
+            rospy.loginfo(f"[compute_motion_plan] Planning with query: {query}")
+
+            plan_msg = self.manipulator.planner.compute_motion_plan(query)
+
+            for obj_name in request.ignored_objects:  # Unhide hidden objects after planning
+                self._env_state.unhide_object(obj_name=obj_name)
+
+            # Sync again to restore the planning scene
+            self.manipulator.planning_scene.set_state(self._env_state)
+
+        if plan_msg is None:
+            response.message = "Motion planning failed: no valid plan found."
+            return response
+
+        response.success = True
+        response.message = "Motion plan computed successfully."
+        response.trajectory = plan_msg.joint_trajectory
+        return response
+
     def handle_set_container_open(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a request that the named container's state be set as open."""
         self._env_state.open_container(container_name=request.name)
@@ -602,6 +669,7 @@ class SpotROS1Wrapper:
         """
         stood_up = False
         if self._manager.ensure_control(take_by_force=False):
+            self._body_in_default_pose = False
             stood_up = self._manager.stand_up(20)
 
         message = "Spot is now standing." if stood_up else "Could not make Spot stand."
@@ -616,6 +684,7 @@ class SpotROS1Wrapper:
         """
         sit_success = False
         if self._manager.ensure_control(take_by_force=False):
+            self._body_in_default_pose = False
             sit_success = self._manager.sit_down(20)
 
         message = "Spot is now sitting." if sit_success else "Spot could not sit."
@@ -628,12 +697,19 @@ class SpotROS1Wrapper:
         :param _: ROS message requesting that Spot's body move to its default pose
         :return: Response conveying whether Spot successfully moved to the pose
         """
+        if self._body_in_default_pose:
+            return TriggerResponse(success=True, message="Body was already in the default pose.")
+
         robot_command = self._manager.build_hold_body_pose_command()
         command_id = self._manager.send_robot_command(robot_command)
         if command_id is None:
             return TriggerResponse(success=False, message="Robot command ID was None.")
 
         success = self._manager.block_until_standing(command_id)
+        if success:
+            self._body_in_default_pose = True
+            rospy.sleep(3)  # Wait 3 seconds to allow transforms to account for Spot's base pose
+
         message = "Reached default body pose." if success else "Failed to reach default body pose."
         return TriggerResponse(success=success, message=message)
 
@@ -643,6 +719,8 @@ class SpotROS1Wrapper:
         :param _: ROS message requesting that Spot be docked (unused)
         :return: Response conveying whether Spot successfully docked
         """
+        self._body_in_default_pose = False
+
         dock_id = get_ros_param("spot/dock_id", int, default_value=520)
         success = self._manager.dock(dock_id)
         message = "Spot successfully docked." if success else "Spot failed to dock."
@@ -654,6 +732,8 @@ class SpotROS1Wrapper:
         :param _: ROS message requesting that Spot be undocked
         :return: Response conveying whether Spot successfully undocked
         """
+        self._body_in_default_pose = False
+
         outcome = self._manager.undock()
         return TriggerResponse(outcome.success, outcome.message)
 
@@ -664,6 +744,9 @@ class SpotROS1Wrapper:
         :return: Response specifying whether the navigation succeeded
         """
         self._manager.log_info("Handling 'NavigateToPose' request...")
+
+        # Assume that navigating may leave Spot's body with non-default control settings
+        self._body_in_default_pose = False
 
         target_2d = pose_from_msg(request.target_base_pose).to_2d()
         timeout_s = request.timeout_s
@@ -688,6 +771,10 @@ class SpotROS1Wrapper:
         self._manager.log_info(
             f"Handling 'NavigateToWaypoint' request for waypoint '{request.name}'...",
         )
+
+        # Assume that navigating may leave Spot's body with non-default control settings
+        self._body_in_default_pose = False
+
         target_pose = self._navigation_server.waypoints[request.name]
         self._manager.log_info(f"Waypoint '{request.name}' has target pose: {target_pose}.")
 
@@ -773,6 +860,7 @@ class SpotROS1Wrapper:
 
         deployed = False
         if self._manager.ensure_control(take_by_force=False):
+            self._body_in_default_pose = False  # Assume that Spot's body may adjust for the arm
             deployed = self._manager.deploy_arm()
 
         return TriggerResponse(
@@ -1013,6 +1101,11 @@ class SpotROS1Wrapper:
         response.message = str(yaml_path)
         return response
 
+    def handle_open_drawer(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a request to have Spot open a draw using trajectory playback."""
+        outcome = self.spot_skills.open_drawer()
+        return TriggerResponse(success=outcome.success, message=outcome.message)
+
     def handle_open_door(self, request: OpenDoorRequest) -> OpenDoorResponse:
         """Handle a service request to open a door in front of Spot.
 
@@ -1033,6 +1126,9 @@ class SpotROS1Wrapper:
                     success=False,
                     message="Could not obtain RPC priority; background threads still active.",
                 )
+
+            # Assume that opening a door may leave Spot's body in a non-default pose
+            self._body_in_default_pose = False
 
             # Call the operations needed for door-opening, step-by-step
             self.manipulator.gripper.open()
@@ -1104,6 +1200,14 @@ class SpotROS1Wrapper:
     def handle_erase_board(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to erase a whiteboard.
 
+        All coordinates are in map/odom frame to make the erase trajectory
+        deterministic regardless of Spot's exact pose after navigation.
+
+        Assumes:
+        - Spot navigates to the erase waypoint facing map +y (yaw ≈ π/2)
+        - Board surface is at a fixed map y coordinate (configured via ROS param)
+        - Erase region is defined in map x (left/right) and map z (up/down)
+
         :param _: Message representing a request to erase a board
         :return: Response conveying whether the whiteboard was erased
         """
@@ -1120,49 +1224,172 @@ class SpotROS1Wrapper:
             if not got_priority:
                 return TriggerResponse(success=False, message="Could not obtain RPC priority.")
 
+            # Assume that erasing may tilt Spot's body when compensating for force control
+            self._body_in_default_pose = False
+
             # Update the LiDAR displayed in RViz to clarify what's going on
             lidar_was_paused = self._lidar_paused
             self._lidar_paused = False
             self._update_lidar()
             self._lidar_paused = lidar_was_paused
 
-            # Estimate the whiteboard depth using RANSAC plane fitting on LiDAR data
-            whiteboard_estimate = estimate_whiteboard_depth(self._manager.lidar_interface)
-            if whiteboard_estimate is None:
+            # # COMMENTED OUT: LiDAR-based depth estimation (replaced with fixed board_y param)
+            # # Estimate the whiteboard depth using RANSAC plane fitting on LiDAR data
+            # whiteboard_estimate = estimate_whiteboard_depth(self._manager.lidar_interface)
+            # if whiteboard_estimate is None:
+            #     return TriggerResponse(
+            #         success=False,
+            #         message="Failed to estimate whiteboard depth from LiDAR.",
+            #     )
+            # estimated_depth_m = whiteboard_estimate.depth_m
+            # rospy.loginfo(f"Estimated whiteboard depth: {estimated_depth_m:.3f} m.")
+            # erase_at_depth_m = estimated_depth_m + 0.05
+
+            # === ERASE PARAMETERS (ABSOLUTE map-frame coordinates) ===
+            # Get map→odom transform to convert fixed map coords to odom for execution
+            map_to_odom = TransformManager.lookup_transform("map", "odom")
+            if map_to_odom is None:
                 return TriggerResponse(
                     success=False,
-                    message="Failed to estimate whiteboard depth from LiDAR.",
+                    message="Could not look up map->odom transform.",
                 )
 
-            estimated_depth_m = whiteboard_estimate.depth_m
-            rospy.loginfo(f"Estimated whiteboard depth: {estimated_depth_m:.3f} m.")
+            # Extract the 2D offset: odom = map + offset
+            odom_offset_x = map_to_odom.position.x
+            odom_offset_y = map_to_odom.position.y
 
-            erase_at_depth_m = estimated_depth_m + 0.03  # Nudge forward 3 cm to ensure contact
-
-            # Load the erase trajectory points (y, z coordinates) from YAML
-            erase_traj_path = get_ros_param(
-                "spot/erase_trajectory_path",
-                Path,
-                Path("/docker/spot_skills/src/spot_skills/config/erase_traj.yaml"),
+            rospy.loginfo(
+                f"Map->odom offset: x={odom_offset_x:.3f}, y={odom_offset_y:.3f}",
             )
-            erase_points = Point3D.load_points_from_yaml(erase_traj_path, collection_name="points")
-            adjusted_points = [Point3D(x=erase_at_depth_m, y=p.y, z=p.z) for p in erase_points]
 
-            # Create poses in body frame with adjusted x-values
-            erase_poses_body = [
-                Pose3D(point, Quaternion.identity(), "body") for point in adjusted_points
-            ]
+            # Board surface y-coordinate in MAP frame (absolute, tune this manually)
+            board_y_map = get_ros_param("spot/erase_board_y", float, -3.4)
 
-            # Convert poses to odom frame for execution
-            erase_poses_odom = [
-                TransformManager.convert_to_frame(p, "odom") for p in erase_poses_body
-            ]
+            # Erase region in MAP frame (absolute coordinates)
+            erase_x_min_map = get_ros_param("spot/erase_x_min", float, 6.3)
+            erase_x_max_map = get_ros_param("spot/erase_x_max", float, 6.8)
+            z_min = get_ros_param("spot/erase_z_min", float, 0.5)
+            z_max = get_ros_param("spot/erase_z_max", float, 0.75)
+            x_spacing_m = get_ros_param("spot/erase_x_spacing", float, 0.1)
+            reachable_half_width_m = get_ros_param("spot/erase_reachable_half_width", float, 0.1)
 
-            # Visualize the erase trajectory in RViz (in odom frame)
-            marker_msg = poses_to_marker_msg(erase_poses_odom)
-            self._rviz_pub.publish(marker_msg)
+            # Convert map coords to odom coords for execution
+            board_y_odom = board_y_map + odom_offset_y
+            erase_x_min_odom = erase_x_min_map + odom_offset_x
+            erase_x_max_odom = erase_x_max_map + odom_offset_x
 
-            erase_board(self._manager, erase_poses_odom)
+            rospy.loginfo(
+                f"Erase region (map): x=[{erase_x_min_map}, {erase_x_max_map}], "
+                f"y={board_y_map}, z=[{z_min}, {z_max}]",
+            )
+            rospy.loginfo(
+                f"Erase region (odom): x=[{erase_x_min_odom:.3f}, {erase_x_max_odom:.3f}], "
+                f"y={board_y_odom:.3f}",
+            )
+
+            # Generate zig-zag erase pattern (x, z) in ODOM frame
+            erase_xz_points = generate_zigzag_erase_pattern(
+                x_min=erase_x_min_odom,
+                x_max=erase_x_max_odom,
+                z_min=z_min,
+                z_max=z_max,
+                x_spacing_m=x_spacing_m,
+            )
+
+            # Group points into swaths based on arm reachability
+            swaths = group_points_into_swaths(erase_xz_points, reachable_half_width_m)
+            rospy.loginfo(f"Erase pattern divided into {len(swaths)} swaths.")
+
+            # Erase parameters (force and timing)
+            force_n = get_ros_param("spot/erase_force_n", float, 10.0)
+            segment_time_s = get_ros_param("spot/erase_segment_time_s", float, 3.0)
+
+            # Gripper orientation: pointing in odom +y direction (toward board)
+            # This is yaw = π/2 in odom frame
+            gripper_quat = Quaternion(
+                x=0.0,
+                y=0.0,
+                z=np.sqrt(2) / 2,  # sin(π/4)
+                w=np.sqrt(2) / 2,  # cos(π/4)
+            )
+
+            # Get initial robot pose for yaw reference and return-to-start
+            initial_pose_3d = TransformManager.lookup_transform("body", "odom")
+            initial_pose_odom = initial_pose_3d.to_2d() if initial_pose_3d else None
+            robot_yaw = initial_pose_odom.yaw_rad if initial_pose_odom else np.pi / 2
+
+            for swath_idx, (target_robot_x_odom, swath_xz_points) in enumerate(swaths):
+                rospy.loginfo(
+                    f"Swath {swath_idx + 1}/{len(swaths)}: "
+                    f"{len(swath_xz_points)} points, target_x_odom={target_robot_x_odom:.3f} m.",
+                )
+
+                # Sidestep: move robot to target_robot_x in odom frame
+                current_pose_3d = TransformManager.lookup_transform("body", "odom")
+                if current_pose_3d is None:
+                    rospy.logwarn("Could not look up body->odom transform for sidestep.")
+                    continue
+
+                current_pose = current_pose_3d.to_2d()
+                sidestep_distance = target_robot_x_odom - current_pose.x
+
+                if abs(sidestep_distance) > 0.01:  # Only sidestep if needed (> 1cm)
+                    rospy.loginfo(
+                        f"Sidestepping: {current_pose.x:.3f} -> {target_robot_x_odom:.3f} m (odom)",
+                    )
+
+                    # Target pose: new x, same y and yaw
+                    target_pose = Pose2D(
+                        target_robot_x_odom,
+                        current_pose.y,
+                        robot_yaw,
+                        ref_frame="odom",
+                    )
+
+                    # Use trajectory command (more robust with network latency)
+                    sidestep_duration_s = abs(sidestep_distance) / 0.15 + 1.0  # ~0.15 m/s
+                    self._manager.send_trajectory_command(
+                        target_pose,
+                        sidestep_duration_s,
+                        max_speed_mps=0.2,
+                    )
+                    rospy.sleep(sidestep_duration_s + 0.5)  # Wait for motion to complete
+
+                # Create erase poses in odom frame
+                swath_poses_odom = [
+                    Pose3D(Point3D(x=odom_x, y=board_y_odom, z=z), gripper_quat, "odom")
+                    for odom_x, z in swath_xz_points
+                ]
+
+                # Visualize this swath in RViz
+                marker_msg = poses_to_marker_msg(swath_poses_odom)
+                self._rviz_pub.publish(marker_msg)
+
+                # Erase this swath
+                if len(swath_poses_odom) >= 2:
+                    erase_board(
+                        self._manager,
+                        swath_poses_odom,
+                        force_n=force_n,
+                        segment_time_s=segment_time_s,
+                    )
+
+            # Return to starting position
+            if initial_pose_odom is not None:
+                current_pose_3d = TransformManager.lookup_transform("body", "odom")
+                if current_pose_3d:
+                    current_x = current_pose_3d.to_2d().x
+                    if abs(current_x - initial_pose_odom.x) > 0.01:
+                        rospy.loginfo(
+                            f"Returning to start x: {current_x:.3f} -> {initial_pose_odom.x:.3f}",
+                        )
+                        return_duration_s = abs(current_x - initial_pose_odom.x) / 0.15 + 1.0
+                        self._manager.send_trajectory_command(
+                            initial_pose_odom,
+                            return_duration_s,
+                            max_speed_mps=0.2,
+                        )
+                        rospy.sleep(return_duration_s + 0.5)
 
             return TriggerResponse(success=True, message="Erased the whiteboard.")
 
@@ -1184,6 +1411,9 @@ class SpotROS1Wrapper:
                     success=False,
                     message="Could not obtain RPC priority before probing.",
                 )
+
+            # Assume that force-controlled probing may tilt Spot's body to compensate forces
+            self._body_in_default_pose = False
 
             plane_result = self._arm_controller.force_controller.probe_surface(
                 direction=point_from_vector3_msg(request.direction),
@@ -1210,6 +1440,9 @@ class SpotROS1Wrapper:
         :param _: Message representing a request to take control of Spot
         :return: Response conveying whether control was successfully taken
         """
+        # Conservatively assume that Spot's body was left in an arbitrary non-default pose
+        self._body_in_default_pose = False
+
         has_control = self._manager.ensure_control(take_by_force=True)
         message = (
             "SpotManager now controls Spot."
@@ -1331,8 +1564,8 @@ class SpotROS1Wrapper:
             world_t_parent = world_t_object @ object_t_parent
 
         # Clear the environment state for the object and pose averager for its parent marker
-        self.tag_tracker.pose_averager.reset_frame(frame_name=parent_frame)
         self._env_state.clear_object_pose(obj_name=object_name)
+        self.tag_tracker.pose_averager.reset_frame(frame_name=parent_frame)
 
         # If available, initialize the object's parent marker's pose estimate
         if world_t_parent is not None:

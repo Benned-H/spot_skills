@@ -29,9 +29,6 @@
     <!-- Absolute angle (radians) within which Spot is considered "close" to its goal (here, 90 degrees) -->
     <param name="/spot/navigation/close_to_goal_rad" value="1.5708" />
 
-    <!-- Duration (seconds) after which a navigation command will time out -->
-    <param name="/spot/navigation/timeout_s" value="120" />
-
     <!-- Filepath to the occupancy grid map to load from file -->
     <param name="/spot/navigation/occ_grid_yaml" value="/docker/spot_skills/maps/Feb-3.yaml" />
 
