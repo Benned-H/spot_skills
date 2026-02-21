@@ -7,6 +7,17 @@ markers:
     relative_frames:
       black_dresser: [0.32, -0.164, 0.7, 3.14159, 0, 1.5708]
 
+  marker_45:
+    size_cm: 7.6
+    relative_frames:
+      filing_cabinet: [0, 0.555, 0.228, 1.5708, 1.5708, 0]
+
+  # marker_44:
+  #   size_cm: 7.6
+
+  # marker_45:
+  #   size_cm: 7.6
+
   marker_500: # Attached on top of the eraser
     size_cm: 3.6
     relative_frames: # Eraser frame is "behind" (+z) and roll 180° to flip the y- and z-axes
