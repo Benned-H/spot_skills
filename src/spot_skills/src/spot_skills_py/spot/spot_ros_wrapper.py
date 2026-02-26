@@ -36,7 +36,8 @@ from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
 from robotics_utils.skills.protocols.spot_skills import SpotSkillsProtocol
 from robotics_utils.spatial import DEFAULT_FRAME, Pose2D, Pose3D, Quaternion
-from robotics_utils.states import ObjectCentricState
+from robotics_utils.states import GraspAttachment, ObjectCentricState, PlacementSurface
+from robotics_utils.tamp.generators.place_poses import PlacePosesArgs, PlacePosesGenerator
 from robotics_utils.vision.fiducials import FiducialMarker, FiducialSystem
 from sensor_msgs.msg import PointCloud2
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
@@ -66,6 +67,9 @@ from spot_skills.srv import (
     OpenDoor,
     OpenDoorRequest,
     OpenDoorResponse,
+    PlaceObject,
+    PlaceObjectRequest,
+    PlaceObjectResponse,
     PlaybackTrajectory,
     PlaybackTrajectoryRequest,
     PlaybackTrajectoryResponse,
@@ -159,9 +163,11 @@ class SpotROS1Wrapper:
         if immediate_control:
             self._manager.take_control(force=True)
 
+        self._curr_grasp: GraspAttachment | None = None
+
         # Initialize all ROS services provided by the class
         self._grasp_srv = rospy.Service("spot/grasp_object", NameService, self.handle_grasp)
-        self._release_srv = rospy.Service("spot/release_object", NameService, self.handle_release)
+        self._place_srv = rospy.Service("spot/place_object", PlaceObject, self.handle_place_object)
 
         self._hide_object_srv = rospy.Service(
             "spot/moveit/hide_object",
@@ -544,28 +550,84 @@ class SpotROS1Wrapper:
                 success=False,
                 message=f"Pose output from grasping '{object_name}' was None.",
             )
+        self._curr_grasp = outcome.output
 
         # Update the object's pose as now dependent on Spot's end-effector
-        self._env_state.set_known_object_pose(obj_name=object_name, pose=outcome.output)
+        pose_ee_o = outcome.output.pose_ee_o
+        self._env_state.set_known_object_pose(obj_name=object_name, pose=pose_ee_o)
 
         return NameServiceResponse(success=outcome.success, message=outcome.message)
 
-    def handle_release(self, request: NameServiceRequest) -> NameServiceResponse:
-        """Handle a request to release the named object."""
-        object_name = request.name
-        surface_name = "TODO: Refactor the `handle_released` service!"
+    def handle_place_object(self, request: PlaceObjectRequest) -> PlaceObjectResponse:
+        """Handle a request to place an object onto a surface."""
+        failure_message = None
 
-        if object_name not in self._env_state.object_names:
-            return NameServiceResponse(
+        if request.object_name not in self._env_state.object_names:
+            failure_message = f"Cannot place unknown object: '{request.object_name}'."
+        elif request.surface_name not in self._env_state.object_names:
+            failure_message = f"Cannot place onto unknown surface: '{request.surface_name}'."
+        elif self._curr_grasp is None:
+            failure_message = "Cannot place; must pick first."
+
+        if failure_message:
+            return PlaceObjectResponse(success=False, message=failure_message)
+
+        placed_obj = self._env_state.get_object_kinematic_state(request.object_name)
+        if placed_obj is None:
+            return PlaceObjectResponse(
                 success=False,
-                message=f"Cannot release unknown object: '{object_name}'.",
+                message=f"Unable to retrieve kinematic state of '{request.object_name}'.",
             )
 
-        outcome = self.manipulator.release(object_name=object_name, placed_frame=surface_name)
+        surface_obj = self._env_state.get_object_kinematic_state(request.surface_name)
+        if surface_obj is None:
+            return PlaceObjectResponse(
+                success=False,
+                message=f"Unable to retrieve kinematic state of '{request.surface_name}'.",
+            )
 
-        # TODO: Update the kinematic state using the object's new pose, etc.
+        surface = PlacementSurface.from_object_aabb(surface_obj)
+        pose_ee_o = self._curr_grasp.pose_ee_o
+        place_pose_args = PlacePosesArgs(surface, placed_obj, pose_ee_o, self.manipulator)
+        generator = PlacePosesGenerator(place_pose_args)
 
-        return NameServiceResponse(success=outcome.success, message=outcome.message)
+        for place_poses in generator:
+            rospy.loginfo(f"Attempting to motion plan for generator sample {generator.count}...")
+
+            pre_query = MotionPlanningQuery(ee_target=place_poses.preplace_pose)
+            place_query = MotionPlanningQuery(ee_target=place_poses.place_pose)
+            post_query = MotionPlanningQuery(ee_target=place_poses.postplace_pose)
+
+            with self._planning_scene_lock:
+                pre_plan_msg = self.manipulator.planner.compute_motion_plan(pre_query)
+            if pre_plan_msg is None:
+                continue
+            pre_place_success = self.manipulator.execute_trajectory_msg(pre_plan_msg)
+            if not pre_place_success:
+                message = "Failed to execute pre-place trajectory."
+                return PlaceObjectResponse(success=False, message=message)
+
+            with self._planning_scene_lock:
+                plan_msg = self.manipulator.planner.compute_motion_plan(place_query)
+            if plan_msg is None:
+                continue
+            place_success = self.manipulator.execute_trajectory_msg(plan_msg)
+            if not place_success:
+                message = "Failed to execute place trajectory."
+                return PlaceObjectResponse(success=False, message=message)
+
+            with self._planning_scene_lock:
+                post_plan_msg = self.manipulator.planner.compute_motion_plan(post_query)
+            if post_plan_msg is None:
+                continue
+            post_place_success = self.manipulator.execute_trajectory_msg(post_plan_msg)
+            if not post_place_success:
+                message = "Failed to execute post-place trajectory."
+                return PlaceObjectResponse(success=False, message=message)
+
+            return PlaceObjectResponse(success=True, message="Object has been placed.")
+
+        return PlaceObjectResponse(success=False, message="Unexpectedly exited loop???")
 
     def handle_hide_object(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a request to hide an object in the MoveIt planning scene."""

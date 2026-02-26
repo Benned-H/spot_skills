@@ -69,6 +69,7 @@ add_service_files(
   ProbeSurface.srv
   CaptureImageObservation.srv
   ComputeMotionPlan.srv
+  PlaceObject.srv
 )
 
 ## Generate actions in the 'action' folder

@@ -1,0 +1,6 @@
+# Command the robot to place an object onto a surface.
+string object_name
+string surface_name
+---
+bool success
+string message
