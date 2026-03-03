@@ -33,18 +33,31 @@ Demonstrations must be collected before training. The pipeline is:
 ```
 skill_learning/
 ├── src/
-│   ├── model.py      # BC-RNN model (ResNet encoder + GRU)
-│   ├── dataset.py     # Dataset and dataloader utilities
-│   └── utils.py       # Rosbag parsing, TF extraction, sync
-├── test.py            # Smoke tests for model and dataset
+│   ├── model.py            # BC-RNN model (ResNet encoder + GRU)
+│   ├── dataset.py           # Dataset and dataloader utilities
+│   └── utils.py             # Rosbag parsing, TF extraction, sync
+├── config/
+│   ├── training_params.yaml  # Training hyperparameters
+│   └── ros_node_params.yaml  # Deployment config (topics, model params)
+├── train.py                  # Training script
+├── deploy_ros_node.py        # ROS1 deployment node
+├── test.py                   # Smoke tests (model, dataset, training, deploy)
 ├── docker/
 │   └── lerobot_docker.sh
 └── README.md
 ```
 
-## Usage
+## Training
 
-Run tests:
+Edit hyperparameters in [config/training_params.yaml](config/training_params.yaml), then run:
+
+```bash
+python train.py --config config/training_params.yaml
+```
+
+Checkpoints saved: `best.pt` (lowest validation loss), periodic (`epoch_NNN.pt`), and `final.pt`.
+
+## Testing
 
 ```bash
 python test.py
@@ -52,4 +65,10 @@ python test.py
 
 ## ROS1 Deployment
 
-WIP -- a deployment node for running trained policies on Spot via ROS1 is planned.
+Run the trained policy on the robot:
+
+```bash
+rosrun spot_skills deploy_ros_node.py --config config/ros_node_params.yaml
+```
+
+The node subscribes to a camera image topic and `/tf`, runs the BC-RNN model at a fixed rate, and publishes predicted poses as `geometry_msgs/PoseStamped`. All parameters (topics, model config, rate) are configured in [config/ros_node_params.yaml](config/ros_node_params.yaml).

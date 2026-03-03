@@ -1,0 +1,35 @@
+# Training hyperparameters for BC-RNN
+
+# Data
+data: "data/"              # Path to synced .npy file(s) or directory
+joint_name: "hand"         # TF child frame name
+seq_len: 20                # Sliding window length
+val_ratio: 0.1             # Fraction of data for validation
+delta_actions: true        # true: action = pose[t+1] - pose[t], false: action = pose[t+1]
+
+# Model architecture
+model:
+  state_dim: 6
+  action_dim: 6
+  hidden_dim: 256
+  in_channels: 1            # 1=grayscale, 3=RGB
+  image_size: 224
+  freeze_backbone: true
+
+# Training
+epochs: 200
+batch_size: 16
+lr: 1.0e-4
+weight_decay: 1.0e-5
+grad_clip: 1.0              # Gradient clipping norm (0 to disable)
+num_workers: 4
+
+# Saving
+save_dir: "checkpoints"
+save_every: 50               # Save checkpoint every N epochs
+
+# Weights & Biases
+wandb:
+  enabled: false
+  project: "bc-rnn-spot"
+  run_name: null              # Auto-generated if null

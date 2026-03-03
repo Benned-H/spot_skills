@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import os
 import tempfile
 from types import SimpleNamespace
@@ -210,27 +209,44 @@ def test_dataset_missing_joint_skipped():
     print(f"dataset_missing_joint:  correctly skipped OK")
 
 
-def test_dataset_action_is_next_pose():
-    """Verify action[t] == state[t+1] (next-pose prediction target)."""
+def test_dataset_action_absolute():
+    """Verify absolute mode: action[t] == pose[t+1]."""
     num_frames = 5
     with tempfile.TemporaryDirectory() as tmpdir:
         npy_path = os.path.join(tmpdir, "traj.npy")
         _make_synced_npy(npy_path, num_frames=num_frames)
 
-        ds = BCRNNDataset(npy_path, joint_name="hand")
+        ds = BCRNNDataset(npy_path, joint_name="hand", delta_actions=False)
         _, states, actions = ds[0]
 
-        # action[t] should equal the pose at timestep t+1
-        # Reload raw poses to compare
         records = np.load(npy_path, allow_pickle=True)
         raw_poses = [matrix_to_6d_pose(r["tf"]["hand"]) for r in records]
 
-        for t in range(num_frames - 2):  # states has T=num_frames-1 entries
+        for t in range(num_frames - 2):
             expected_action = torch.from_numpy(raw_poses[t + 1]).float()
             expected_state = torch.from_numpy(raw_poses[t]).float()
             assert torch.allclose(states[t], expected_state, atol=1e-5), f"state mismatch at t={t}"
             assert torch.allclose(actions[t], expected_action, atol=1e-5), f"action mismatch at t={t}"
-    print(f"dataset_action_next:  action == next_pose OK")
+    print(f"dataset_action_absolute:  action == next_pose OK")
+
+
+def test_dataset_action_delta():
+    """Verify delta mode: action[t] == pose[t+1] - pose[t]."""
+    num_frames = 5
+    with tempfile.TemporaryDirectory() as tmpdir:
+        npy_path = os.path.join(tmpdir, "traj.npy")
+        _make_synced_npy(npy_path, num_frames=num_frames)
+
+        ds = BCRNNDataset(npy_path, joint_name="hand", delta_actions=True)
+        _, states, actions = ds[0]
+
+        records = np.load(npy_path, allow_pickle=True)
+        raw_poses = [matrix_to_6d_pose(r["tf"]["hand"]) for r in records]
+
+        for t in range(num_frames - 2):
+            expected_delta = torch.from_numpy(raw_poses[t + 1] - raw_poses[t]).float()
+            assert torch.allclose(actions[t], expected_delta, atol=1e-5), f"delta mismatch at t={t}"
+    print(f"dataset_action_delta:  action == next_pose - current_pose OK")
 
 
 # ---------- Training tests ----------
@@ -252,27 +268,29 @@ def test_train_short_run():
 
         save_dir = os.path.join(tmpdir, "checkpoints")
 
-        args = argparse.Namespace(
-            data=data_dir,
-            joint_name="hand",
-            seq_len=seq_len,
-            val_ratio=0.2,
-            state_dim=6,
-            action_dim=6,
-            hidden_dim=32,  # small for speed
-            in_channels=1,
-            image_size=64,  # small for speed
-            freeze_backbone=True,
-            epochs=2,
-            batch_size=4,
-            lr=1e-3,
-            weight_decay=0.0,
-            grad_clip=1.0,
-            num_workers=0,
-            save_dir=save_dir,
-            save_every=1,
-        )
-        train(args)
+        config = {
+            "data": data_dir,
+            "joint_name": "hand",
+            "seq_len": seq_len,
+            "val_ratio": 0.2,
+            "model": {
+                "state_dim": 6,
+                "action_dim": 6,
+                "hidden_dim": 32,  # small for speed
+                "in_channels": 1,
+                "image_size": 64,  # small for speed
+                "freeze_backbone": True,
+            },
+            "epochs": 2,
+            "batch_size": 4,
+            "lr": 1e-3,
+            "weight_decay": 0.0,
+            "grad_clip": 1.0,
+            "num_workers": 0,
+            "save_dir": save_dir,
+            "save_every": 1,
+        }
+        train(config)
 
         # Check that checkpoints were saved
         assert os.path.isfile(os.path.join(save_dir, "best.pt")), "best.pt not found"
@@ -292,27 +310,29 @@ def test_checkpoint_load_and_inference():
         _make_synced_npy(os.path.join(data_dir, "traj.npy"), num_frames=10)
 
         save_dir = os.path.join(tmpdir, "checkpoints")
-        args = argparse.Namespace(
-            data=data_dir,
-            joint_name="hand",
-            seq_len=4,
-            val_ratio=0.2,
-            state_dim=6,
-            action_dim=6,
-            hidden_dim=32,
-            in_channels=1,
-            image_size=64,
-            freeze_backbone=True,
-            epochs=1,
-            batch_size=4,
-            lr=1e-3,
-            weight_decay=0.0,
-            grad_clip=1.0,
-            num_workers=0,
-            save_dir=save_dir,
-            save_every=1,
-        )
-        train(args)
+        config = {
+            "data": data_dir,
+            "joint_name": "hand",
+            "seq_len": 4,
+            "val_ratio": 0.2,
+            "model": {
+                "state_dim": 6,
+                "action_dim": 6,
+                "hidden_dim": 32,
+                "in_channels": 1,
+                "image_size": 64,
+                "freeze_backbone": True,
+            },
+            "epochs": 1,
+            "batch_size": 4,
+            "lr": 1e-3,
+            "weight_decay": 0.0,
+            "grad_clip": 1.0,
+            "num_workers": 0,
+            "save_dir": save_dir,
+            "save_every": 1,
+        }
+        train(config)
 
         # Load checkpoint into a fresh model
         ckpt = torch.load(os.path.join(save_dir, "best.pt"), map_location="cpu")
@@ -456,7 +476,8 @@ if __name__ == "__main__":
     test_dataset_sliding_window()
     test_dataset_directory_input()
     test_dataset_missing_joint_skipped()
-    test_dataset_action_is_next_pose()
+    test_dataset_action_absolute()
+    test_dataset_action_delta()
 
     # Training tests
     test_train_short_run()

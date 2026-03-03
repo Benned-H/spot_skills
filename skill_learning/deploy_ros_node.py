@@ -92,6 +92,8 @@ class BCRNNDeployNode:
             f"(epoch {ckpt.get('epoch', '?')}, val_loss {ckpt.get('val_loss', '?'):.6f})"
         )
 
+        self.delta_actions = config.get("delta_actions", True)
+
         # GRU hidden state (reset each episode)
         self.hidden = None
 
@@ -202,8 +204,13 @@ class BCRNNDeployNode:
                     image_tensor, state_tensor, self.hidden
                 )
 
-            # action_tensor is (1, action_dim) — raw 6D pose prediction
+            # action_tensor is (1, action_dim)
             action = action_tensor.squeeze(0).cpu().numpy()
+
+            # If delta mode, add current state to get absolute target pose
+            if self.delta_actions:
+                current_pose = matrix_to_6d_pose(tf_mat)
+                action = current_pose + action
 
             # Publish
             pose_msg = self._pose_6d_to_pose_stamped(action, self.parent_frame)
@@ -217,7 +224,7 @@ def main() -> None:
     parser.add_argument(
         "--config",
         type=str,
-        default="ros_node_params.yaml",
+        default="config/ros_node_params.yaml",
         help="Path to YAML config file",
     )
     args = parser.parse_args()

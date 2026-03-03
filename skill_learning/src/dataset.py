@@ -33,7 +33,7 @@ class BCRNNDataset(Dataset):
     Each sample is a trajectory of (image, state, action) tuples, where:
       - image:  (T, 1, H, W) grayscale, normalized for ResNet
       - state:  (T, 6) 6D pose of the target joint
-      - action: (T, 6) 6D pose at the next timestep (target)
+      - action: (T, 6) target action (delta or absolute, depending on delta_actions)
 
     The last timestep of each trajectory is excluded since it has no next pose.
 
@@ -44,6 +44,8 @@ class BCRNNDataset(Dataset):
         image_size:  (H, W) to resize images to. Default: (224, 224).
         seq_len:     If provided, slice trajectories into fixed-length windows.
                      If None, each trajectory is one sample (variable length).
+        delta_actions: If True, actions are pose[t+1] - pose[t] (delta).
+                       If False, actions are pose[t+1] (absolute). Default: True.
     """
 
     def __init__(
@@ -52,6 +54,7 @@ class BCRNNDataset(Dataset):
         joint_name: str = "hand",
         image_size: tuple[int, int] = (224, 224),
         seq_len: int | None = None,
+        delta_actions: bool = True,
     ) -> None:
         # Resolve paths
         if isinstance(data_paths, str):
@@ -63,6 +66,7 @@ class BCRNNDataset(Dataset):
         self.joint_name = joint_name
         self.image_size = image_size
         self.seq_len = seq_len
+        self.delta_actions = delta_actions
 
         # Image transform: grayscale uint8 -> float, resize, normalize for ResNet
         self.img_transform = transforms.Compose([
@@ -87,25 +91,23 @@ class BCRNNDataset(Dataset):
             if len(images) < 2:
                 continue
 
-            images = images  # list of (H, W, 3) BGR uint8
+            images = images  # list of (H, W) grayscale uint8
             poses = np.stack(poses)  # (N, 6)
 
             if seq_len is not None:
                 # Sliding window: each window of seq_len consecutive frames
                 for start in range(len(images) - seq_len):
                     end = start + seq_len
-                    self.samples.append((
-                        images[start:end],
-                        poses[start:end],
-                        poses[start + 1:end + 1],
-                    ))
+                    states = poses[start:end]
+                    next_poses = poses[start + 1:end + 1]
+                    actions = next_poses - states if delta_actions else next_poses
+                    self.samples.append((images[start:end], states, actions))
             else:
                 # Full trajectory (drop last frame since no next pose)
-                self.samples.append((
-                    images[:-1],
-                    poses[:-1],
-                    poses[1:],
-                ))
+                states = poses[:-1]
+                next_poses = poses[1:]
+                actions = next_poses - states if delta_actions else next_poses
+                self.samples.append((images[:-1], states, actions))
 
     def __len__(self) -> int:
         return len(self.samples)
