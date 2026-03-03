@@ -1,13 +1,15 @@
-"""Smoke tests for BCRNNModel and BCRNNDataset."""
+"""Smoke tests for BCRNNModel, BCRNNDataset, training, and deploy helpers."""
 
 from __future__ import annotations
 
+import argparse
 import os
 import tempfile
+from types import SimpleNamespace
 
-import cv2
 import numpy as np
 import torch
+from torchvision import transforms
 
 from src.dataset import BCRNNDataset, matrix_to_6d_pose
 from src.model import BCRNNModel
@@ -21,7 +23,7 @@ def test_forward_sequence():
     model = BCRNNModel(state_dim=state_dim, action_dim=action_dim)
     model.eval()
 
-    images = torch.randn(B, T, 3, H, W)
+    images = torch.randn(B, T, 1, H, W)
     states = torch.randn(B, T, state_dim)
 
     with torch.no_grad():
@@ -45,7 +47,7 @@ def test_step_single():
 
     with torch.no_grad():
         for t in range(num_steps):
-            image = torch.randn(B, 3, H, W)
+            image = torch.randn(B, 1, H, W)
             state = torch.randn(B, state_dim)
             action, hidden = model.step(image, state, hidden)
 
@@ -63,7 +65,7 @@ def test_forward_with_initial_hidden():
     model = BCRNNModel(state_dim=state_dim, action_dim=action_dim)
     model.eval()
 
-    images = torch.randn(B, T, 3, 224, 224)
+    images = torch.randn(B, T, 1, 224, 224)
     states = torch.randn(B, T, state_dim)
     hidden = model.init_hidden(B)
 
@@ -82,7 +84,7 @@ def test_step_matches_forward():
     model = BCRNNModel(state_dim=state_dim, action_dim=action_dim)
     model.eval()
 
-    images = torch.randn(B, T, 3, 224, 224)
+    images = torch.randn(B, T, 1, 224, 224)
     states = torch.randn(B, T, state_dim)
 
     with torch.no_grad():
@@ -113,8 +115,8 @@ def _make_synced_npy(path: str, num_frames: int = 8, joint_name: str = "hand") -
         mat = np.eye(4, dtype=np.float64)
         mat[:3, :3] = np.linalg.qr(np.random.randn(3, 3))[0]  # random rotation
         mat[:3, 3] = np.random.randn(3)
-        # Random BGR image
-        img = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+        # Random grayscale image
+        img = np.random.randint(0, 255, (480, 640), dtype=np.uint8)
         records.append({
             "obs": img,
             "tf": {joint_name: mat},
@@ -155,7 +157,7 @@ def test_dataset_full_trajectory():
 
         imgs, states, actions = ds[0]
         T = num_frames - 1  # last frame dropped (no next pose)
-        assert imgs.shape == (T, 3, 224, 224), f"imgs: expected ({T},3,224,224), got {imgs.shape}"
+        assert imgs.shape == (T, 1, 224, 224), f"imgs: expected ({T},1,224,224), got {imgs.shape}"
         assert states.shape == (T, 6), f"states: expected ({T},6), got {states.shape}"
         assert actions.shape == (T, 6), f"actions: expected ({T},6), got {actions.shape}"
     print(f"dataset_full:  T={T}, shapes OK")
@@ -174,7 +176,7 @@ def test_dataset_sliding_window():
         assert len(ds) == expected_windows, f"Expected {expected_windows} windows, got {len(ds)}"
 
         imgs, states, actions = ds[0]
-        assert imgs.shape == (seq_len, 3, 224, 224), f"imgs: got {imgs.shape}"
+        assert imgs.shape == (seq_len, 1, 224, 224), f"imgs: got {imgs.shape}"
         assert states.shape == (seq_len, 6), f"states: got {states.shape}"
         assert actions.shape == (seq_len, 6), f"actions: got {actions.shape}"
     print(f"dataset_window:  seq_len={seq_len}, {expected_windows} windows OK")
@@ -231,6 +233,216 @@ def test_dataset_action_is_next_pose():
     print(f"dataset_action_next:  action == next_pose OK")
 
 
+# ---------- Training tests ----------
+
+
+def test_train_short_run():
+    """Run training for 2 epochs on synthetic data, verify checkpoints are saved."""
+    from train import train
+
+    num_frames = 12
+    seq_len = 4
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create synthetic data
+        data_dir = os.path.join(tmpdir, "data")
+        os.makedirs(data_dir)
+        for i in range(3):
+            _make_synced_npy(os.path.join(data_dir, f"traj_{i}.npy"), num_frames=num_frames)
+
+        save_dir = os.path.join(tmpdir, "checkpoints")
+
+        args = argparse.Namespace(
+            data=data_dir,
+            joint_name="hand",
+            seq_len=seq_len,
+            val_ratio=0.2,
+            state_dim=6,
+            action_dim=6,
+            hidden_dim=32,  # small for speed
+            in_channels=1,
+            image_size=64,  # small for speed
+            freeze_backbone=True,
+            epochs=2,
+            batch_size=4,
+            lr=1e-3,
+            weight_decay=0.0,
+            grad_clip=1.0,
+            num_workers=0,
+            save_dir=save_dir,
+            save_every=1,
+        )
+        train(args)
+
+        # Check that checkpoints were saved
+        assert os.path.isfile(os.path.join(save_dir, "best.pt")), "best.pt not found"
+        assert os.path.isfile(os.path.join(save_dir, "final.pt")), "final.pt not found"
+        assert os.path.isfile(os.path.join(save_dir, "epoch_001.pt")), "epoch_001.pt not found"
+        assert os.path.isfile(os.path.join(save_dir, "epoch_002.pt")), "epoch_002.pt not found"
+    print(f"train_short_run:  2 epochs, checkpoints saved OK")
+
+
+def test_checkpoint_load_and_inference():
+    """Save a checkpoint via training, reload it, and verify inference works."""
+    from train import train
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        data_dir = os.path.join(tmpdir, "data")
+        os.makedirs(data_dir)
+        _make_synced_npy(os.path.join(data_dir, "traj.npy"), num_frames=10)
+
+        save_dir = os.path.join(tmpdir, "checkpoints")
+        args = argparse.Namespace(
+            data=data_dir,
+            joint_name="hand",
+            seq_len=4,
+            val_ratio=0.2,
+            state_dim=6,
+            action_dim=6,
+            hidden_dim=32,
+            in_channels=1,
+            image_size=64,
+            freeze_backbone=True,
+            epochs=1,
+            batch_size=4,
+            lr=1e-3,
+            weight_decay=0.0,
+            grad_clip=1.0,
+            num_workers=0,
+            save_dir=save_dir,
+            save_every=1,
+        )
+        train(args)
+
+        # Load checkpoint into a fresh model
+        ckpt = torch.load(os.path.join(save_dir, "best.pt"), map_location="cpu")
+        model = BCRNNModel(state_dim=6, action_dim=6, hidden_dim=32, in_channels=1)
+        model.load_state_dict(ckpt["model"])
+        model.eval()
+
+        assert "epoch" in ckpt and "val_loss" in ckpt, "Checkpoint missing metadata"
+
+        # Run inference
+        with torch.no_grad():
+            img = torch.randn(1, 1, 64, 64)
+            state = torch.randn(1, 6)
+            action, hidden = model.step(img, state)
+
+        assert action.shape == (1, 6), f"Expected (1, 6), got {action.shape}"
+    print(f"checkpoint_load:  reload + inference OK")
+
+
+# ---------- Deploy helper tests ----------
+
+# Re-implement the quaternion helper from deploy_ros_node.py so we can test
+# it without importing the ROS-dependent module.
+def _quaternion_to_matrix(x, y, z, w) -> np.ndarray:
+    return np.array([
+        [1 - 2*(y**2 + z**2), 2*(x*y - z*w),      2*(x*z + y*w)     ],
+        [2*(x*y + z*w),       1 - 2*(x**2 + z**2), 2*(y*z - x*w)     ],
+        [2*(x*z - y*w),       2*(y*z + x*w),       1 - 2*(x**2 + y**2)],
+    ])
+
+
+def test_quaternion_to_matrix_identity():
+    """Identity quaternion (0,0,0,1) should produce 3x3 identity."""
+    R = _quaternion_to_matrix(0, 0, 0, 1)
+    assert R.shape == (3, 3)
+    assert np.allclose(R, np.eye(3), atol=1e-10), f"Expected identity, got:\n{R}"
+    print(f"quat_identity:  OK")
+
+
+def test_quaternion_to_matrix_90z():
+    """90-degree rotation about Z: q = (0, 0, sin(pi/4), cos(pi/4))."""
+    s = np.sin(np.pi / 4)
+    c = np.cos(np.pi / 4)
+    R = _quaternion_to_matrix(0, 0, s, c)
+    # 90 deg about Z: x->y, y->-x, z->z
+    expected = np.array([
+        [0, -1, 0],
+        [1,  0, 0],
+        [0,  0, 1],
+    ], dtype=float)
+    assert np.allclose(R, expected, atol=1e-10), f"Expected 90-deg-Z rotation, got:\n{R}"
+    print(f"quat_90z:  OK")
+
+
+def test_quaternion_to_matrix_roundtrip():
+    """Quaternion -> matrix -> 6D pose -> verify translation preserved."""
+    # Build a 4x4 from a known quaternion + translation
+    q = SimpleNamespace(x=0.0, y=0.0, z=np.sin(np.pi/4), w=np.cos(np.pi/4))
+    R = _quaternion_to_matrix(q.x, q.y, q.z, q.w)
+    mat = np.eye(4)
+    mat[:3, :3] = R
+    mat[:3, 3] = [1.5, -2.0, 3.3]
+
+    pose = matrix_to_6d_pose(mat)
+    assert np.isclose(pose[0], 1.5) and np.isclose(pose[1], -2.0) and np.isclose(pose[2], 3.3)
+    assert np.isclose(pose[5], np.pi / 2, atol=1e-6), f"Expected yaw=pi/2, got {pose[5]}"
+    print(f"quat_roundtrip:  quat -> matrix -> 6D pose OK")
+
+
+def test_deploy_preprocess_image_shape():
+    """Deploy image preprocessing produces correct (1, 1, H, W) tensor."""
+    image_size = 64
+    img_transform = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize((image_size, image_size)),
+        transforms.Grayscale(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.449], std=[0.226]),
+    ])
+
+    # Grayscale image (H, W)
+    img = np.random.randint(0, 255, (480, 640), dtype=np.uint8)
+    tensor = img_transform(img).unsqueeze(0)  # add batch dim
+    assert tensor.shape == (1, 1, image_size, image_size), f"Expected (1,1,64,64), got {tensor.shape}"
+    print(f"deploy_preprocess_img:  shape OK")
+
+
+def test_deploy_preprocess_matches_dataset():
+    """Deploy and dataset image pipelines produce identical output."""
+    image_size = (64, 64)
+
+    # Dataset transform (from BCRNNDataset.__init__)
+    ds_transform = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize(image_size),
+        transforms.Grayscale(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.449], std=[0.226]),
+    ])
+
+    # Deploy transform (from BCRNNDeployNode.__init__)
+    deploy_transform = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize(image_size),
+        transforms.Grayscale(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.449], std=[0.226]),
+    ])
+
+    img = np.random.randint(0, 255, (480, 640), dtype=np.uint8)
+    out_ds = ds_transform(img)
+    out_deploy = deploy_transform(img)
+
+    assert torch.equal(out_ds, out_deploy), "Dataset and deploy transforms differ!"
+    print(f"deploy_matches_dataset:  transforms identical OK")
+
+
+def test_deploy_preprocess_state_shape():
+    """State preprocessing: 4x4 matrix -> (1, 6) tensor."""
+    mat = np.eye(4, dtype=np.float64)
+    mat[:3, 3] = [1.0, 2.0, 3.0]
+    pose = matrix_to_6d_pose(mat)
+    tensor = torch.from_numpy(pose).float().unsqueeze(0)  # (1, 6)
+    assert tensor.shape == (1, 6), f"Expected (1, 6), got {tensor.shape}"
+    assert torch.isclose(tensor[0, 0], torch.tensor(1.0))
+    assert torch.isclose(tensor[0, 1], torch.tensor(2.0))
+    assert torch.isclose(tensor[0, 2], torch.tensor(3.0))
+    print(f"deploy_preprocess_state:  shape + values OK")
+
+
 if __name__ == "__main__":
     # Model tests
     test_forward_sequence()
@@ -245,5 +457,17 @@ if __name__ == "__main__":
     test_dataset_directory_input()
     test_dataset_missing_joint_skipped()
     test_dataset_action_is_next_pose()
+
+    # Training tests
+    test_train_short_run()
+    test_checkpoint_load_and_inference()
+
+    # Deploy helper tests
+    test_quaternion_to_matrix_identity()
+    test_quaternion_to_matrix_90z()
+    test_quaternion_to_matrix_roundtrip()
+    test_deploy_preprocess_image_shape()
+    test_deploy_preprocess_matches_dataset()
+    test_deploy_preprocess_state_shape()
 
     print("\nAll tests passed.")

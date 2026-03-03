@@ -24,6 +24,7 @@ class BCRNNModel(nn.Module):
         state_dim: int = 18,
         action_dim: int = 6,
         hidden_dim: int = 256,
+        in_channels: int = 1,
         freeze_backbone: bool = True,
     ) -> None:
         super().__init__()
@@ -31,6 +32,20 @@ class BCRNNModel(nn.Module):
 
         # Visual backbone: ResNet18, drop the final FC layer
         resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        if in_channels != 3:
+            old_conv = resnet.conv1
+            resnet.conv1 = nn.Conv2d(
+                in_channels, old_conv.out_channels,
+                kernel_size=old_conv.kernel_size,
+                stride=old_conv.stride,
+                padding=old_conv.padding,
+                bias=old_conv.bias is not None,
+            )
+            # Initialize with mean of pretrained RGB weights
+            with torch.no_grad():
+                resnet.conv1.weight.copy_(
+                    old_conv.weight.mean(dim=1, keepdim=True).repeat(1, in_channels, 1, 1)
+                )
         self.image_encoder = nn.Sequential(*list(resnet.children())[:-1])  # -> (B, 512, 1, 1)
 
         if freeze_backbone:
@@ -54,7 +69,7 @@ class BCRNNModel(nn.Module):
         """Encode image and state into a single feature vector.
 
         Args:
-            image: (B, 3, H, W) or (B, T, 3, H, W)
+            image: (B, C, H, W) or (B, T, C, H, W)
             state: (B, state_dim) or (B, T, state_dim)
 
         Returns:
@@ -83,7 +98,7 @@ class BCRNNModel(nn.Module):
         """Forward pass over a sequence (for training).
 
         Args:
-            image:  (B, T, 3, H, W) image sequence.
+            image:  (B, T, C, H, W) image sequence.
             state:  (B, T, state_dim) state sequence.
             hidden: (1, B, hidden_dim) optional initial hidden state.
 
@@ -105,7 +120,7 @@ class BCRNNModel(nn.Module):
         """Single-step forward pass (for deployment).
 
         Args:
-            image:  (B, 3, H, W) single image.
+            image:  (B, C, H, W) single image.
             state:  (B, state_dim) single state.
             hidden: (1, B, hidden_dim) hidden state from previous step.
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 import glob
 import os
 
-import cv2
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -32,7 +31,7 @@ class BCRNNDataset(Dataset):
     """Dataset for BC-RNN training.
 
     Each sample is a trajectory of (image, state, action) tuples, where:
-      - image:  (T, 3, H, W) normalized for ResNet
+      - image:  (T, 1, H, W) grayscale, normalized for ResNet
       - state:  (T, 6) 6D pose of the target joint
       - action: (T, 6) 6D pose at the next timestep (target)
 
@@ -65,15 +64,13 @@ class BCRNNDataset(Dataset):
         self.image_size = image_size
         self.seq_len = seq_len
 
-        # Image transform: BGR uint8 -> RGB float, resize, normalize for ResNet
+        # Image transform: grayscale uint8 -> float, resize, normalize for ResNet
         self.img_transform = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize(image_size),
-            transforms.ToTensor(),  # [0, 255] uint8 -> [0, 1] float, HWC -> CHW
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225],
-            ),
+            transforms.Grayscale(),  # ensure single channel
+            transforms.ToTensor(),  # [0, 255] uint8 -> [0, 1] float, (1, H, W)
+            transforms.Normalize(mean=[0.449], std=[0.226]),
         ])
 
         # Load all trajectories and build index
@@ -116,11 +113,11 @@ class BCRNNDataset(Dataset):
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         imgs_raw, states_np, actions_np = self.samples[idx]
 
-        # Transform images: BGR -> RGB, resize, normalize
+        # Transform images: resize, normalize
         imgs = torch.stack([
-            self.img_transform(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            self.img_transform(img)
             for img in imgs_raw
-        ])  # (T, 3, H, W)
+        ])  # (T, 1, H, W)
 
         states = torch.from_numpy(states_np).float()   # (T, 6)
         actions = torch.from_numpy(actions_np).float()  # (T, 6)
