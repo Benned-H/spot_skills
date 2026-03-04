@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING
 from bosdyn.api.basic_command_pb2 import StandCommand
 from bosdyn.api.docking.docking_pb2 import DockState
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
-from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.geometry_pb2 import SE2Velocity, SE2VelocityLimit, Vec2
+from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.docking import DockingClient, blocking_dock_robot, blocking_undock
@@ -802,7 +802,7 @@ class SpotManager:
         :return: Command ID if command was successfully sent, else None
         """
         if not self.has_control:
-            return False
+            return None
 
         velocity_cmd = RobotCommandBuilder.synchro_velocity_command(
             v_x=linear_x_mps,

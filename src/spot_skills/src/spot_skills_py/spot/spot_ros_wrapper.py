@@ -15,6 +15,7 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
+from geometry_msgs.msg import PoseStamped, Twist
 from nav_msgs.msg import OccupancyGrid as OccupancyGridMsg
 from robotics_utils.geometry import Point3D
 from robotics_utils.io import make_unique_path
@@ -293,6 +294,20 @@ class SpotROS1Wrapper:
             planning_frame=DEFAULT_FRAME,
             gripper=gripper,
         )
+        self._ee_pose_cmd_duration_s = 1.0
+        self._ee_velocity_cmd_duration_s = 0.2
+        self._ee_pose_sub = rospy.Subscriber(
+            "/spot/ee_pose",
+            PoseStamped,
+            self.handle_ee_pose,
+            queue_size=1,
+        )
+        self._ee_cmd_vel_sub = rospy.Subscriber(
+            "/spot/ee_cmd_vel",
+            Twist,
+            self.handle_ee_cmd_vel,
+            queue_size=1,
+        )
 
         traj_config = RelativeTrajectoryConfig(
             min_pose_diff_m=0.02,
@@ -439,9 +454,9 @@ class SpotROS1Wrapper:
             est_pose = estimated_poses[frame_name]
             TransformManager.broadcast_transform(frame_name=frame_name, relative_pose=est_pose)
 
-        # Publish navigation waypoints (convert 2D to 3D)
-        for waypoint_name, pose_2d in self._navigation_server.waypoints.items():
-            TransformManager.broadcast_transform(waypoint_name, relative_pose=pose_2d.to_3d())
+        if self._navigation_server is not None:  # Publish navigation waypoints (convert 2D to 3D)
+            for waypoint_name, pose_2d in self._navigation_server.waypoints.items():
+                TransformManager.broadcast_transform(waypoint_name, relative_pose=pose_2d.to_3d())
 
     def _sync_planning_scene(self) -> None:
         """Synchronize the MoveIt planning scene with the stored environment state."""
@@ -805,6 +820,12 @@ class SpotROS1Wrapper:
         :param request: Request specifying a pose to navigate to
         :return: Response specifying whether the navigation succeeded
         """
+        if self._navigation_server is None:
+            return NavigateToPoseResponse(
+                success=False,
+                message="Unable to navigate to pose because SpotNavigationServer is None.",
+            )
+
         self._manager.log_info("Handling 'NavigateToPose' request...")
 
         # Assume that navigating may leave Spot's body with non-default control settings
@@ -822,6 +843,12 @@ class SpotROS1Wrapper:
         :param request: Request specifying a waypoint to navigate to
         :return: Response specifying whether the navigation succeeded
         """
+        if self._navigation_server is None:
+            return NameServiceResponse(
+                success=False,
+                message=f"Cannot navigate to '{request.name}'; SpotNavigationServer is None.",
+            )
+
         if request.name not in self._navigation_server.waypoints:
             available_waypoints = list(self._navigation_server.waypoints.keys())
             message = (
@@ -1032,7 +1059,11 @@ class SpotROS1Wrapper:
             )
 
         response_protos = self._manager.image_client.get_images(request_protos)
-        assert len(response_protos) == len(request_protos)
+        if len(request_protos) != len(response_protos):
+            rospy.logwarn(
+                "GetRGBDPairs service call failed; number of requests != number of responses.",
+            )
+            return GetRGBDPairsResponse()
 
         response_msg = GetRGBDPairsResponse()
         for camera_idx, camera_name in enumerate(request_msg.camera_names):
@@ -1050,8 +1081,12 @@ class SpotROS1Wrapper:
             depth_time_s = depth_timestamp.to_time_s()
             depth_ros_time = rospy.Time.from_sec(depth_time_s)
 
-            diff_s = rgb_time_s - depth_time_s
-            assert diff_s <= 0.1, f"Synchronized RGB and depth images differed by {diff_s} seconds!"
+            d_s = abs(rgb_time_s - depth_time_s)
+            if d_s > 0.1:
+                rospy.logwarn(
+                    f"GetRGBDPairs: Synchronized RGB and depth images differed by {d_s} seconds!",
+                )
+                return GetRGBDPairsResponse()
 
             rgb_camera_info = SpotImageClient.extract_camera_info_msg(rgb_response, rgb_ros_time)
             d_camera_info = SpotImageClient.extract_camera_info_msg(depth_response, depth_ros_time)
@@ -1059,7 +1094,9 @@ class SpotROS1Wrapper:
             # Expect that the camera information is identical, except the header
             d_camera_info_copy = deepcopy(d_camera_info)
             d_camera_info_copy.header = rgb_camera_info.header
-            assert rgb_camera_info == d_camera_info_copy, "Expected identical camera information!"
+            if rgb_camera_info != d_camera_info_copy:
+                rospy.logwarn("GetRGBDPairs: Expected identical camera information!")
+                return GetRGBDPairsResponse()
 
             rgbd_pair_msg = RGBDPair()
             rgbd_pair_msg.camera_name = camera_name
@@ -1091,7 +1128,10 @@ class SpotROS1Wrapper:
         ]
         response_protos = self._manager.image_client.get_images(request_protos)
 
-        assert len(request_msg.camera_names) == len(response_protos)
+        if len(request_msg.camera_names) != len(response_protos):
+            rospy.logwarn("GetRGBImages: Number of responses != number of requests.")
+            return response_msg
+
         for camera_name, rgb_response in zip(request_msg.camera_names, response_protos):
             # Find ROS timestamps of the image responses
             rgb_time_proto = rgb_response.shot.acquisition_time
@@ -1575,6 +1615,12 @@ class SpotROS1Wrapper:
                 message=f"Cannot pause pose estimation for unknown object '{object_name}'.",
             )
 
+        if self.tag_tracker is None:
+            return NameServiceResponse(
+                success=False,
+                message=f"Tag tracker is None; cannot pause pose estimation for '{object_name}'.",
+            )
+
         final_estimated_pose = self.tag_tracker.get_estimated_pose(object_name)
         if final_estimated_pose is None:
             return NameServiceResponse(
@@ -1637,6 +1683,74 @@ class SpotROS1Wrapper:
             success=True,
             message=f"Successfully resumed pose estimation for '{object_name}'.",
         )
+
+    def handle_ee_pose(self, msg: PoseStamped) -> None:
+        """Handle an end-effector pose command from /spot/ee_pose."""
+        if self._arm_locked:
+            return
+
+        if not self._manager.ensure_control(take_by_force=False):
+            rospy.logwarn("Ignoring /spot/ee_pose because Spot control is unavailable.")
+            return
+
+        if not msg.header.frame_id:
+            rospy.logwarn("Ignoring /spot/ee_pose because PoseStamped.header.frame_id is empty.")
+            return
+
+        target_pose = pose_from_msg(msg)
+        try:
+            target_pose_b_ee = TransformManager.convert_to_frame(
+                target_pose,
+                self.manipulator.base_frame,
+            )
+        except RuntimeError as err:
+            rospy.logwarn(
+                "Ignoring /spot/ee_pose; failed frame conversion into "
+                f"'{self.manipulator.base_frame}': {err}",
+            )
+            return
+
+        with self._robot_rpc_manager.priority() as got_priority:
+            if not got_priority:
+                rospy.logwarn("Skipping /spot/ee_pose command because RPC priority is unavailable.")
+                return
+
+            success = self._arm_controller.command_end_effector_pose(
+                target_pose_b_ee=target_pose_b_ee,
+                duration_s=self._ee_pose_cmd_duration_s,
+            )
+
+        if not success:
+            rospy.logwarn("Failed to command /spot/ee_pose target pose.")
+
+    def handle_ee_cmd_vel(self, msg: Twist) -> None:
+        """Handle a body-frame end-effector velocity command from /spot/ee_cmd_vel."""
+        if self._arm_locked:
+            return
+
+        if not self._manager.ensure_control(take_by_force=False):
+            rospy.logwarn("Ignoring /spot/ee_cmd_vel because SpotManager doesn't control Spot.")
+            return
+
+        with self._robot_rpc_manager.priority() as got_priority:
+            if not got_priority:
+                rospy.logwarn(
+                    "Skipping /spot/ee_cmd_vel command because RPC priority is unavailable.",
+                )
+                return
+
+            success = self._arm_controller.command_end_effector_body_velocity(
+                linear_x_mps=msg.linear.x,
+                linear_y_mps=msg.linear.y,
+                linear_z_mps=msg.linear.z,
+                angular_x_radps=msg.angular.x,
+                angular_y_radps=msg.angular.y,
+                angular_z_radps=msg.angular.z,
+                duration_s=self._ee_velocity_cmd_duration_s,
+            )
+
+        if not success:
+            rospy.logwarn("Failed to command /spot/ee_cmd_vel twist.")
 
     def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.5) -> None:
         """Handle a new goal for the FollowJointTrajectory action server.
