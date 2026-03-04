@@ -1,11 +1,27 @@
-"""
-Utilities for skill learning.
+"""Utilities for skill learning: rosbag extraction, TF sync, and visualization.
 
 Usage:
-    Saving images as PNGs:
-    python skill_learning/utils.py traj_0.bag /spot/camera/frontleft/image image ./output/traj_
-0/camera
+    1. List all topics in a rosbag:
+       python -m src.utils topics traj_0.bag
 
+    2. List TF frames (parent -> child pairs) in a rosbag:
+       python -m src.utils frames traj_0.bag
+       python -m src.utils frames traj_0.bag --topic /tf_static
+
+    3. Extract images from a rosbag:
+       python -m src.utils save traj_0.bag /camera/image_raw image ./output/images/
+
+    4. Extract TF transforms from a rosbag:
+       python -m src.utils save traj_0.bag /tf tf ./output/ --parent-frame body --child-frame hand
+
+    5. Sync extracted images with TF records:
+       python -m src.utils sync ./output/images/ ./output/tf.npy ./output/synced.npy --threshold 0.05
+
+    6. Visualize saved TF trajectories:
+       python -m src.utils visualize ./output/tf.npy --child-frame hand --absolute
+
+The dataset (src/dataset.py) can also load .bag files directly via
+load_synced_from_bag(), skipping the manual extract-then-sync workflow.
 """
 
 from __future__ import annotations
@@ -19,6 +35,38 @@ import numpy as np
 import rosbag
 from cv_bridge import CvBridge
 from geometry_msgs.msg import TransformStamped
+
+
+def list_topics(bag_path: str) -> dict[str, tuple[int, str]]:
+    """List all topics in a rosbag with message counts and types.
+
+    Returns:
+        Dict mapping topic name -> (message_count, message_type).
+    """
+    info = {}
+    with rosbag.Bag(bag_path, "r") as bag:
+        topics = bag.get_type_and_topic_info().topics
+        for topic_name, topic_info in topics.items():
+            info[topic_name] = (topic_info.message_count, topic_info.msg_type)
+    return info
+
+
+def list_frames(bag_path: str, topic: str = "/tf") -> list[tuple[str, str]]:
+    """List unique TF frame pairs (parent -> child) in a rosbag.
+
+    Args:
+        bag_path: Path to the .bag file.
+        topic:    TF topic to scan. Default: "/tf".
+
+    Returns:
+        Sorted list of (parent_frame, child_frame) tuples.
+    """
+    pairs = set()
+    with rosbag.Bag(bag_path, "r") as bag:
+        for _, msg, _ in bag.read_messages(topics=[topic]):
+            for tf_stamped in msg.transforms:
+                pairs.add((tf_stamped.header.frame_id, tf_stamped.child_frame_id))
+    return sorted(pairs)
 
 
 def read_bag_topic(bag_path: str, topic: str) -> list[tuple[float, object]]:
@@ -217,6 +265,80 @@ def sync_image_tf(
 
 
 # ---------------------------------------------------------------------------
+# Direct rosbag loading (extraction + sync in one step)
+# ---------------------------------------------------------------------------
+
+def load_synced_from_bag(
+    bag_path: str,
+    image_topic: str,
+    tf_topic: str,
+    parent_frame: str = "body",
+    child_frame: str | None = None,
+    sync_threshold: float = 0.05,
+) -> list[dict]:
+    """Read a rosbag and return synced (image, tf) records in one step.
+
+    Extracts images and TF transforms from the bag, then pairs them by
+    closest timestamp (same logic as sync_image_tf but without intermediate
+    files).
+
+    Returns:
+        List of dicts in timestamp order, each with:
+          - "obs":       np.ndarray, grayscale image (H, W) uint8
+          - "tf":        dict mapping child_frame_id -> 4x4 matrix
+          - "timestamp": float (seconds)
+    """
+    bridge = CvBridge()
+
+    # Read both topics in a single pass through the bag
+    image_records = []  # (timestamp, image_array)
+    tf_records = []  # (timestamp, {child_frame: 4x4 matrix})
+
+    with rosbag.Bag(bag_path, "r") as bag:
+        for topic, msg, t in bag.read_messages(topics=[image_topic, tf_topic]):
+            ts = t.to_sec()
+
+            if topic == image_topic:
+                if msg._type == "sensor_msgs/CompressedImage":
+                    buf = np.frombuffer(msg.data, np.uint8)
+                    img = cv2.imdecode(buf, cv2.IMREAD_GRAYSCALE)
+                else:
+                    img = bridge.imgmsg_to_cv2(msg, desired_encoding="mono8")
+                image_records.append((ts, img))
+
+            elif topic == tf_topic:
+                transforms_at_t = {}
+                for tf_stamped in msg.transforms:
+                    if tf_stamped.header.frame_id != parent_frame:
+                        continue
+                    if child_frame is not None and tf_stamped.child_frame_id != child_frame:
+                        continue
+                    transforms_at_t[tf_stamped.child_frame_id] = transform_to_matrix(tf_stamped)
+                if transforms_at_t:
+                    tf_records.append((ts, transforms_at_t))
+
+    if not image_records or not tf_records:
+        return []
+
+    tf_timestamps = np.array([r[0] for r in tf_records])
+
+    # Pair each image with the closest TF record
+    paired = []
+    for img_t, img in image_records:
+        idx = np.argmin(np.abs(tf_timestamps - img_t))
+        gap = abs(tf_timestamps[idx] - img_t)
+        if gap > sync_threshold:
+            continue
+        paired.append({
+            "obs": img,
+            "tf": tf_records[idx][1],
+            "timestamp": float(img_t),
+        })
+
+    return paired
+
+
+# ---------------------------------------------------------------------------
 # Visualization
 # ---------------------------------------------------------------------------
 
@@ -265,6 +387,23 @@ def visualize_tf_npy(npy_path: str, child_frame: str = None, relative: bool = Tr
             ax.plot(*zip(origin, origin + scale * rot[:, 1]), "g-", linewidth=0.5)
             ax.plot(*zip(origin, origin + scale * rot[:, 2]), "b-", linewidth=0.5)
 
+    # Equal aspect ratio: set all axes to the same range
+    all_positions = []
+    for name, matrices in trajectories.items():
+        if relative:
+            inv_initial = np.linalg.inv(trajectories[name][0])
+            mats = [inv_initial @ m for m in matrices]
+        else:
+            mats = matrices
+        all_positions.append(np.array([m[:3, 3] for m in mats]))
+    all_positions = np.concatenate(all_positions, axis=0)
+    mid = (all_positions.max(axis=0) + all_positions.min(axis=0)) / 2
+    half_range = (all_positions.max(axis=0) - all_positions.min(axis=0)).max() / 2
+    half_range = max(half_range, 1e-6)  # avoid zero range
+    ax.set_xlim(mid[0] - half_range, mid[0] + half_range)
+    ax.set_ylim(mid[1] - half_range, mid[1] + half_range)
+    ax.set_zlim(mid[2] - half_range, mid[2] + half_range)
+
     ax.legend()
     ax.set_title(f"TF trajectories ({'relative' if relative else 'absolute'})")
     plt.tight_layout()
@@ -280,6 +419,19 @@ def main() -> None:
         description="Extract / visualize ROS topics from bag files."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # --- topics command ---
+    sp_topics = subparsers.add_parser("topics", help="List all topics in a bag file.")
+    sp_topics.add_argument("bag", help="Path to the .bag file.")
+
+    # --- frames command ---
+    sp_frames = subparsers.add_parser("frames", help="List TF frame pairs (parent -> child).")
+    sp_frames.add_argument("bag", help="Path to the .bag file.")
+    sp_frames.add_argument(
+        "--topic",
+        default="/tf",
+        help="TF topic to scan. Default: /tf.",
+    )
 
     # --- save command ---
     sp_save = subparsers.add_parser("save", help="Extract a topic from a bag and save to disk.")
@@ -330,7 +482,19 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.command == "save":
+    if args.command == "topics":
+        info = list_topics(args.bag)
+        print(f"Topics in {args.bag}:")
+        for topic_name, (count, msg_type) in sorted(info.items()):
+            print(f"  {topic_name:40s} {count:6d} msgs  ({msg_type})")
+
+    elif args.command == "frames":
+        pairs = list_frames(args.bag, topic=args.topic)
+        print(f"TF frames in {args.bag} (topic: {args.topic}):")
+        for parent, child in pairs:
+            print(f"  {parent} -> {child}")
+
+    elif args.command == "save":
         os.makedirs(args.save_path, exist_ok=True)
         if args.type == "tf":
             output_path = os.path.join(args.save_path, "tf.npy")

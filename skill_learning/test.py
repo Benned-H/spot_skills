@@ -209,6 +209,25 @@ def test_dataset_missing_joint_skipped():
     print(f"dataset_missing_joint:  correctly skipped OK")
 
 
+def test_dataset_debug_save():
+    """Debug mode saves extracted data as .npy files."""
+    num_frames = 6
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a .npy file (simulates what a .bag extraction would produce)
+        npy_path = os.path.join(tmpdir, "traj.npy")
+        _make_synced_npy(npy_path, num_frames=num_frames)
+
+        debug_dir = os.path.join(tmpdir, "debug_out")
+        ds = BCRNNDataset(
+            npy_path, joint_name="hand", debug=True, debug_dir=debug_dir,
+        )
+        # .npy files don't produce debug output (only .bag files do),
+        # but verify the debug directory was created
+        assert os.path.isdir(debug_dir), "Debug directory not created"
+        assert len(ds) == 1
+    print(f"dataset_debug_save:  debug dir created OK")
+
+
 def test_dataset_action_absolute():
     """Verify absolute mode: action[t] == pose[t+1]."""
     num_frames = 5
@@ -476,6 +495,7 @@ if __name__ == "__main__":
     test_dataset_sliding_window()
     test_dataset_directory_input()
     test_dataset_missing_joint_skipped()
+    test_dataset_debug_save()
     test_dataset_action_absolute()
     test_dataset_action_delta()
 

@@ -41,6 +41,10 @@ def train(config: dict) -> None:
         image_size=(model_cfg["image_size"], model_cfg["image_size"]),
         seq_len=config["seq_len"],
         delta_actions=config.get("delta_actions", True),
+        rosbag_config=config.get("rosbag"),
+        debug=config.get("debug", False),
+        debug_dir=config.get("debug_dir", "debug/"),
+        trim_static=config.get("trim_static"),
     )
     print(f"Dataset: {len(dataset)} samples")
 
@@ -144,10 +148,18 @@ def main() -> None:
         default="config/training_params.yaml",
         help="Path to YAML config file",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Save intermediate .npy files extracted from rosbags",
+    )
     args = parser.parse_args()
 
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
+
+    if args.debug:
+        config["debug"] = True
 
     train(config)
 

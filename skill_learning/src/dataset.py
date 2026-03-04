@@ -1,4 +1,4 @@
-"""PyTorch Dataset for BC-RNN training from synced rosbag data."""
+"""PyTorch Dataset for BC-RNN training from rosbag or synced .npy data."""
 
 from __future__ import annotations
 
@@ -27,6 +27,104 @@ def matrix_to_6d_pose(mat: np.ndarray) -> np.ndarray:
     return np.array([pos[0], pos[1], pos[2], roll, pitch, yaw], dtype=np.float32)
 
 
+def _trim_static_ends(
+    images: list,
+    poses: list,
+    window: int = 5,
+    threshold: float = 1e-4,
+) -> tuple[list, list]:
+    """Remove static (non-moving) frames from the start and end of a trajectory.
+
+    Uses a sliding window over the 6D pose sequence to compute variance.
+    Frames are considered static when the max variance across all 6 pose
+    dimensions within the window is below *threshold*.
+
+    Args:
+        images:    List of images (same length as poses).
+        poses:     List of (6,) float32 arrays.
+        window:    Number of frames in the sliding variance window.
+        threshold: Max variance below which the gripper is considered static.
+
+    Returns:
+        Trimmed (images, poses) lists.
+    """
+    n = len(poses)
+    if n < window:
+        return images, poses
+
+    pose_arr = np.stack(poses)  # (N, 6)
+
+    # Compute per-frame windowed variance (max across 6 dims)
+    variances = np.zeros(n)
+    half_w = window // 2
+    for i in range(n):
+        start = max(0, i - half_w)
+        end = min(n, i + half_w + 1)
+        variances[i] = np.var(pose_arr[start:end], axis=0).max()
+
+    # Find first and last frame where variance exceeds threshold
+    moving = variances >= threshold
+    if not np.any(moving):
+        # Entire trajectory is static — return empty
+        return [], []
+
+    first = int(np.argmax(moving))
+    last = int(n - 1 - np.argmax(moving[::-1]))
+
+    images = images[first:last + 1]
+    poses = poses[first:last + 1]
+    return images, poses
+
+
+def _load_records_from_npy(path: str, joint_name: str) -> tuple[list, list]:
+    """Load images and poses from a synced .npy file.
+
+    Returns:
+        (images, poses) where images is a list of (H, W) uint8 arrays
+        and poses is a list of (6,) float32 arrays.
+    """
+    records = np.load(path, allow_pickle=True)
+    images, poses = [], []
+    for r in records:
+        if joint_name not in r["tf"]:
+            continue
+        images.append(r["obs"])
+        poses.append(matrix_to_6d_pose(r["tf"][joint_name]))
+    return images, poses
+
+
+def _load_records_from_bag(
+    path: str,
+    joint_name: str,
+    image_topic: str,
+    tf_topic: str,
+    parent_frame: str,
+    sync_threshold: float,
+) -> tuple[list, list]:
+    """Load images and poses directly from a rosbag file.
+
+    Returns:
+        (images, poses) same format as _load_records_from_npy.
+    """
+    from src.utils import load_synced_from_bag
+
+    records = load_synced_from_bag(
+        bag_path=path,
+        image_topic=image_topic,
+        tf_topic=tf_topic,
+        parent_frame=parent_frame,
+        child_frame=joint_name,
+        sync_threshold=sync_threshold,
+    )
+    images, poses = [], []
+    for r in records:
+        if joint_name not in r["tf"]:
+            continue
+        images.append(r["obs"])
+        poses.append(matrix_to_6d_pose(r["tf"][joint_name]))
+    return images, poses
+
+
 class BCRNNDataset(Dataset):
     """Dataset for BC-RNN training.
 
@@ -37,15 +135,28 @@ class BCRNNDataset(Dataset):
 
     The last timestep of each trajectory is excluded since it has no next pose.
 
+    Supports both pre-synced .npy files and raw .bag (rosbag) files. When
+    .bag files are provided, images and TF transforms are extracted and synced
+    automatically (requires rosbag to be installed).
+
     Args:
-        data_paths:  List of synced .npy file paths (from utils.sync_image_tf),
-                     or a directory containing them.
+        data_paths:  List of .npy or .bag file paths, or a directory containing
+                     them. Directories are scanned for both *.npy and *.bag.
         joint_name:  TF child frame to extract pose from. Default: "hand".
         image_size:  (H, W) to resize images to. Default: (224, 224).
         seq_len:     If provided, slice trajectories into fixed-length windows.
                      If None, each trajectory is one sample (variable length).
         delta_actions: If True, actions are pose[t+1] - pose[t] (delta).
                        If False, actions are pose[t+1] (absolute). Default: True.
+        rosbag_config: Dict with keys for rosbag extraction (only needed for
+                       .bag files): image_topic, tf_topic, parent_frame,
+                       sync_threshold. Default: None (uses .npy only).
+        debug:       If True, save extracted rosbag data as .npy files.
+        debug_dir:   Directory to save debug .npy files. Default: "debug/".
+        trim_static: Dict with trimming config, or None to disable. Keys:
+                       window    – sliding window size (default 5).
+                       threshold – max variance below which frames are static
+                                   (default 1e-4).
     """
 
     def __init__(
@@ -55,11 +166,17 @@ class BCRNNDataset(Dataset):
         image_size: tuple[int, int] = (224, 224),
         seq_len: int | None = None,
         delta_actions: bool = True,
+        rosbag_config: dict | None = None,
+        debug: bool = False,
+        debug_dir: str = "debug/",
+        trim_static: dict | None = None,
     ) -> None:
         # Resolve paths
         if isinstance(data_paths, str):
             if os.path.isdir(data_paths):
-                data_paths = sorted(glob.glob(os.path.join(data_paths, "*.npy")))
+                npy_files = sorted(glob.glob(os.path.join(data_paths, "*.npy")))
+                bag_files = sorted(glob.glob(os.path.join(data_paths, "*.bag")))
+                data_paths = npy_files + bag_files
             else:
                 data_paths = [data_paths]
 
@@ -77,21 +194,62 @@ class BCRNNDataset(Dataset):
             transforms.Normalize(mean=[0.449], std=[0.226]),
         ])
 
+        # Default rosbag config
+        bag_cfg = rosbag_config or {}
+        image_topic = bag_cfg.get("image_topic", "/camera/image_raw")
+        tf_topic = bag_cfg.get("tf_topic", "/tf")
+        parent_frame = bag_cfg.get("parent_frame", "body")
+        sync_threshold = bag_cfg.get("sync_threshold", 0.05)
+
+        # Trimming config
+        self.trim_static = trim_static
+
+        if debug:
+            os.makedirs(debug_dir, exist_ok=True)
+
         # Load all trajectories and build index
         self.samples = []  # list of (images, states, actions) per window/trajectory
         for path in data_paths:
-            records = np.load(path, allow_pickle=True)
-            images, poses = [], []
-            for r in records:
-                if joint_name not in r["tf"]:
-                    continue
-                images.append(r["obs"])
-                poses.append(matrix_to_6d_pose(r["tf"][joint_name]))
+            ext = os.path.splitext(path)[1].lower()
+
+            if ext == ".bag":
+                images, poses = _load_records_from_bag(
+                    path, joint_name, image_topic, tf_topic,
+                    parent_frame, sync_threshold,
+                )
+                # Save debug .npy if requested
+                if debug and images:
+                    records = []
+                    for img, pose_vec in zip(images, poses):
+                        records.append({
+                            "obs": img,
+                            "tf": {joint_name: pose_vec},
+                        })
+                    bag_name = os.path.splitext(os.path.basename(path))[0]
+                    debug_path = os.path.join(debug_dir, f"{bag_name}_synced.npy")
+                    np.save(debug_path, np.array(records, dtype=object))
+                    print(f"  [debug] Saved {len(records)} records to {debug_path}")
+            elif ext == ".npy":
+                images, poses = _load_records_from_npy(path, joint_name)
+            else:
+                print(f"  Skipping unsupported file: {path}")
+                continue
+
+            # Trim static start/end frames
+            if trim_static is not None and images:
+                before = len(images)
+                images, poses = _trim_static_ends(
+                    images, poses,
+                    window=trim_static.get("window", 5),
+                    threshold=trim_static.get("threshold", 1e-4),
+                )
+                if before != len(images):
+                    print(f"  Trimmed {os.path.basename(path)}: "
+                          f"{before} -> {len(images)} frames")
 
             if len(images) < 2:
                 continue
 
-            images = images  # list of (H, W) grayscale uint8
             poses = np.stack(poses)  # (N, 6)
 
             if seq_len is not None:
