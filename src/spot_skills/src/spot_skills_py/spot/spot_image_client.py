@@ -10,7 +10,13 @@ import numpy as np
 import rospy
 from bosdyn.api.image_pb2 import Image, ImageCapture, ImageRequest, ImageResponse
 from bosdyn.client.image import ImageClient, build_image_request
+from bosdyn.client.lease import LeaseWallet, add_lease_wallet_processors
 from cv_bridge import CvBridge
+from robotics_utils.ros import TransformManager
+from robotics_utils.spatial import Pose3D
+from robotics_utils.states.visual_states import ImageObservation
+from robotics_utils.vision import DepthImage, RGBImage
+from robotics_utils.vision.cameras import CameraIntrinsics, RGBCamera
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image as ImageMsg
 
@@ -42,15 +48,25 @@ class ImageFormat(Enum):
         return Image.PIXEL_FORMAT_UNKNOWN
 
 
+CAMERA_FRAMES = {
+    "frontleft": "frontleft",
+    "frontright": "frontright",
+    "hand": "hand_color_image_sensor",
+}
+"""Map human-friendly camera names to their TF frame names."""
+
+
 class SpotImageClient:
     """A wrapper for functions related to Spot's image client."""
 
-    def __init__(self, robot: Robot) -> None:
+    def __init__(self, robot: Robot, lease_wallet: LeaseWallet) -> None:
         """Initialize an image client using the given robot.
 
         :param robot: Point of access for Spot's RPC clients
+        :param lease_wallet: Shared lease wallet providing a lease for the robot
         """
         self._image_client = robot.ensure_client(ImageClient.default_service_name)
+        add_lease_wallet_processors(self._image_client, lease_wallet)
 
         # Identify the image sources available from Spot
         image_sources_proto = self._image_client.list_image_sources()
@@ -68,10 +84,11 @@ class SpotImageClient:
         :param image_format: Format of image requested (e.g., RGB or DEPTH)
         :return: Image request Protobuf message, or None if invalid inputs given
         """
-        image_source = self.camera_to_image_source(camera, image_format)
+        image_source = self._camera_to_image_source(camera, image_format)
 
         if image_source not in self.image_sources:
             rospy.logerr(f"Unrecognized image source: '{image_source}'")
+            rospy.logerr(f"Available image sources: {self.image_sources}")
             return None
 
         return build_image_request(image_source, pixel_format=image_format.pixel_format())
@@ -124,7 +141,149 @@ class SpotImageClient:
 
         return image_dict, rgb_image_dict
 
-    def camera_to_image_source(self, camera_name: str, image_format: ImageFormat) -> str:
+    def get_rgb_images(self, camera_names: list[str]) -> dict[str, RGBImage]:
+        """Request images from the robot, output in a NumPy-based format.
+
+        :param camera_names: List of camera names (e.g., "hand")
+        :return: Dictionary mapping camera names to the resulting RGBImage objects
+        """
+        sources = [self._camera_to_image_source(cn, ImageFormat.RGB) for cn in camera_names]
+        image_responses = self._image_client.get_image_from_sources(sources)
+
+        rgb_images = {}
+        for camera_name, response in zip(camera_names, image_responses):
+            raw_data = np.frombuffer(response.shot.image.data, dtype=np.uint8)
+            bgr_data = cv2.imdecode(raw_data, cv2.IMREAD_COLOR)
+            if bgr_data is None:
+                raise RuntimeError(f"Unable to decode image from camera '{camera_name}'.")
+            rgb_data = cv2.cvtColor(bgr_data, cv2.COLOR_BGR2RGB)
+            rgb_images[camera_name] = RGBImage(rgb_data)
+
+        return rgb_images
+
+    def get_rgb_images_with_poses(
+        self,
+        camera_names: list[str],
+        ref_frame: str = "body",
+    ) -> dict[str, tuple[RGBImage, CameraIntrinsics, Pose3D]]:
+        """Request RGB images with camera poses from the robot.
+
+        :param camera_names: List of camera names (e.g., ["hand", "frontleft"])
+        :param ref_frame: Reference frame for returned poses (defaults to "body")
+        :return: Dict mapping camera names to (RGBImage, CameraIntrinsics, Pose3D) tuples
+        """
+        rgb_images = self.get_rgb_images(camera_names)
+        results: dict[str, tuple[RGBImage, CameraIntrinsics, Pose3D]] = {}
+
+        for camera_name, rgb_image in rgb_images.items():
+            intrinsics = self.get_intrinsics(camera_name, ImageFormat.RGB)
+            camera_frame = CAMERA_FRAMES.get(camera_name, camera_name)
+
+            pose = TransformManager.lookup_transform(camera_frame, ref_frame)
+            if pose is None:
+                pose = Pose3D.identity(ref_frame)
+
+            results[camera_name] = (rgb_image, intrinsics, pose)
+
+        return results
+
+    def get_image_observation(
+        self,
+        camera_name: str,
+        ref_frame: str = "body",
+    ) -> ImageObservation[RGBImage]:
+        """Capture an RGB image observation and the camera pose at the time of capture.
+
+        :param camera_name: Name of the camera used to capture the image (e.g., "hand")
+        :param ref_frame: Reference frame to use for the camera pose (default: "body")
+        :return: ImageObservation containing the RGB image and capture-time camera pose
+        :raises RuntimeError: If Spot fails to capture the image
+        """
+        results = self.get_rgb_images_with_poses([camera_name], ref_frame=ref_frame)
+
+        if camera_name not in results:
+            raise RuntimeError(f"Failed to capture image observation from camera '{camera_name}'.")
+
+        rgb_image, _intrinsics, pose = results[camera_name]
+        return ImageObservation(image=rgb_image, pose_o_c=pose)
+
+    def get_depth_images(self, camera_names: list[str]) -> dict[str, DepthImage]:
+        """Request depth images from the robot.
+
+        Depth values are returned in meters as float64.
+
+        :param camera_names: List of camera names (e.g., ["hand", "frontleft"])
+        :return: Dictionary mapping camera names to DepthImage objects
+        """
+        depth_images: dict[str, DepthImage] = {}
+
+        for camera_name in camera_names:
+            request = self.make_image_request(camera_name, ImageFormat.DEPTH)
+            if request is None:
+                continue
+
+            responses = self.get_images([request])
+            if not responses:
+                continue
+
+            response = responses[0]
+            rows, cols = response.shot.image.rows, response.shot.image.cols
+
+            # Spot sends DEPTH_U16 in millimeters; convert to meters as float64
+            raw_depth = np.frombuffer(response.shot.image.data, dtype=np.uint16)
+            raw_depth = raw_depth.reshape((rows, cols))
+            depth_meters = raw_depth.astype(np.float64) / 1000.0
+
+            depth_images[camera_name] = DepthImage(depth_meters)
+
+        return depth_images
+
+    def get_depth_images_with_poses(
+        self,
+        camera_names: list[str],
+        ref_frame: str = "body",
+    ) -> dict[str, tuple[DepthImage, CameraIntrinsics, Pose3D]]:
+        """Request depth images with camera poses from the robot.
+
+        Depth values are returned in meters as float64.
+
+        :param camera_names: List of camera names (e.g., ["hand", "frontleft"])
+        :param ref_frame: Reference frame for returned poses (defaults to "body")
+        :return: Dict mapping camera names to (DepthImage, CameraIntrinsics, Pose3D) tuples
+        """
+        results: dict[str, tuple[DepthImage, CameraIntrinsics, Pose3D]] = {}
+
+        for camera_name in camera_names:
+            request = self.make_image_request(camera_name, ImageFormat.DEPTH)
+            if request is None:
+                continue
+
+            responses = self.get_images([request])
+            if not responses:
+                continue
+
+            response = responses[0]
+            rows, cols = response.shot.image.rows, response.shot.image.cols
+
+            # Spot sends DEPTH_U16 in millimeters; convert to meters as float64
+            raw_depth = np.frombuffer(response.shot.image.data, dtype=np.uint16)
+            raw_depth = raw_depth.reshape((rows, cols))
+            depth_meters = raw_depth.astype(np.float64) / 1000.0
+
+            depth_image = DepthImage(depth_meters)
+            intrinsics = self.get_intrinsics(camera_name, ImageFormat.DEPTH)
+
+            # Get camera pose via TF
+            camera_frame = response.shot.frame_name_image_sensor
+            pose = TransformManager.lookup_transform(camera_frame, ref_frame)
+            if pose is None:
+                pose = Pose3D.identity(ref_frame)
+
+            results[camera_name] = (depth_image, intrinsics, pose)
+
+        return results
+
+    def _camera_to_image_source(self, camera_name: str, image_format: ImageFormat) -> str:
         """Convert a camera name and image format into the corresponding image source from Spot.
 
         :param camera_name: Name of a camera on Spot (e.g., "frontright" or "back")
@@ -144,6 +303,25 @@ class SpotImageClient:
             return f"{camera_name}_depth_in_visual_frame"
 
         return f"{camera_name}_fisheye_image"
+
+    def get_intrinsics(self, camera_name: str, image_format: ImageFormat) -> CameraIntrinsics:
+        """Retrieve the camera intrinsics of the specified camera on Spot."""
+        request = self.make_image_request(camera_name, image_format)
+        if request is None:
+            raise RuntimeError(f"Unable to make image request for camera: '{camera_name}'.")
+
+        response = self.get_images([request])[0]
+
+        fx = response.source.pinhole.intrinsics.focal_length.x
+        cx = response.source.pinhole.intrinsics.principal_point.x
+        fy = response.source.pinhole.intrinsics.focal_length.y
+        cy = response.source.pinhole.intrinsics.principal_point.y
+
+        return CameraIntrinsics(fx=fx, fy=fy, x0=cx, y0=cy)
+
+    def get_frame_name(self, camera_name: str) -> str:
+        """Retrieve the name of the reference frame corresponding to the given camera."""
+        return CAMERA_FRAMES[camera_name]
 
     def extract_image_msg(self, image_capture: ImageCapture, capture_time: rospy.Time) -> ImageMsg:
         """Extract a sensor_msgs/Image ROS message from the given Protobuf message.
@@ -242,3 +420,26 @@ class SpotImageClient:
         camera_info_msg.P = [fx, 0, cx, 0, 0, fy, cy, 0, 0, 0, 1, 0]
 
         return camera_info_msg
+
+
+class SpotRGBCamera(RGBCamera):
+    """A generic interface for one of Spot's RGB cameras."""
+
+    def __init__(self, camera_name: str, image_client: SpotImageClient) -> None:
+        """Initialize the camera interface using a client to collect images from Spot."""
+        intrinsics = image_client.get_intrinsics(camera_name, ImageFormat.RGB)
+        frame_name = image_client.get_frame_name(camera_name)
+
+        super().__init__(
+            name=camera_name,
+            intrinsics=intrinsics,
+            image_type=RGBImage,
+            frame_name=frame_name,
+        )
+
+        self.image_client = image_client
+        self.image_source = self.image_client.get_images
+
+    def get_image(self) -> RGBImage:
+        """Capture and return an image using the camera."""
+        return self.image_client.get_rgb_images([self.name])[self.name]

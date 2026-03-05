@@ -1,0 +1,13 @@
+# Transform correction from the TF "map" frame to GraphNav's "seed" frame
+# Format: [x, y, z, roll, pitch, yaw] in meters and radians
+pose: [0, 0, 0, 0, 0, -0.12] # seed frame w.r.t. map frame
+
+
+# To reload this pose to the ROS parameter server:
+#   rosparam load $(rospack find spot_skills)/config/map_to_seed.yaml /map_to_seed
+
+# To trigger the SpotGraphNav to reload the pose from ROS params:
+#   rosservice call /spot/reload_map_to_seed
+
+# To re-localize using the nearest visible fiducial (after repositioning Spot):
+#   rosservice call /spot/relocalize

@@ -85,12 +85,17 @@ stated, you need to move to the top-level `spot_skills` folder, build the worksp
 
 ```bash
 # In Docker
-uv venv --clear --system-site-packages
+uv venv --clear --system-site-packages --python 3.8
 uv pip install -e .
+uv pip install -e src/spot_ros/spot_wrapper
 source .venv/bin/activate
 
 catkin build
 source devel/setup.bash
+
+# Temporary stopgap for missing deps
+apt-get update
+apt-get install python3-tk
 ```
 
 If a demo requires a second or third terminal tab to be opened into Docker, move to the same directory and source the following:
@@ -112,7 +117,6 @@ In this real-world demonstration, Spot will use its arm to follow a 20-second tr
 2. Use the tablet to make Spot sit, which may be hidden under the _Stand_ menu. Then,
    release tablet control of Spot by entering the _Power Button_ menu (top of the
    screen), then tapping _Advanced_, and selecting **Release Control**.
-
    - _Check_: Are Spot's front lights now flashing rainbow?
 
 3. On your computer, make sure you've followed the **Docker Demo Setup** instructions above.
@@ -144,7 +148,7 @@ roslaunch spot_skills moveit_spot_demo.launch
 
 RViz should open, showing a simulated Spot, as shown below.
 
-![Simulated Spot moving its arm to an end-effector target (shown as RGB axes).](images/sim-moveit-spot.png "Spot's Arm Moving to an End-Effector Target")
+![Simulated Spot moving its arm to an end-effector target (shown as RGB axes).](docs/images/sim-moveit-spot.png "Spot's Arm Moving to an End-Effector Target")
 
 A target pose for Spot's end-effector should soon be displayed as RGB axes. As this target pose moves
 back-and-forth, MoveIt creates motion plans to the target, which are then used to
@@ -158,7 +162,6 @@ control the simulated Spot's arm.
 2. Use the tablet to make Spot sit, which may be hidden under the _Stand_ menu. Then,
    release tablet control of Spot by entering the _Power Button_ menu (top of the
    screen), then tapping _Advanced_, and selecting **Release Control**.
-
    - _Check_: Are Spot's front lights now flashing rainbow?
 
 3. On your computer, make sure you've followed the **Docker Demo Setup** instructions above.
@@ -191,7 +194,6 @@ In this real-world demonstration, we'll use ROS to trigger Spot's off-the-shelf 
 2. Use the tablet to make Spot sit, which may be hidden under the _Stand_ menu. Then,
    release tablet control of Spot by entering the _Power Button_ menu (top of the
    screen), then tapping _Advanced_, and selecting **Release Control**.
-
    - _Check_: Are Spot's front lights now flashing rainbow?
 
 3. On your computer, launch the `spot_skills` Docker and the `pose` Docker using their respective instructions.
@@ -227,10 +229,10 @@ In this real-world demonstration, we'll use ROS to trigger Spot's off-the-shelf 
 
 ### Recording an End-Effector Relative Trajectory
 
-Run the following command in the container after sourcing `devel/setup.bash` and running `source_all.bash`. Replace `NAME_HERE` with the name of the Spot you're using:
+Run the following command in the container after sourcing the standard things. Replace `NAME_HERE` with the name of the Spot you're using:
 
 ```bash
-roslaunch spot_skills bringup_spot_driver.launch rviz:=true load_robot_description:=true spot_name:=NAME_HERE
+roslaunch spot_skills bringup_spot_skills.launch spot_name:=NAME_HERE
 ```
 
 When you're ready to begin recording transforms, run the following in another Docker terminal tab (after sourcing):
@@ -269,3 +271,7 @@ the TAMP codebase (`TMP3`) is required to generate and execute TAMP plans involv
 ### Phase 1 - Mapping
 
 See the [Mapping Demo](docs/mapping-demo.md) instructions.
+
+### Phase 2 - Object Pose Estimation
+
+See the [Object Pose Estimation Demo](docs/object-pose-estimation-demo.md) instructions.

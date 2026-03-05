@@ -6,7 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
       Splitter Ratio: 0.48929160833358765
-    Tree Height: 814
+    Tree Height: 1302
   - Class: rviz/Help
     Name: Help
   - Class: rviz/Views
@@ -72,29 +72,17 @@ Visualization Manager:
           Value: true
         body:
           Value: true
-        dock_535:
+        dock_520:
           Value: true
         feet_center:
           Value: true
-        fiducial_105:
+        fiducial_1:
           Value: true
-        fiducial_106:
+        fiducial_520:
           Value: true
-        fiducial_109:
+        filtered_fiducial_1:
           Value: true
-        fiducial_118:
-          Value: true
-        fiducial_535:
-          Value: true
-        filtered_fiducial_105:
-          Value: true
-        filtered_fiducial_106:
-          Value: true
-        filtered_fiducial_109:
-          Value: true
-        filtered_fiducial_118:
-          Value: true
-        filtered_fiducial_535:
+        filtered_fiducial_520:
           Value: true
         flat_body:
           Value: true
@@ -138,8 +126,6 @@ Visualization Manager:
           Value: true
         link_wr1:
           Value: true
-        map:
-          Value: true
         odom:
           Value: true
         rear_left_foot:
@@ -177,104 +163,91 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        map:
-          vision:
-            body:
-              arm0.link_wr1:
-                hand_color_image_sensor:
+        vision:
+          body:
+            arm0.link_wr1:
+              hand_color_image_sensor:
+                {}
+            arm_link_sh0:
+              arm_link_sh1:
+                arm_link_hr0:
+                  arm_link_el0:
+                    arm_link_el1:
+                      arm_link_wr0:
+                        arm_link_wr1:
+                          arm_link_fngr:
+                            {}
+            base_link:
+              {}
+            feet_center:
+              {}
+            flat_body:
+              {}
+            front_left_foot:
+              {}
+            front_left_hip:
+              front_left_upper_leg:
+                front_left_lower_leg:
                   {}
-              arm_link_sh0:
-                arm_link_sh1:
-                  arm_link_hr0:
-                    arm_link_el0:
-                      arm_link_el1:
-                        arm_link_wr0:
-                          arm_link_wr1:
-                            arm_link_fngr:
-                              {}
-              base_link:
-                {}
-              feet_center:
-                {}
-              flat_body:
-                {}
-              front_left_foot:
-                {}
-              front_left_hip:
-                front_left_upper_leg:
-                  front_left_lower_leg:
-                    {}
-              front_rail:
-                {}
-              front_right_foot:
-                {}
-              front_right_hip:
-                front_right_upper_leg:
-                  front_right_lower_leg:
-                    {}
-              hand:
-                {}
-              head:
-                back:
-                  back_fisheye:
-                    {}
-                frontleft:
-                  frontleft_fisheye:
-                    {}
-                frontright:
-                  frontright_fisheye:
-                    {}
-                left:
-                  left_fisheye:
-                    {}
-                right:
-                  right_fisheye:
-                    {}
-              link_wr1:
-                {}
-              odom:
-                gpe:
+            front_rail:
+              {}
+            front_right_foot:
+              {}
+            front_right_hip:
+              front_right_upper_leg:
+                front_right_lower_leg:
                   {}
-                sensor_origin_velodyne-point-cloud:
+            hand:
+              {}
+            head:
+              back:
+                back_fisheye:
                   {}
-              rear_left_foot:
+              frontleft:
+                frontleft_fisheye:
+                  {}
+              frontright:
+                frontright_fisheye:
+                  {}
+              left:
+                left_fisheye:
+                  {}
+              right:
+                right_fisheye:
+                  {}
+            link_wr1:
+              {}
+            odom:
+              gpe:
                 {}
-              rear_left_hip:
-                rear_left_upper_leg:
-                  rear_left_lower_leg:
-                    {}
-              rear_rail:
+              sensor_origin_velodyne-point-cloud:
                 {}
-              rear_right_foot:
-                {}
-              rear_right_hip:
-                rear_right_upper_leg:
-                  rear_right_lower_leg:
-                    {}
-              sensor:
-                {}
-            dock_535:
+            rear_left_foot:
               {}
-            fiducial_105:
+            rear_left_hip:
+              rear_left_upper_leg:
+                rear_left_lower_leg:
+                  {}
+            rear_rail:
               {}
-            fiducial_106:
+            rear_right_foot:
               {}
-            fiducial_109:
+            rear_right_hip:
+              rear_right_upper_leg:
+                rear_right_lower_leg:
+                  {}
+            sensor:
               {}
-            fiducial_118:
-              {}
-            fiducial_535:
-              {}
-            filtered_fiducial_105:
-              {}
-            filtered_fiducial_106:
-              {}
-            filtered_fiducial_109:
-              {}
-            filtered_fiducial_118:
-              {}
-            filtered_fiducial_535:
-              {}
+          dock_520:
+            {}
+          fiducial_1:
+            {}
+          fiducial_520:
+            {}
+          filtered_fiducial_1:
+            {}
+          filtered_fiducial_520:
+            {}
       Update Interval: 0
       Value: true
     - Class: moveit_rviz_plugin/PlanningScene
@@ -418,40 +391,6 @@ Visualization Manager:
         Robot Alpha: 0.8999999761581421
         Show Robot Collision: false
         Show Robot Visual: true
-      Value: true
-    - Alpha: 1
-      Arrow Length: 0.30000001192092896
-      Axes Length: 0.029999999329447746
-      Axes Radius: 0.009999999776482582
-      Class: rviz/PoseArray
-      Color: 255; 25; 0
-      Enabled: true
-      Head Length: 0.07000000029802322
-      Head Radius: 0.029999999329447746
-      Name: Put-Down Poses
-      Queue Size: 10
-      Shaft Length: 0.23000000417232513
-      Shaft Radius: 0.009999999776482582
-      Shape: Axes
-      Topic: /putdown_poses
-      Unreliable: false
-      Value: true
-    - Alpha: 1
-      Arrow Length: 0.30000001192092896
-      Axes Length: 0.019999999552965164
-      Axes Radius: 0.004999999888241291
-      Class: rviz/PoseArray
-      Color: 255; 25; 0
-      Enabled: true
-      Head Length: 0.07000000029802322
-      Head Radius: 0.029999999329447746
-      Name: Grasp Poses
-      Queue Size: 10
-      Shaft Length: 0.23000000417232513
-      Shaft Radius: 0.009999999776482582
-      Shape: Axes
-      Topic: /grasp_poses
-      Unreliable: false
       Value: true
     - Class: rviz/Group
       Displays:
@@ -727,6 +666,14 @@ Visualization Manager:
         {}
       Queue Size: 100
       Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /graphnav_markers
+      Name: GraphNav Markers
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -766,14 +713,14 @@ Visualization Manager:
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 1043
+  Height: 1531
   Help:
     collapsed: false
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000100000000000001a8000003bdfc0200000007fb000000100044006900730070006c006100790073010000003b000003bd000000c700fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a00560069006500770073000000010c000000a4000000a000fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006700000002b8000002880000000000000000000005d2000003bd00000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000100000000000001a8000005a5fc0200000007fb000000100044006900730070006c006100790073010000003b000005a5000000c700fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a00560069006500770073000000010c000000a4000000a000fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006700000002b800000288000000000000000000000331000005a500000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Views:
     collapsed: false
-  Width: 1920
-  X: 1920
-  Y: 0
+  Width: 1247
+  X: 1313
+  Y: 32

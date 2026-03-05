@@ -1,0 +1,10 @@
+waypoints:
+  open_drawer:
+    x_y_yaw: [1.282, 0, 3.14159] # For older traj: [1.344, 0, 3.14159]
+    frame: filing_cabinet1
+
+  open_black_dresser:
+    x_y_yaw: [1.22, 0, 3.14159]
+    frame: black_dresser
+
+default_frame: map

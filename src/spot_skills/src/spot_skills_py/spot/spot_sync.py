@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING
 
+import rospy
 from bosdyn.util import duration_to_seconds
 
 from spot_skills_py.time_stamp import TimeStamp, TimestampProto
@@ -34,11 +35,11 @@ class SpotTimeSync:
         """Retrieve the robot's live timesync endpoint."""
         return self._robot.time_sync.endpoint
 
-    def resync(self) -> None:
+    def resync(self, timeout_s: float = 10.0) -> None:
         """Re-establish a time-sync with Spot (blocks until robot is synchronized)."""
         start_time = time.time()
 
-        self._robot.time_sync.wait_for_sync()
+        self._robot.time_sync.wait_for_sync(timeout_s)
         self.max_round_trip_s = max(self.max_round_trip_s, self.get_round_trip_s())
 
         end_time = time.time()  # Put as much of this function as possible before this line
@@ -69,3 +70,13 @@ class SpotTimeSync:
         """
         timestamp_spot = TimeStamp.from_proto(timestamp_proto)
         return timestamp_spot.shift_by_duration_s(timestamp_spot, -self.get_robot_clock_skew_s())
+
+    def proto_to_ros_timestamp(self, timestamp_proto: TimestampProto) -> rospy.Time:
+        """Convert the given Spot-time Protobuf message to a ROS timestamp.
+
+        :param timestamp_proto: Protobuf message from Spot (time relative to robot clock)
+        :return: ROS timestamp corresponding to the Protobuf message
+        """
+        local_timestamp = self.local_timestamp_from_proto(timestamp_proto)
+        local_s = local_timestamp.to_time_s()
+        return rospy.Time.from_sec(local_s)

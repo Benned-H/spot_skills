@@ -1,0 +1,35 @@
+<!-- Populate ROS parameters to configure GraphNav for mapping or localization -->
+<launch>
+
+    <param name="/spot/graph_nav/active" value="true" />
+
+    <!-- Allow users to specify the import path of the GraphNav map -->
+    <arg name="map_path" default="/docker/spot_skills/maps/GraphNav" />
+
+    <!-- Default: Start the robot in localization mode and load in an existing map -->
+    <arg name="mapping_mode" default="false" />
+    <arg name="load_map" default="true" />
+
+    <!-- Save these arguments in the ROS parameter server -->
+    <param name="/spot/graph_nav/map_path" value="$(arg map_path)" />
+    <param name="/spot/graph_nav/mapping_mode" value="$(arg mapping_mode)" />
+    <param name="/spot/graph_nav/load_map" value="$(arg load_map)" />
+
+    <!-- Load map-to-seed transform correction (populates /map_to_seed/pose) -->
+    <rosparam file="$(find spot_skills)/config/map_to_seed.yaml" ns="map_to_seed" />
+
+    <!-- Specify ROS parameters to configure navigation -->
+
+    <!-- YAML file specifying the 2D poses of named waypoints -->
+    <param name="/spot/navigation/waypoints_yaml" value="$(find spot_skills)/config/env.yaml" />
+
+    <!-- Distance (meters) within which Spot is considered "close" to its goal -->
+    <param name="/spot/navigation/close_to_goal_m" value="0.5" />
+
+    <!-- Absolute angle (radians) within which Spot is considered "close" to its goal (here, 90 degrees) -->
+    <param name="/spot/navigation/close_to_goal_rad" value="1.5708" />
+
+    <!-- Filepath to the occupancy grid map to load from file -->
+    <param name="/spot/navigation/occ_grid_yaml" value="/docker/spot_skills/maps/Feb-3.yaml" />
+
+</launch>

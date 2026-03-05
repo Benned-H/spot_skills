@@ -2,20 +2,29 @@
 
 from __future__ import annotations
 
+import math
 import time
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
+from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client.exceptions import InvalidRequestError
+from bosdyn.client.frame_helpers import BODY_FRAME_NAME, GRAV_ALIGNED_BODY_FRAME_NAME, get_a_tform_b
 from bosdyn.client.robot_command import RobotCommandBuilder
+from bosdyn.geometry import EulerZXY
 from bosdyn.util import duration_to_seconds
+from robotics_utils.geometry import Point3D
+from robotics_utils.spatial import Pose3D, Quaternion
 
 from spot_skills_py.spot.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
+from spot_skills_py.spot.spot_conversion import NOMINAL_STAND_HEIGHT_M, pose_from_sdk, pose_to_sdk
+from spot_skills_py.spot.spot_force_controller import SpotForceController
 from spot_skills_py.time_stamp import TimeStamp
 
 if TYPE_CHECKING:
     from actionlib import SimpleActionServer
     from bosdyn.api.arm_command_pb2 import ArmJointTrajectory
+    from bosdyn.api.robot_command_pb2 import RobotCommand
 
     from spot_skills_py.joint_trajectory import JointTrajectory
     from spot_skills_py.segment_schedule import SegmentSchedule
@@ -51,6 +60,7 @@ class SpotArmController:
         assert spot_manager.has_arm(), "Cannot control Spot's arm if Spot has no arm!"
 
         self._manager = spot_manager
+        self.force_controller = SpotForceController(self._manager)
 
         # Declare member variable to store the ID of the most recent robot command
         self._command_id: int | None = None
@@ -68,6 +78,8 @@ class SpotArmController:
         self._locked = True
 
         self._DEBUG_MODE = False
+
+        # Create reusable mobility params to prevent body compensation during arm motion
 
     def unlock_arm(self) -> None:
         """Explicitly unlock Spot's arm, allowing the ArmController to control it."""
@@ -140,6 +152,7 @@ class SpotArmController:
             self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the schedule.")
 
         # Retry loop: Adjust and resend only (no sleep)
+        cumulative_bump_s = 0.0  # Cumulative bump (seconds) to delay each retry
         for attempt in range(1, max_attempts + 1):
             try:
                 self._command_id = self._manager.send_robot_command(schedule.commands[idx])
@@ -151,17 +164,17 @@ class SpotArmController:
                 )
 
                 if "time point before the current robot time" not in str(err):
-                    raise err
+                    raise
 
                 if attempt == max_attempts:
                     self._manager.log_info("Out of attempts, exiting...")
-                    raise err
+                    raise
 
-                bump_s = 0.03 * (2 ** (attempt - 1))  # Minimum bump (seconds) to delay each retry
-
-                delta_s = schedule.slide_segment_if_late(idx, send_early_s + bump_s)
+                # Use previously observed lateness to inform retry (delay by cumulative_bump_s)
+                delta_s = schedule.slide_segment_if_late(idx, send_early_s + cumulative_bump_s)
                 if delta_s > 0:
                     self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the schedule.")
+                    cumulative_bump_s += delta_s + 0.05  # Build on observed lateness
 
             else:
                 self._manager.log_info("Trajectory segment sent.\n")
@@ -192,6 +205,13 @@ class SpotArmController:
         if self._locked:
             return ArmCommandOutcome.ARM_LOCKED
 
+        if not self._manager.has_control:
+            self._manager.log_info("Cannot command Spot's arm; SpotManager doesn't control Spot.")
+            return ArmCommandOutcome.INVALID_START
+
+        # Build a robot command to prevent Spot from moving its body during the trajectory
+        body_command = self._manager.build_hold_body_pose_command()
+
         # Re-sync with Spot to ensure that round-trip times are up-to-date
         self._manager.time_sync.resync()
 
@@ -216,7 +236,7 @@ class SpotArmController:
         local_start_time_s = time.time() + self._future_proof_s
         trajectory.reference_timestamp = TimeStamp.from_time_s(local_start_time_s)
 
-        segments_schedule = trajectory.create_segment_schedule(self.max_segment_len)
+        segments_schedule = trajectory.create_segment_schedule(self.max_segment_len, body_command)
 
         preempted = False
         if action_server is None:  # Simpler case, where ROS can't preempt the command
@@ -239,7 +259,11 @@ class SpotArmController:
 
         return ArmCommandOutcome.PREEMPTED if preempted else ArmCommandOutcome.SUCCESS
 
-    def command_gripper(self, target_rad: float) -> GripperCommandOutcome:
+    def command_gripper(
+        self,
+        target_rad: float,
+        max_vel_radps: float = 0.5,
+    ) -> GripperCommandOutcome:
         """Command Spot's gripper to move to the specified angle (radians).
 
         Fully open gripper is -1.5707 radians, whereas fully closed gripper is 0 radians.
@@ -249,13 +273,14 @@ class SpotArmController:
         Reference: https://dev.bostondynamics.com/_modules/bosdyn/client/robot_command#RobotCommandBuilder.claw_gripper_open_angle_command
 
         :param target_rad: Target gripper angle (radians)
+        :param max_vel_radps: Maximum angular velocity (radians/second) for gripper movement
         :return: Enum indicating the outcome of the gripper command sent to Spot
         """
         if self._locked:
             self._manager.log_info("Rejected gripper command; Spot's arm remains locked.\n")
             return GripperCommandOutcome.FAILURE
 
-        if not self._manager.check_control():
+        if not self._manager.has_control:
             self._manager.log_info("Rejected gripper command; SpotManager doesn't control Spot.\n")
             return GripperCommandOutcome.FAILURE
 
@@ -263,7 +288,10 @@ class SpotArmController:
             self._manager.log_info(f"Rejected gripper command requesting: {target_rad} rad.\n")
             return GripperCommandOutcome.FAILURE
 
-        robot_command = RobotCommandBuilder.claw_gripper_open_angle_command(target_rad)
+        robot_command = RobotCommandBuilder.claw_gripper_open_angle_command(
+            target_rad,
+            max_vel=max_vel_radps,
+        )
 
         self._command_id = self._manager.send_robot_command(robot_command)
         self._manager.log_info("Gripper command sent.\n")
@@ -273,3 +301,123 @@ class SpotArmController:
             return GripperCommandOutcome.FAILURE
 
         return self._manager.block_during_gripper_command(self._command_id)
+
+    def command_end_effector_pose(self, target_pose_b_ee: Pose3D, duration_s: float = 1.0) -> bool:
+        """Command Spot's end-effector to move to a target pose in Spot's body frame."""
+        if self._locked:
+            self._manager.log_info("Rejected end-effector pose command; Spot's arm remains locked.")
+            return False
+
+        if not self._manager.has_control:
+            self._manager.log_info(
+                "Rejected end-effector pose command; SpotManager doesn't control Spot.",
+            )
+            return False
+
+        if duration_s <= 0:
+            self._manager.log_info("Rejected end-effector pose command with non-positive duration.")
+            return False
+
+        if target_pose_b_ee.ref_frame != BODY_FRAME_NAME:
+            self._manager.log_info(
+                f"Rejected end-effector pose command in frame '{target_pose_b_ee.ref_frame}'. "
+                f"Expected frame '{BODY_FRAME_NAME}'.",
+            )
+            return False
+
+        robot_command = RobotCommandBuilder.arm_pose_command_from_pose(
+            hand_pose=pose_to_sdk(target_pose_b_ee).to_proto(),
+            frame_name=BODY_FRAME_NAME,
+            seconds=duration_s,
+        )
+        self._command_id = self._manager.send_robot_command(robot_command)
+        if self._command_id is None:
+            self._manager.log_info("End-effector pose command failed to produce a command ID.")
+            return False
+
+        return True
+
+    def command_end_effector_body_velocity(
+        self,
+        linear_x_mps: float,
+        linear_y_mps: float,
+        linear_z_mps: float,
+        angular_x_radps: float,
+        angular_y_radps: float,
+        angular_z_radps: float,
+        duration_s: float = 0.2,
+    ) -> bool:
+        """Command Spot's end-effector velocity in Spot's body frame via short-horizon updates."""
+        if self._locked:
+            self._manager.log_info(
+                "Rejected end-effector velocity command; Spot's arm remains locked.",
+            )
+            return False
+
+        if not self._manager.has_control:
+            self._manager.log_info(
+                "Rejected end-effector velocity command; SpotManager doesn't control Spot.",
+            )
+            return False
+
+        if duration_s <= 0:
+            self._manager.log_info(
+                "Rejected end-effector velocity command with non-positive duration.",
+            )
+            return False
+
+        try:
+            current_sdk_pose_b_ee = self._manager.get_hand_pose(ref_frame=BODY_FRAME_NAME)
+        except Exception as exc:
+            self._manager.log_info(
+                f"Rejected end-effector velocity command; failed to read hand pose: {exc}",
+            )
+            return False
+
+        current_pose_b_ee = pose_from_sdk(current_sdk_pose_b_ee, ref_frame=BODY_FRAME_NAME)
+        target_position = Point3D(
+            x=current_pose_b_ee.position.x + (linear_x_mps * duration_s),
+            y=current_pose_b_ee.position.y + (linear_y_mps * duration_s),
+            z=current_pose_b_ee.position.z + (linear_z_mps * duration_s),
+        )
+        target_orientation = self._integrate_body_angular_velocity(
+            current_pose_b_ee.orientation,
+            angular_x_radps=angular_x_radps,
+            angular_y_radps=angular_y_radps,
+            angular_z_radps=angular_z_radps,
+            duration_s=duration_s,
+        )
+        target_pose_b_ee = Pose3D(
+            position=target_position,
+            orientation=target_orientation,
+            ref_frame=BODY_FRAME_NAME,
+        )
+
+        return self.command_end_effector_pose(target_pose_b_ee, duration_s)
+
+    @staticmethod
+    def _integrate_body_angular_velocity(
+        start_orientation: Quaternion,
+        angular_x_radps: float,
+        angular_y_radps: float,
+        angular_z_radps: float,
+        duration_s: float,
+    ) -> Quaternion:
+        """Integrate a constant body-frame angular velocity over a short duration."""
+        angular_norm = math.sqrt(
+            (angular_x_radps * angular_x_radps)
+            + (angular_y_radps * angular_y_radps)
+            + (angular_z_radps * angular_z_radps),
+        )
+        if angular_norm <= 1e-12:
+            return start_orientation
+
+        half_angle = 0.5 * angular_norm * duration_s
+        axis_scale = math.sin(half_angle) / angular_norm
+        delta_orientation = Quaternion(
+            x=angular_x_radps * axis_scale,
+            y=angular_y_radps * axis_scale,
+            z=angular_z_radps * axis_scale,
+            w=math.cos(half_angle),
+        )
+        return start_orientation * delta_orientation

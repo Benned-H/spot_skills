@@ -14,6 +14,12 @@
 
     <arg name="/spot/immediate_control" value="true" />
 
+    <!-- Activate GraphNav using its bringup file (use localization mode and load the map) -->
+    <include file="$(find spot_skills)/launch/bringup_spot_graphnav.launch" pass_all_args="true">
+        <arg name="mapping_mode" value="false" />
+        <arg name="load_map" value="true" />
+    </include>
+
     <!-- Run Rviz using a config file designed for this demo -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" required="true" />
 

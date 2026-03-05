@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   sensor_msgs
   geometry_msgs
+  trajectory_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -52,6 +53,7 @@ catkin_python_setup()
 add_message_files(
   FILES
   RGBDPair.msg
+  RGBImage.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -61,6 +63,13 @@ add_service_files(
   NameService.srv
   NavigateToPose.srv
   PlaybackTrajectory.srv
+  PoseLookup.srv
+  GetRGBImages.srv
+  OpenDoor.srv
+  ProbeSurface.srv
+  CaptureImageObservation.srv
+  ComputeMotionPlan.srv
+  PlaceObject.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -76,6 +85,7 @@ generate_messages(
   std_msgs
   sensor_msgs
   geometry_msgs
+  trajectory_msgs
 )
 
 ################################################
@@ -110,7 +120,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES spot_skills
-  CATKIN_DEPENDS rospy message_runtime std_msgs sensor_msgs geometry_msgs
+  CATKIN_DEPENDS rospy message_runtime std_msgs sensor_msgs geometry_msgs trajectory_msgs
 #  DEPENDS system_lib
 )
 
@@ -167,16 +177,16 @@ include_directories(
 catkin_install_python(PROGRAMS
   scripts/generate_moveit_plans.py
   scripts/arm_long_trajectory_demo.py
-  scripts/planning_scene_loader.py
   scripts/pose_sampling_demo.py
   scripts/spot_wrapper_node.py
   scripts/spot_moveit_demo.py
+  scripts/ee_control_demo.py
   scripts/fake_gripper_action_server.py
   scripts/pose_estimation_client.py
   scripts/dummy_estimate_pose_server.py
   scripts/joint_state_mux_node.py
+  src/robotics_utils/scripts/run_skills_cli.py
   src/robotics_utils/scripts/record_transforms.py
-  src/robotics_utils/scripts/fiducial_tracker_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

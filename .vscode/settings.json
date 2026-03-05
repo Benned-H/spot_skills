@@ -29,6 +29,8 @@
         "${workspaceFolder}/devel/lib/python3/dist-packages",
         "/opt/ros/noetic/lib/python3/dist-packages"
     ],
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "python.terminal.activateEnvironment": true,
     "autoDocstring.docstringFormat": "sphinx-notypes",
     "notebook.codeActionsOnSave": {
         "notebook.source.fixAll": "explicit",
@@ -43,6 +45,13 @@
     "files.associations": {
         "*.launch": "xml"
     },
-    "python-envs.pythonProjects": [],
-    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.pythonProjects": [
+        {
+            "path": "src/spot_skills/src/robotics_utils/src/robotics_utils",
+            "envManager": "ms-python.python:venv",
+            "packageManager": "ms-python.python:pip"
+        }
+    ],
+    "python-envs.defaultEnvManager": "ms-python.python:venv",
+    "cmake.sourceDirectory": "/home/benned/git/spot_skills/build/catkin_tools_prebuild",
 }

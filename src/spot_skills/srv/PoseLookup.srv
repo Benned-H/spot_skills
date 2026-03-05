@@ -1,0 +1,7 @@
+# Request a pose lookup between the two reference frames
+string child_frame
+string parent_frame
+---
+bool success
+string message
+geometry_msgs/PoseStamped relative_pose

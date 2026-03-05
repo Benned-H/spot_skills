@@ -169,7 +169,11 @@ class JointTrajectory:
             ]
             reorder_joint_values(self.points, sdk_indices)
 
-    def create_segment_schedule(self, max_segment_len: int) -> SegmentSchedule:
+    def create_segment_schedule(
+        self,
+        max_segment_len: int,
+        body_command: RobotCommand,
+    ) -> SegmentSchedule:
         """Convert this JointTrajectory into a sequence of scheduled commands for Spot.
 
         Each command will contain a single "segment" of the overall trajectory, obeying
@@ -180,6 +184,7 @@ class JointTrajectory:
         TODO: Could raise or lower the output commands' velocity/acceleration limits
 
         :param max_segment_len: Maximum number of points allowed in each segment
+        :param body_command: Robot body command preventing Spot from moving its body
         :return: SegmentSchedule specifying a reference time and RobotCommand per segment
         """
         self.convert_to_spot_sdk()
@@ -212,11 +217,13 @@ class JointTrajectory:
             segment_times = monotonic_times[start_idx : end_idx + 1]
             first_relative_times_s.append(segment_times[0])
 
+            # Combine the arm trajectory with a stand command that disables body compensation
             robot_command = RobotCommandBuilder.arm_joint_move_helper(
                 joint_positions=positions[start_idx : end_idx + 1],
                 times=segment_times,
                 joint_velocities=velocities[start_idx : end_idx + 1],
                 ref_time=timestamp_proto,
+                build_on_command=body_command,
             )
 
             robot_commands.append(robot_command)

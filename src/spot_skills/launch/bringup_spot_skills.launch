@@ -7,15 +7,17 @@
     <!-- We can only run the skills on the real robot -->
     <arg name="real_robot" value="true" />
 
-    <!-- Launch the navigation and SLAM systems using their bringup files -->
-    <include file="$(find spot_skills)/launch/bringup_spot_nav.launch" />
-    <include file="$(find spot_skills)/launch/bringup_spot_slam.launch" pass_all_args="true" />
+    <!-- Activate GraphNav using its bringup file (use localization mode and load the map) -->
+    <include file="$(find spot_skills)/launch/bringup_spot_graphnav.launch" pass_all_args="true">
+        <arg name="mapping_mode" value="false" />
+        <arg name="load_map" value="true" />
+    </include>
 
     <!-- Launch nodes to control Spot using MoveIt (this loads the robot description) -->
     <include file="$(find spot_skills)/launch/bringup_spot_moveit.launch" pass_all_args="true" />
 
-    <!-- Launch nodes enabling pose estimation using ar_track_alvar -->
-    <include file="$(find spot_skills)/launch/bringup_alvar.launch" />
+    <!-- Populate ROS parameters to activate AprilTag detection -->
+    <include file="$(find spot_skills)/launch/bringup_tag_tracking.launch" />
 
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_skills)/rviz/all_spot_skills.rviz" />
 

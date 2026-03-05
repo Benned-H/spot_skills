@@ -1,8 +1,8 @@
 """Define a ROS node providing a dummy version of the EstimatePose service."""
 
 import rospy
-from robotics_utils.kinematics import Pose3D
 from robotics_utils.ros.msg_conversion import pose_to_stamped_msg
+from robotics_utils.spatial import Pose3D
 
 from pose_estimation_msgs.srv import EstimatePose, EstimatePoseRequest, EstimatePoseResponse
 

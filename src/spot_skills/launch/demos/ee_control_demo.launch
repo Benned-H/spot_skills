@@ -1,0 +1,40 @@
+<!-- Launch nodes to demonstrate end-effector position and velocity control on Spot's arm.
+
+    This demo cycles the arm through:
+        1. Center  (position control via /spot/ee_pose)
+        2. Left    (position control via /spot/ee_pose)
+        3. Center  (position control via /spot/ee_pose)
+        4. Right   (velocity control via /spot/ee_cmd_vel, linearly accelerating)
+        ... and repeats.
+
+    Required arguments:
+        spot_name - For example, "snouter" or "tusker"
+
+-->
+<launch>
+
+    <arg name="spot_name" />
+    <arg name="real_robot" default="true" />
+
+    <!-- Bring up Spot with MoveIt (loads URDF/SRDF, robot_state_publisher,
+         spot_driver, and spot_wrapper_node for the real robot). -->
+    <include file="$(find spot_skills)/launch/bringup_spot_moveit.launch" pass_all_args="true" />
+
+    <!-- Allow the wrapper node to command Spot immediately without waiting
+         for an explicit unlock call from a separate terminal. -->
+    <arg name="/spot/immediate_control" value="true" />
+
+    <!-- Activate GraphNav in localisation mode so the robot's map is available. -->
+    <include file="$(find spot_skills)/launch/bringup_spot_graphnav.launch" pass_all_args="true">
+        <arg name="mapping_mode" value="false" />
+        <arg name="load_map" value="true" />
+    </include>
+
+    <!-- Visualise the robot in RViz (reuse the MoveIt demo config). -->
+    <node name="rviz" pkg="rviz" type="rviz"
+          args="-d $(find spot_skills)/rviz/moveit_spot_demo.rviz" required="true" />
+
+    <!-- Run the demo node that publishes to /spot/ee_pose and /spot/ee_cmd_vel. -->
+    <node name="ee_control_demo" pkg="spot_skills" type="ee_control_demo.py" output="screen" />
+
+</launch>
