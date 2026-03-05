@@ -20,6 +20,9 @@ Usage:
     6. Visualize saved TF trajectories:
        python -m src.utils visualize ./output/tf.npy --child-frame hand --absolute
 
+    7. Visualize with static trimming:
+       python -m src.utils visualize ./output/tf.npy --child-frame hand --trim-window 5 --trim-threshold 1e-4
+
 The dataset (src/dataset.py) can also load .bag files directly via
 load_synced_from_bag(), skipping the manual extract-then-sync workflow.
 """
@@ -342,16 +345,28 @@ def load_synced_from_bag(
 # Visualization
 # ---------------------------------------------------------------------------
 
-def visualize_tf_npy(npy_path: str, child_frame: str = None, relative: bool = True) -> None:
+def visualize_tf_npy(
+    npy_path: str,
+    child_frame: str = None,
+    relative: bool = True,
+    trim_window: int | None = None,
+    trim_threshold: float | None = None,
+) -> None:
     """Plot 3D trajectories from a saved TF .npy file.
 
     Args:
-        npy_path:    Path to the .npy file produced by save_tf_topic_as_npy.
-        child_frame: If provided, only visualize this child frame. Otherwise
-                     plot all child frames found in the data.
-        relative:    If True, show transforms relative to the first timestep
-                     (like rosbag_to_transforms.py). If False, show absolute.
+        npy_path:       Path to the .npy file produced by save_tf_topic_as_npy.
+        child_frame:    If provided, only visualize this child frame. Otherwise
+                        plot all child frames found in the data.
+        relative:       If True, show transforms relative to the first timestep
+                        (like rosbag_to_transforms.py). If False, show absolute.
+        trim_window:    If set, trim static start/end frames using a sliding
+                        variance window of this size.
+        trim_threshold: Variance threshold for trimming (required if trim_window
+                        is set).
     """
+    from src.dataset import _trim_static_ends, matrix_to_6d_pose
+
     records = np.load(npy_path, allow_pickle=True)
 
     # Collect per-child-frame trajectories: {name: list of 4x4 matrices}
@@ -362,6 +377,21 @@ def visualize_tf_npy(npy_path: str, child_frame: str = None, relative: bool = Tr
                 continue
             trajectories.setdefault(name, []).append(matrix)
 
+    # Trim static ends if requested
+    if trim_window is not None and trim_threshold is not None:
+        for name in list(trajectories.keys()):
+            matrices = trajectories[name]
+            poses = [matrix_to_6d_pose(m) for m in matrices]
+            trimmed_matrices, _ = _trim_static_ends(
+                matrices, poses,
+                window=trim_window,
+                threshold=trim_threshold,
+            )
+            before = len(matrices)
+            if len(trimmed_matrices) != before:
+                print(f"  Trimmed {name}: {before} -> {len(trimmed_matrices)} frames")
+            trajectories[name] = trimmed_matrices
+
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
     ax.set_xlabel("X")
@@ -369,6 +399,8 @@ def visualize_tf_npy(npy_path: str, child_frame: str = None, relative: bool = Tr
     ax.set_zlabel("Z")
 
     for name, matrices in trajectories.items():
+        if not matrices:
+            continue
         if relative:
             inv_initial = np.linalg.inv(matrices[0])
             matrices = [inv_initial @ m for m in matrices]
@@ -390,6 +422,8 @@ def visualize_tf_npy(npy_path: str, child_frame: str = None, relative: bool = Tr
     # Equal aspect ratio: set all axes to the same range
     all_positions = []
     for name, matrices in trajectories.items():
+        if not matrices:
+            continue
         if relative:
             inv_initial = np.linalg.inv(trajectories[name][0])
             mats = [inv_initial @ m for m in matrices]
@@ -405,7 +439,10 @@ def visualize_tf_npy(npy_path: str, child_frame: str = None, relative: bool = Tr
     ax.set_zlim(mid[2] - half_range, mid[2] + half_range)
 
     ax.legend()
-    ax.set_title(f"TF trajectories ({'relative' if relative else 'absolute'})")
+    title = f"TF trajectories ({'relative' if relative else 'absolute'})"
+    if trim_window is not None:
+        title += " [trimmed]"
+    ax.set_title(title)
     plt.tight_layout()
     plt.show()
 
@@ -479,6 +516,18 @@ def main() -> None:
         action="store_true",
         help="Show absolute transforms instead of relative to the first timestep.",
     )
+    sp_viz.add_argument(
+        "--trim-window",
+        type=int,
+        default=None,
+        help="Sliding window size for trimming static start/end frames.",
+    )
+    sp_viz.add_argument(
+        "--trim-threshold",
+        type=float,
+        default=None,
+        help="Variance threshold for trimming (use with --trim-window).",
+    )
 
     args = parser.parse_args()
 
@@ -517,6 +566,8 @@ def main() -> None:
             args.npy,
             child_frame=args.child_frame,
             relative=not args.absolute,
+            trim_window=args.trim_window,
+            trim_threshold=args.trim_threshold,
         )
 
 

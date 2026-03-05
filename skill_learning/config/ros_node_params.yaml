@@ -15,14 +15,14 @@ model:
 delta_actions: true        # true: model predicts delta, false: model predicts absolute pose
 
 # TF frame to track
-joint_name: "hand"
+joint_name: "arm0.link_wr1"
 parent_frame: "body"
 
 # ROS topics
 topics:
-  image_sub: "/camera/image_raw"
+  image_sub: "/spot/camera/left/image"
   tf_sub: "/tf"
-  action_pub: "/bc_rnn/action"        # geometry_msgs/PoseStamped
+  action_pub: "/spot/ee_pose"        # geometry_msgs/PoseStamped
 
 # Inference rate (Hz)
 rate: 10

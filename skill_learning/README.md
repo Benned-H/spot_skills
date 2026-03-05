@@ -15,18 +15,29 @@ This launches the `huggingface/lerobot-gpu` container with GPU support and mount
 
 ## Data Collection
 
-Demonstrations must be collected before training. The pipeline is:
+Record demonstrations as ROS bag files on the robot, then place the `.bag` files in a data directory (e.g. `data/`). The training script reads `.bag` files directly — no manual extraction or syncing is needed.
 
-1. **Record** demonstrations as ROS bag files on the robot.
-2. **Extract** TF transforms and images from the bags:
-   ```bash
-   python -m src.utils save --bag <path_to_bag> --topic /tf --out tf.npy
-   python -m src.utils save --bag <path_to_bag> --topic /camera/image --out images/
-   ```
-3. **Sync** images and transforms by timestamp:
-   ```bash
-   python -m src.utils sync --images images/ --tf tf.npy --out synced.npy
-   ```
+Rosbag settings (image topic, TF topic, parent frame, sync threshold) are configured in [config/training_params.yaml](config/training_params.yaml) under the `rosbag` section.
+
+### Manual extraction (optional)
+
+If you prefer to pre-process data or need to inspect intermediate files, you can use `src/utils.py`:
+
+```bash
+# Extract images
+python -m src.utils save traj_0.bag /camera/image_raw image ./output/images/
+
+# Extract TF transforms
+python -m src.utils save traj_0.bag /tf tf ./output/ --parent-frame body --child-frame hand
+
+# Sync images with TF by timestamp
+python -m src.utils sync ./output/images/ ./output/tf.npy ./output/synced.npy --threshold 0.05
+
+# Visualize TF trajectories
+python -m src.utils visualize ./output/tf.npy --child-frame hand --absolute
+```
+
+Pre-synced `.npy` files can also be placed in the data directory alongside `.bag` files — the dataset loads both formats.
 
 ## Project Structure
 
@@ -34,10 +45,10 @@ Demonstrations must be collected before training. The pipeline is:
 skill_learning/
 ├── src/
 │   ├── model.py            # BC-RNN model (ResNet encoder + GRU)
-│   ├── dataset.py           # Dataset and dataloader utilities
-│   └── utils.py             # Rosbag parsing, TF extraction, sync
+│   ├── dataset.py           # Dataset loader (reads .bag and .npy files)
+│   └── utils.py             # Rosbag parsing, TF extraction, sync, visualization
 ├── config/
-│   ├── training_params.yaml  # Training hyperparameters
+│   ├── training_params.yaml  # Training hyperparameters + rosbag settings
 │   └── ros_node_params.yaml  # Deployment config (topics, model params)
 ├── train.py                  # Training script
 ├── deploy_ros_node.py        # ROS1 deployment node
@@ -54,6 +65,14 @@ Edit hyperparameters in [config/training_params.yaml](config/training_params.yam
 ```bash
 python train.py --config config/training_params.yaml
 ```
+
+To save intermediate `.npy` files extracted from rosbags (useful for debugging):
+
+```bash
+python train.py --debug
+```
+
+Debug files are saved to the directory specified by `debug_dir` in the config (default: `debug/`).
 
 Checkpoints saved: `best.pt` (lowest validation loss), periodic (`epoch_NNN.pt`), and `final.pt`.
 

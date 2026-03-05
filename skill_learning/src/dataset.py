@@ -154,8 +154,8 @@ class BCRNNDataset(Dataset):
         debug:       If True, save extracted rosbag data as .npy files.
         debug_dir:   Directory to save debug .npy files. Default: "debug/".
         trim_static: Dict with trimming config, or None to disable. Keys:
-                       window    – sliding window size (default 5).
-                       threshold – max variance below which frames are static
+                       window - sliding window size (default 5).
+                       threshold - max variance below which frames are static
                                    (default 1e-4).
     """
 

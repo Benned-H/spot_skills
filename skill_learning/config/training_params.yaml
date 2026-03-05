@@ -1,11 +1,26 @@
 # Training hyperparameters for BC-RNN
 
 # Data
-data: "data/"              # Path to synced .npy file(s) or directory
+data: "bags/"              # Path to .bag/.npy file(s) or directory
 joint_name: "hand"         # TF child frame name
 seq_len: 20                # Sliding window length
 val_ratio: 0.1             # Fraction of data for validation
 delta_actions: true        # true: action = pose[t+1] - pose[t], false: action = pose[t+1]
+
+# Rosbag settings (used when data contains .bag files)
+rosbag:
+  image_topic: "/spot/camera/left/image"
+  tf_topic: "/tf"
+  parent_frame: "body"
+  sync_threshold: 0.05     # Max time gap (seconds) for image-TF pairing
+
+# Trim static frames at start/end of each trajectory
+trim_static:
+  window: 5                  # Sliding window size for variance calculation
+  threshold: 1.0e-4          # Max variance below which frames are considered static
+
+# Debug (--debug flag saves extracted rosbag data as .npy)
+debug_dir: "debug/"
 
 # Model architecture
 model:
@@ -22,7 +37,7 @@ batch_size: 16
 lr: 1.0e-4
 weight_decay: 1.0e-5
 grad_clip: 1.0              # Gradient clipping norm (0 to disable)
-num_workers: 4
+num_workers: 0              # Set > 0 requires sufficient /dev/shm (see docker --shm-size)
 
 # Saving
 save_dir: "checkpoints"
@@ -30,6 +45,6 @@ save_every: 50               # Save checkpoint every N epochs
 
 # Weights & Biases
 wandb:
-  enabled: false
+  enabled: true
   project: "bc-rnn-spot"
   run_name: null              # Auto-generated if null

@@ -124,6 +124,7 @@ class BCRNNDeployNode:
 
     def _image_callback(self, msg: Image) -> None:
         """Convert incoming ROS Image to grayscale numpy array."""
+        rospy.loginfo_throttle(5.0, "Image callback triggered")
         try:
             img = self.bridge.imgmsg_to_cv2(msg, desired_encoding="mono8")
         except Exception as e:
@@ -135,6 +136,7 @@ class BCRNNDeployNode:
 
     def _tf_callback(self, msg: TFMessage) -> None:
         """Extract the target joint transform from a TFMessage."""
+        rospy.loginfo_throttle(5.0, f"TF callback triggered ({len(msg.transforms)} transforms)")
         for tf_stamped in msg.transforms:
             if (
                 tf_stamped.header.frame_id == self.parent_frame
@@ -144,6 +146,10 @@ class BCRNNDeployNode:
                 with self.lock:
                     self._latest_tf_matrix = mat
                 return
+        rospy.logwarn_throttle(5.0,
+            f"TF callback: no match for {self.parent_frame} -> {self.joint_name}. "
+            f"Frames seen: {[(t.header.frame_id, t.child_frame_id) for t in msg.transforms]}"
+        )
 
     # ------------------------------------------------------------------
     # Inference
@@ -190,6 +196,8 @@ class BCRNNDeployNode:
                 tf_mat = self._latest_tf_matrix
 
             if img is None or tf_mat is None:
+                # print(img is None)
+                # print(tf_mat is None)
                 rospy.logwarn_throttle(5.0, "Waiting for image and TF data...")
                 self.rate.sleep()
                 continue
@@ -214,6 +222,7 @@ class BCRNNDeployNode:
 
             # Publish
             pose_msg = self._pose_6d_to_pose_stamped(action, self.parent_frame)
+            print(f'next action: {action}')
             self.action_pub.publish(pose_msg)
 
             self.rate.sleep()
