@@ -3,9 +3,10 @@
 # Data
 data: "bags/"              # Path to .bag/.npy file(s) or directory
 joint_name: "hand"         # TF child frame name
-seq_len: 20                # Sliding window length
+seq_len: 3            # Sliding window length
 val_ratio: 0.1             # Fraction of data for validation
 delta_actions: true        # true: action = pose[t+1] - pose[t], false: action = pose[t+1]
+subsample: 4              # Keep every Nth frame (1 = all, 2 = skip every other, etc.)
 
 # Rosbag settings (used when data contains .bag files)
 rosbag:
@@ -16,8 +17,8 @@ rosbag:
 
 # Trim static frames at start/end of each trajectory
 trim_static:
-  window: 5                  # Sliding window size for variance calculation
-  threshold: 1.0e-4          # Max variance below which frames are considered static
+  window: 5                # Sliding window size for variance calculation
+  threshold: 5.0e-5          # Max variance below which frames are considered static
 
 # Debug (--debug flag saves extracted rosbag data as .npy)
 debug_dir: "debug/"

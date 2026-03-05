@@ -55,7 +55,12 @@ class BCRNNDeployNode:
 
         # Latest observations (updated by callbacks)
         self._latest_image = None  # raw grayscale numpy (H, W) uint8
+        self._latest_image_time = None  # rospy.Time
         self._latest_tf_matrix = None  # 4x4 ndarray
+        self._latest_tf_time = None  # rospy.Time
+
+        # Sync threshold: only use image+TF pairs within this time gap (seconds)
+        self.sync_threshold = config.get("sync_threshold", 0.05)
 
         self.joint_name = config["joint_name"]
         self.parent_frame = config["parent_frame"]
@@ -70,9 +75,8 @@ class BCRNNDeployNode:
             transforms.Normalize(mean=[0.449], std=[0.226]),
         ])
 
-        # Denormalization constants for image (not needed for action output,
-        # but kept for reference). Action output is raw 6D pose, no normalization
-        # is applied during training so no denormalization is needed.
+        # Action normalization: model outputs are in normalized space.
+        # Denormalization (action * std + mean) is applied after model.step().
 
         # Load model
         model_cfg = config["model"]
@@ -91,6 +95,10 @@ class BCRNNDeployNode:
             f"Loaded checkpoint: {config['checkpoint']} "
             f"(epoch {ckpt.get('epoch', '?')}, val_loss {ckpt.get('val_loss', '?'):.6f})"
         )
+
+        # Action denormalization stats (saved during training)
+        self.action_mean = ckpt["action_mean"]  # (6,) float32
+        self.action_std = ckpt["action_std"]     # (6,) float32
 
         self.delta_actions = config.get("delta_actions", True)
 
@@ -133,6 +141,7 @@ class BCRNNDeployNode:
 
         with self.lock:
             self._latest_image = img  # (H, W) uint8
+            self._latest_image_time = msg.header.stamp
 
     def _tf_callback(self, msg: TFMessage) -> None:
         """Extract the target joint transform from a TFMessage."""
@@ -145,6 +154,7 @@ class BCRNNDeployNode:
                 mat = transform_to_matrix(tf_stamped)
                 with self.lock:
                     self._latest_tf_matrix = mat
+                    self._latest_tf_time = tf_stamped.header.stamp
                 return
         rospy.logwarn_throttle(5.0,
             f"TF callback: no match for {self.parent_frame} -> {self.joint_name}. "
@@ -193,12 +203,21 @@ class BCRNNDeployNode:
         while not rospy.is_shutdown():
             with self.lock:
                 img = self._latest_image
+                img_time = self._latest_image_time
                 tf_mat = self._latest_tf_matrix
+                tf_time = self._latest_tf_time
 
             if img is None or tf_mat is None:
-                # print(img is None)
-                # print(tf_mat is None)
                 rospy.logwarn_throttle(5.0, "Waiting for image and TF data...")
+                self.rate.sleep()
+                continue
+
+            # Check that image and TF timestamps are within sync threshold
+            dt = abs((img_time - tf_time).to_sec())
+            if dt > self.sync_threshold:
+                rospy.logwarn_throttle(5.0,
+                    f"Image-TF desync: {dt:.3f}s > {self.sync_threshold}s, skipping"
+                )
                 self.rate.sleep()
                 continue
 
@@ -212,8 +231,11 @@ class BCRNNDeployNode:
                     image_tensor, state_tensor, self.hidden
                 )
 
-            # action_tensor is (1, action_dim)
+            # action_tensor is (1, action_dim) — in normalized space
             action = action_tensor.squeeze(0).cpu().numpy()
+
+            # Denormalize action back to original scale
+            action = action * self.action_std + self.action_mean
 
             # If delta mode, add current state to get absolute target pose
             if self.delta_actions:

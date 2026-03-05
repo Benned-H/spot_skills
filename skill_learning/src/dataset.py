@@ -157,6 +157,8 @@ class BCRNNDataset(Dataset):
                        window - sliding window size (default 5).
                        threshold - max variance below which frames are static
                                    (default 1e-4).
+        subsample:   Keep every Nth frame (1 = keep all, 2 = skip every other,
+                     etc.). Applied after trimming. Default: 1.
     """
 
     def __init__(
@@ -170,6 +172,7 @@ class BCRNNDataset(Dataset):
         debug: bool = False,
         debug_dir: str = "debug/",
         trim_static: dict | None = None,
+        subsample: int = 1,
     ) -> None:
         # Resolve paths
         if isinstance(data_paths, str):
@@ -247,6 +250,14 @@ class BCRNNDataset(Dataset):
                     print(f"  Trimmed {os.path.basename(path)}: "
                           f"{before} -> {len(images)} frames")
 
+            # Subsample: keep every Nth frame
+            if subsample > 1 and images:
+                before = len(images)
+                images = images[::subsample]
+                poses = poses[::subsample]
+                print(f"  Subsampled {os.path.basename(path)}: "
+                      f"{before} -> {len(images)} frames (every {subsample})")
+
             if len(images) < 2:
                 continue
 
@@ -266,6 +277,24 @@ class BCRNNDataset(Dataset):
                 next_poses = poses[1:]
                 actions = next_poses - states if delta_actions else next_poses
                 self.samples.append((images[:-1], states, actions))
+        
+        # Compute per-dimension action normalization stats
+        if self.samples:
+            all_actions = np.concatenate(
+                [a for _, _, a in self.samples], axis=0
+            )  # (total_frames, 6)
+            self.action_mean = all_actions.mean(axis=0).astype(np.float32)  # (6,)
+            self.action_std = all_actions.std(axis=0).astype(np.float32)    # (6,)
+            self.action_std = np.maximum(self.action_std, 1e-8)  # avoid div-by-zero
+
+            # Normalize stored actions in-place
+            for i in range(len(self.samples)):
+                imgs, states, actions = self.samples[i]
+                actions = (actions - self.action_mean) / self.action_std
+                self.samples[i] = (imgs, states, actions)
+        else:
+            self.action_mean = np.zeros(6, dtype=np.float32)
+            self.action_std = np.ones(6, dtype=np.float32)
 
     def __len__(self) -> int:
         return len(self.samples)

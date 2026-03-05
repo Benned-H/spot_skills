@@ -45,8 +45,16 @@ def train(config: dict) -> None:
         debug=config.get("debug", False),
         debug_dir=config.get("debug_dir", "debug/"),
         trim_static=config.get("trim_static"),
+        subsample=config.get("subsample", 1),
     )
     print(f"Dataset: {len(dataset)} samples")
+    print(f"Action normalization — mean: {dataset.action_mean}, std: {dataset.action_std}")
+
+    # Normalization stats to save in every checkpoint
+    norm_stats = {
+        "action_mean": dataset.action_mean,
+        "action_std": dataset.action_std,
+    }
 
     # Train / val split
     val_size = max(1, int(len(dataset) * config["val_ratio"]))
@@ -123,17 +131,17 @@ def train(config: dict) -> None:
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             path = os.path.join(config["save_dir"], "best.pt")
-            torch.save({"epoch": epoch, "model": model.state_dict(), "val_loss": val_loss}, path)
+            torch.save({"epoch": epoch, "model": model.state_dict(), "val_loss": val_loss, **norm_stats}, path)
             print(f"  -> saved best model (val_loss={val_loss:.6f})")
 
         # Periodic checkpoint
         if epoch % config["save_every"] == 0:
             path = os.path.join(config["save_dir"], f"epoch_{epoch:03d}.pt")
-            torch.save({"epoch": epoch, "model": model.state_dict(), "val_loss": val_loss}, path)
+            torch.save({"epoch": epoch, "model": model.state_dict(), "val_loss": val_loss, **norm_stats}, path)
 
     # Save final
     path = os.path.join(config["save_dir"], "final.pt")
-    torch.save({"epoch": config["epochs"], "model": model.state_dict(), "val_loss": val_loss}, path)
+    torch.save({"epoch": config["epochs"], "model": model.state_dict(), "val_loss": val_loss, **norm_stats}, path)
     print(f"Training complete. Best val_loss={best_val_loss:.6f}")
 
     if use_wandb:

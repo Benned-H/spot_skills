@@ -229,7 +229,7 @@ def test_dataset_debug_save():
 
 
 def test_dataset_action_absolute():
-    """Verify absolute mode: action[t] == pose[t+1]."""
+    """Verify absolute mode: normalized action[t] == normalize(pose[t+1])."""
     num_frames = 5
     with tempfile.TemporaryDirectory() as tmpdir:
         npy_path = os.path.join(tmpdir, "traj.npy")
@@ -241,16 +241,20 @@ def test_dataset_action_absolute():
         records = np.load(npy_path, allow_pickle=True)
         raw_poses = [matrix_to_6d_pose(r["tf"]["hand"]) for r in records]
 
+        mean = torch.from_numpy(ds.action_mean).float()
+        std = torch.from_numpy(ds.action_std).float()
+
         for t in range(num_frames - 2):
-            expected_action = torch.from_numpy(raw_poses[t + 1]).float()
+            raw_action = torch.from_numpy(raw_poses[t + 1]).float()
+            expected_action = (raw_action - mean) / std
             expected_state = torch.from_numpy(raw_poses[t]).float()
             assert torch.allclose(states[t], expected_state, atol=1e-5), f"state mismatch at t={t}"
             assert torch.allclose(actions[t], expected_action, atol=1e-5), f"action mismatch at t={t}"
-    print(f"dataset_action_absolute:  action == next_pose OK")
+    print(f"dataset_action_absolute:  normalized action OK")
 
 
 def test_dataset_action_delta():
-    """Verify delta mode: action[t] == pose[t+1] - pose[t]."""
+    """Verify delta mode: normalized action[t] == normalize(pose[t+1] - pose[t])."""
     num_frames = 5
     with tempfile.TemporaryDirectory() as tmpdir:
         npy_path = os.path.join(tmpdir, "traj.npy")
@@ -262,10 +266,43 @@ def test_dataset_action_delta():
         records = np.load(npy_path, allow_pickle=True)
         raw_poses = [matrix_to_6d_pose(r["tf"]["hand"]) for r in records]
 
+        mean = torch.from_numpy(ds.action_mean).float()
+        std = torch.from_numpy(ds.action_std).float()
+
         for t in range(num_frames - 2):
-            expected_delta = torch.from_numpy(raw_poses[t + 1] - raw_poses[t]).float()
-            assert torch.allclose(actions[t], expected_delta, atol=1e-5), f"delta mismatch at t={t}"
-    print(f"dataset_action_delta:  action == next_pose - current_pose OK")
+            raw_delta = torch.from_numpy(raw_poses[t + 1] - raw_poses[t]).float()
+            expected_action = (raw_delta - mean) / std
+            assert torch.allclose(actions[t], expected_action, atol=1e-5), f"delta mismatch at t={t}"
+    print(f"dataset_action_delta:  normalized delta OK")
+
+
+def test_dataset_normalization_stats():
+    """Verify normalization stats are computed correctly and actions are normalized."""
+    num_frames = 10
+    with tempfile.TemporaryDirectory() as tmpdir:
+        npy_path = os.path.join(tmpdir, "traj.npy")
+        _make_synced_npy(npy_path, num_frames=num_frames)
+
+        ds = BCRNNDataset(npy_path, joint_name="hand", delta_actions=True)
+        assert ds.action_mean.shape == (6,), f"mean shape: {ds.action_mean.shape}"
+        assert ds.action_std.shape == (6,), f"std shape: {ds.action_std.shape}"
+        assert np.all(ds.action_std > 0), "std has non-positive values"
+
+        # Collect all normalized actions and verify they are ~zero-mean, ~unit-std
+        _, _, actions = ds[0]
+        actions_np = actions.numpy()  # (T, 6)
+        per_dim_mean = actions_np.mean(axis=0)
+        per_dim_std = actions_np.std(axis=0)
+        assert np.allclose(per_dim_mean, 0.0, atol=1e-5), f"mean not ~0: {per_dim_mean}"
+        assert np.allclose(per_dim_std, 1.0, atol=0.15), f"std not ~1: {per_dim_std}"
+
+        # Verify denormalization recovers raw actions
+        records = np.load(npy_path, allow_pickle=True)
+        raw_poses = np.array([matrix_to_6d_pose(r["tf"]["hand"]) for r in records])
+        raw_deltas = raw_poses[1:] - raw_poses[:-1]  # (N-1, 6)
+        recovered = actions_np * ds.action_std + ds.action_mean
+        assert np.allclose(recovered, raw_deltas, atol=1e-5), "Denormalization failed"
+    print(f"dataset_normalization:  stats + roundtrip OK")
 
 
 # ---------- Training tests ----------
@@ -316,7 +353,14 @@ def test_train_short_run():
         assert os.path.isfile(os.path.join(save_dir, "final.pt")), "final.pt not found"
         assert os.path.isfile(os.path.join(save_dir, "epoch_001.pt")), "epoch_001.pt not found"
         assert os.path.isfile(os.path.join(save_dir, "epoch_002.pt")), "epoch_002.pt not found"
-    print(f"train_short_run:  2 epochs, checkpoints saved OK")
+
+        # Check that normalization stats are in checkpoints
+        ckpt = torch.load(os.path.join(save_dir, "best.pt"), map_location="cpu")
+        assert "action_mean" in ckpt, "action_mean not in checkpoint"
+        assert "action_std" in ckpt, "action_std not in checkpoint"
+        assert ckpt["action_mean"].shape == (6,), f"action_mean shape: {ckpt['action_mean'].shape}"
+        assert ckpt["action_std"].shape == (6,), f"action_std shape: {ckpt['action_std'].shape}"
+    print(f"train_short_run:  2 epochs, checkpoints + norm stats OK")
 
 
 def test_checkpoint_load_and_inference():
@@ -360,6 +404,7 @@ def test_checkpoint_load_and_inference():
         model.eval()
 
         assert "epoch" in ckpt and "val_loss" in ckpt, "Checkpoint missing metadata"
+        assert "action_mean" in ckpt and "action_std" in ckpt, "Checkpoint missing normalization stats"
 
         # Run inference
         with torch.no_grad():
@@ -498,6 +543,7 @@ if __name__ == "__main__":
     test_dataset_debug_save()
     test_dataset_action_absolute()
     test_dataset_action_delta()
+    test_dataset_normalization_stats()
 
     # Training tests
     test_train_short_run()
