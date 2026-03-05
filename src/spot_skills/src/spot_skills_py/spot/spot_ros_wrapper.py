@@ -299,9 +299,9 @@ class SpotROS1Wrapper:
             planning_frame=DEFAULT_FRAME,
             gripper=gripper,
         )
-        self._ee_pose_max_vel_mps = 0.2  # Max EE speed for /spot/ee_pose commands (m/s)
+        self._ee_pose_max_vel_mps = 0.4  # Max EE speed for /spot/ee_pose commands (m/s)
         self._ee_pose_min_duration_s = 0.5  # Minimum command duration regardless of distance (s)
-        self._ee_velocity_cmd_duration_s = 0.2
+        self._ee_velocity_cmd_duration_s = 0.5  # Duration per ee_cmd_vel command (s)
         self._ee_pose_sub = rospy.Subscriber(
             "/spot/ee_pose",
             PoseStamped,

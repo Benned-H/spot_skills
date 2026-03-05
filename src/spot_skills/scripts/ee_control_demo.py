@@ -44,9 +44,8 @@ _VEL_MAX_MPS = 0.30
 _VEL_PHASE_DURATION_S = 7.0
 
 # Publish rate for velocity commands (Hz).
-# Each command lasts _ee_velocity_cmd_duration_s = 0.2 s in the wrapper, so
-# publishing at 10 Hz provides 2× overlap: enough for smooth motion without
-# flooding the queue.
+# Each command lasts _ee_velocity_cmd_duration_s = 0.5 s in the wrapper, so
+# publishing at 10 Hz provides 5x overlap: robust to ~400 ms latency spikes.
 _VEL_PUBLISH_HZ = 10.0
 
 # Optional: add a small downward component to test multi-axis blending.
@@ -56,10 +55,11 @@ _VEL_Z_MPS = -0.03  # slight downward drift during rightward movement
 # ---------------------------------------------------------------------------
 # Position-phase parameters
 # ---------------------------------------------------------------------------
-# Duration to keep re-publishing each ee_pose target (seconds).
-# Longer than _ee_pose_cmd_duration_s (1.0 s in the wrapper) so the arm has
-# time to arrive and the command stays "fresh".
-_POSE_HOLD_S = 2.5
+# Duration to keep re-publishing the left-pose target (seconds).
+# The wrapper moves the EE at _ee_pose_max_vel_mps = 0.4 m/s, so a 1.2 m
+# return trip (right → left) takes ~3 s.  5 s gives ~2 s of dwell at the
+# left extreme before the velocity sweep begins.
+_POSE_HOLD_S = 5.0
 _POSE_PUBLISH_HZ = 5.0  # republish rate while holding a position target
 
 
