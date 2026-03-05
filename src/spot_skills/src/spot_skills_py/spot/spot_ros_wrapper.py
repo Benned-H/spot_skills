@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import rospy
 from actionlib import SimpleActionServer
+from bosdyn.client.frame_helpers import BODY_FRAME_NAME
 from control_msgs.msg import (
     FollowJointTrajectoryAction,
     FollowJointTrajectoryGoal,
@@ -87,7 +88,11 @@ from spot_skills_py.spot.spot_arm_controller import (
     GripperCommandOutcome,
     SpotArmController,
 )
-from spot_skills_py.spot.spot_conversion import SPOT_GRIPPER_CLOSED_RAD, SPOT_GRIPPER_OPEN_RAD
+from spot_skills_py.spot.spot_conversion import (
+    SPOT_GRIPPER_CLOSED_RAD,
+    SPOT_GRIPPER_OPEN_RAD,
+    pose_from_sdk,
+)
 from spot_skills_py.spot.spot_erase import (
     erase_board,
     # estimate_whiteboard_depth,  # COMMENTED OUT: using fixed board_y param instead
@@ -294,7 +299,8 @@ class SpotROS1Wrapper:
             planning_frame=DEFAULT_FRAME,
             gripper=gripper,
         )
-        self._ee_pose_cmd_duration_s = 1.0
+        self._ee_pose_max_vel_mps = 0.2  # Max EE speed for /spot/ee_pose commands (m/s)
+        self._ee_pose_min_duration_s = 0.5  # Minimum command duration regardless of distance (s)
         self._ee_velocity_cmd_duration_s = 0.2
         self._ee_pose_sub = rospy.Subscriber(
             "/spot/ee_pose",
@@ -1710,6 +1716,16 @@ class SpotROS1Wrapper:
             )
             return
 
+        try:
+            current_sdk_pose = self._manager.get_hand_pose(ref_frame=BODY_FRAME_NAME)
+            current_pose_b_ee = pose_from_sdk(current_sdk_pose, ref_frame=BODY_FRAME_NAME)
+            diff = target_pose_b_ee.position.to_array() - current_pose_b_ee.position.to_array()
+            distance_m = float(np.linalg.norm(diff))
+            duration_s = max(distance_m / self._ee_pose_max_vel_mps, self._ee_pose_min_duration_s)
+        except Exception as err:
+            rospy.logwarn(f"Skipping /spot/ee_pose; failed to read hand pose: {err}")
+            return
+
         with self._robot_rpc_manager.priority() as got_priority:
             if not got_priority:
                 rospy.logwarn("Skipping /spot/ee_pose command because RPC priority is unavailable.")
@@ -1717,7 +1733,7 @@ class SpotROS1Wrapper:
 
             success = self._arm_controller.command_end_effector_pose(
                 target_pose_b_ee=target_pose_b_ee,
-                duration_s=self._ee_pose_cmd_duration_s,
+                duration_s=duration_s,
             )
 
         if not success:

@@ -180,6 +180,7 @@ catkin_install_python(PROGRAMS
   scripts/pose_sampling_demo.py
   scripts/spot_wrapper_node.py
   scripts/spot_moveit_demo.py
+  scripts/ee_control_demo.py
   scripts/fake_gripper_action_server.py
   scripts/pose_estimation_client.py
   scripts/dummy_estimate_pose_server.py
