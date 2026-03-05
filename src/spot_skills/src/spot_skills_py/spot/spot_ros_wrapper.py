@@ -38,7 +38,7 @@ from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
 from robotics_utils.skills.protocols.spot_skills import SpotSkillsProtocol
 from robotics_utils.spatial import DEFAULT_FRAME, Pose2D, Pose3D, Quaternion
-from robotics_utils.states import GraspAttachment, ObjectCentricState, PlacementSurface
+from robotics_utils.states import PlacementSurface
 from robotics_utils.tamp.generators.place_poses import PlacePosesArgs, PlacePosesGenerator
 from robotics_utils.vision.fiducials import FiducialMarker, FiducialSystem
 from sensor_msgs.msg import PointCloud2
@@ -105,6 +105,7 @@ from spot_skills_py.spot.spot_lidar import StampedPointCloud
 from spot_skills_py.spot.spot_manager import SpotManager
 from spot_skills_py.spot.spot_navigation import SpotNavigationServer
 from spot_skills_py.spot.spot_open_door import SpotDoorOpener
+from spot_skills_py.spot.spot_world_state_coordinator import SpotWorldStateCoordinator
 from spot_skills_py.visualize_graphnav import GraphNavRViz
 
 
@@ -168,8 +169,6 @@ class SpotROS1Wrapper:
 
         if immediate_control:
             self._manager.take_control(force=True)
-
-        self._curr_grasp: GraspAttachment | None = None
 
         # Initialize all ROS services provided by the class
         self._grasp_srv = rospy.Service("spot/grasp_object", NameService, self.handle_grasp)
@@ -412,12 +411,55 @@ class SpotROS1Wrapper:
         # Load the initial environment state from YAML and update the MoveIt planning scene
         env_yaml_param = get_ros_param("/spot/env_yaml_path", str)
         rospy.loginfo(f"Loading object-centric state from file: {env_yaml_param}")
-        self._env_state = ObjectCentricState.from_yaml(Path(env_yaml_param))
+
+        state_overlay_enabled = get_ros_param("/spot/state_overlay/enabled", bool, default_value=True)
+        state_overlay_dir = Path(
+            get_ros_param(
+                "/spot/state_overlay/dir",
+                str,
+                default_value="/tmp/spot_skills/state_overlays",
+            ),
+        )
+        state_overlay_stale_after_s = get_ros_param(
+            "/spot/state_overlay/stale_after_s",
+            float,
+            default_value=300.0,
+        )
+        state_overlay_autoload = get_ros_param(
+            "/spot/state_overlay/autoload",
+            bool,
+            default_value=True,
+        )
+        state_overlay_autosave = get_ros_param(
+            "/spot/state_overlay/autosave",
+            bool,
+            default_value=True,
+        )
+        state_overlay_clear_on_reset = get_ros_param(
+            "/spot/state_overlay/clear_on_reset",
+            bool,
+            default_value=True,
+        )
+
+        self._state_coordinator = SpotWorldStateCoordinator(
+            manipulator=self.manipulator,
+            env_yaml_path=Path(env_yaml_param),
+            robot_key=spot_hostname,
+            overlay_enabled=state_overlay_enabled,
+            overlay_dir=state_overlay_dir,
+            stale_after_s=state_overlay_stale_after_s,
+            autoload=state_overlay_autoload,
+            autosave=state_overlay_autosave,
+            clear_on_reset=state_overlay_clear_on_reset,
+        )
+        self._env_state = self._state_coordinator.load_initial_state()
 
         # Begin synchronizing the environment state with TF in a loop
         self._state_thread = CallLoopThread(func=self._broadcast_frames, loop_hz=5.0)
 
         self.manipulator.planning_scene.set_state(self._env_state)
+        if not self._state_coordinator.restore_attached_objects_in_planning_scene():
+            rospy.logwarn("Failed to restore one or more attached objects in the planning scene.")
         self._planning_scene_thread = CallLoopThread(func=self._sync_planning_scene, loop_hz=5.0)
 
         self.stamped_cloud: StampedPointCloud | None = None
@@ -571,11 +613,7 @@ class SpotROS1Wrapper:
                 success=False,
                 message=f"Pose output from grasping '{object_name}' was None.",
             )
-        self._curr_grasp = outcome.output
-
-        # Update the object's pose as now dependent on Spot's end-effector
-        pose_ee_o = outcome.output.pose_ee_o
-        self._env_state.set_known_object_pose(obj_name=object_name, pose=pose_ee_o)
+        self._state_coordinator.attach_grasp(outcome.output)
 
         return NameServiceResponse(success=outcome.success, message=outcome.message)
 
@@ -587,8 +625,8 @@ class SpotROS1Wrapper:
             failure_message = f"Cannot place unknown object: '{request.object_name}'."
         elif request.surface_name not in self._env_state.object_names:
             failure_message = f"Cannot place onto unknown surface: '{request.surface_name}'."
-        elif self._curr_grasp is None:
-            failure_message = "Cannot place; must pick first."
+        elif self._state_coordinator.get_grasp_for_object(request.object_name) is None:
+            failure_message = f"Cannot place '{request.object_name}'; it is not currently grasped."
 
         if failure_message:
             return PlaceObjectResponse(success=False, message=failure_message)
@@ -607,8 +645,15 @@ class SpotROS1Wrapper:
                 message=f"Unable to retrieve kinematic state of '{request.surface_name}'.",
             )
 
+        active_grasp = self._state_coordinator.get_grasp_for_object(request.object_name)
+        if active_grasp is None:
+            return PlaceObjectResponse(
+                success=False,
+                message=f"Cannot place '{request.object_name}'; no active grasp attachment found.",
+            )
+
         surface = PlacementSurface.from_object_aabb(surface_obj)
-        pose_ee_o = self._curr_grasp.pose_ee_o
+        pose_ee_o = active_grasp.pose_ee_o
         place_pose_args = PlacePosesArgs(surface, placed_obj, pose_ee_o, self.manipulator)
         generator = PlacePosesGenerator(place_pose_args)
 
@@ -637,14 +682,46 @@ class SpotROS1Wrapper:
                 message = "Failed to execute place trajectory."
                 return PlaceObjectResponse(success=False, message=message)
 
+            release_outcome = self.manipulator.release(
+                object_name=request.object_name,
+                placed_frame=DEFAULT_FRAME,
+            )
+            if not release_outcome.success:
+                return PlaceObjectResponse(success=False, message=release_outcome.message)
+
+            self._state_coordinator.detach_grasp_for_object(request.object_name)
+
+            final_object_pose = release_outcome.output
+            if final_object_pose is None:
+                final_object_pose = TransformManager.lookup_transform(
+                    request.object_name,
+                    DEFAULT_FRAME,
+                )
+
+            missing_pose_message = None
+            if final_object_pose is None:
+                missing_pose_message = (
+                    f"Placed '{request.object_name}', but its final world-frame pose is unknown."
+                )
+            else:
+                self._state_coordinator.set_known_object_pose(request.object_name, final_object_pose)
+
             with self._planning_scene_lock:
+                self.manipulator.planning_scene.set_state(self._env_state)
                 post_plan_msg = self.manipulator.planner.compute_motion_plan(post_query)
             if post_plan_msg is None:
-                continue
+                return PlaceObjectResponse(
+                    success=False,
+                    message="Failed to compute post-place trajectory.",
+                )
+
             post_place_success = self.manipulator.execute_trajectory_msg(post_plan_msg)
             if not post_place_success:
                 message = "Failed to execute post-place trajectory."
                 return PlaceObjectResponse(success=False, message=message)
+
+            if missing_pose_message is not None:
+                return PlaceObjectResponse(success=False, message=missing_pose_message)
 
             return PlaceObjectResponse(success=True, message="Object has been placed.")
 
@@ -652,7 +729,7 @@ class SpotROS1Wrapper:
 
     def handle_hide_object(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a request to hide an object in the MoveIt planning scene."""
-        self._env_state.hide_object(obj_name=request.name)
+        self._state_coordinator.hide_object(obj_name=request.name)
         success = request.name in self._env_state.hidden_object_names
         message = (
             f"Successfully hid object '{request.name}'."
@@ -663,7 +740,7 @@ class SpotROS1Wrapper:
 
     def handle_unhide_object(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a request to unhide an object in the MoveIt planning scene."""
-        self._env_state.unhide_object(obj_name=request.name)
+        self._state_coordinator.unhide_object(obj_name=request.name)
         success = request.name not in self._env_state.hidden_object_names
         message = (
             f"Successfully unhid object '{request.name}'."
@@ -689,7 +766,7 @@ class SpotROS1Wrapper:
 
         with self._planning_scene_lock:
             for obj_name in request.ignored_objects:  # Hide ignored objects before planning
-                self._env_state.hide_object(obj_name=obj_name)
+                self._state_coordinator.hide_object(obj_name=obj_name, persist=False)
 
             # Sync the planning scene with the updated state (objects now hidden)
             self.manipulator.planning_scene.set_state(self._env_state)
@@ -704,7 +781,7 @@ class SpotROS1Wrapper:
             plan_msg = self.manipulator.planner.compute_motion_plan(query)
 
             for obj_name in request.ignored_objects:  # Unhide hidden objects after planning
-                self._env_state.unhide_object(obj_name=obj_name)
+                self._state_coordinator.unhide_object(obj_name=obj_name, persist=False)
 
             # Sync again to restore the planning scene
             self.manipulator.planning_scene.set_state(self._env_state)
@@ -720,7 +797,7 @@ class SpotROS1Wrapper:
 
     def handle_set_container_open(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a request that the named container's state be set as open."""
-        self._env_state.open_container(container_name=request.name)
+        self._state_coordinator.open_container(container_name=request.name)
         return NameServiceResponse(success=True, message=f"Successfully opened '{request.name}'.")
 
     def handle_reset_state(self, request: NameServiceRequest) -> NameServiceResponse:
@@ -739,7 +816,8 @@ class SpotROS1Wrapper:
                 message="Unable to detach all objects in the MoveIt planning scene.",
             )
 
-        self._env_state = ObjectCentricState.from_yaml(yaml_path)
+        self._env_state = self._state_coordinator.reset_state(yaml_path=yaml_path)
+        self.manipulator.planning_scene.set_state(self._env_state)
 
         message = f"Successfully reset the environment state based on {yaml_path}."
         return NameServiceResponse(success=True, message=message)
@@ -1638,7 +1716,7 @@ class SpotROS1Wrapper:
             )
 
         # Set the object's final pose estimate as its *known* pose to prevent overwriting
-        self._env_state.set_known_object_pose(object_name, final_estimated_pose)
+        self._state_coordinator.set_known_object_pose(object_name, final_estimated_pose)
 
         return NameServiceResponse(
             success=True,
@@ -1678,7 +1756,7 @@ class SpotROS1Wrapper:
             world_t_parent = world_t_object @ object_t_parent
 
         # Clear the environment state for the object and pose averager for its parent marker
-        self._env_state.clear_object_pose(obj_name=object_name)
+        self._state_coordinator.clear_object_pose(obj_name=object_name)
         self.tag_tracker.pose_averager.reset_frame(frame_name=parent_frame)
 
         # If available, initialize the object's parent marker's pose estimate

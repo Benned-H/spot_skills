@@ -21,6 +21,20 @@
     <arg name="env_yaml_path" default="$(find spot_skills)/config/env.yaml"/>
     <param name="/spot/env_yaml_path" value="$(arg env_yaml_path)"/>
 
+    <!-- Runtime state overlay persistence parameters -->
+    <arg name="state_overlay_enabled" default="true"/>
+    <arg name="state_overlay_dir" default="/tmp/spot_skills/state_overlays"/>
+    <arg name="state_overlay_stale_after_s" default="300.0"/>
+    <arg name="state_overlay_autoload" default="true"/>
+    <arg name="state_overlay_autosave" default="true"/>
+    <arg name="state_overlay_clear_on_reset" default="true"/>
+    <param name="/spot/state_overlay/enabled" value="$(arg state_overlay_enabled)"/>
+    <param name="/spot/state_overlay/dir" value="$(arg state_overlay_dir)"/>
+    <param name="/spot/state_overlay/stale_after_s" value="$(arg state_overlay_stale_after_s)"/>
+    <param name="/spot/state_overlay/autoload" value="$(arg state_overlay_autoload)"/>
+    <param name="/spot/state_overlay/autosave" value="$(arg state_overlay_autosave)"/>
+    <param name="/spot/state_overlay/clear_on_reset" value="$(arg state_overlay_clear_on_reset)"/>
+
     <!-- Load an API key for Gemini Robotics-ER 1.5 from YAML -->
     <arg name="gemini_api_yaml" value="$(find spot_skills)/secrets/gemini_api_key.yaml" />
 
