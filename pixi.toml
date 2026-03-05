@@ -1,0 +1,124 @@
+[workspace]
+name = "spot_skills"
+version = "0.0.1"
+description = "Motion-planning-based skills for Boston Dynamics' Spot robot"
+channels = ["conda-forge", "robostack-staging"]
+platforms = ["linux-64"]
+
+# =============================================================================
+# Conda/RoboStack dependencies
+# Install Python 3.11 and ROS Noetic via RoboStack (decoupled from system Python)
+# =============================================================================
+[dependencies]
+python = "3.11.*"
+
+# Build tools
+compilers = "*"
+cmake = "*"
+pkg-config = "*"
+# ROS Noetic - core desktop install
+ros-noetic-desktop = "*"
+
+# ROS message packages
+ros-noetic-std-msgs = "*"
+ros-noetic-sensor-msgs = "*"
+ros-noetic-geometry-msgs = "*"
+ros-noetic-trajectory-msgs = "*"
+ros-noetic-std-srvs = "*"
+ros-noetic-tf2-msgs = "*"
+ros-noetic-tf2-ros = "*"
+ros-noetic-tf2-geometry-msgs = "*"
+ros-noetic-message-generation = "*"
+ros-noetic-message-runtime = "*"
+
+# Navigation
+ros-noetic-move-base = "*"
+ros-noetic-global-planner = "*"
+
+# MoveIt (meta-package covers moveit_ros_move_group, moveit_kinematics,
+# moveit_planners, moveit_ros_visualization, moveit_simple_controller_manager, etc.)
+ros-noetic-moveit = "*"
+ros-noetic-moveit-fake-controller-manager = "*"
+ros-noetic-moveit-setup-assistant = "*"
+
+# Visualization / TF
+ros-noetic-rviz = "*"
+ros-noetic-joint-state-publisher = "*"
+ros-noetic-joint-state-publisher-gui = "*"
+ros-noetic-robot-state-publisher = "*"
+ros-noetic-xacro = "*"
+
+# SLAM
+ros-noetic-rtabmap-ros = "*"
+
+# Spot driver runtime deps
+ros-noetic-twist-mux = "*"
+ros-noetic-teleop-twist-joy = "*"
+ros-noetic-velodyne-pointcloud = "*"
+# NOTE: the following may not be available in robostack-staging;
+# if install fails, remove and build from source in the catkin workspace:
+#   ros-noetic-interactive-marker-twist-server
+#   ros-noetic-sensor-filters
+#   ros-noetic-point-cloud2-filters
+#   ros-noetic-fiducial-msgs
+#   ros-noetic-robot-body-filter
+
+# Python system packages (conda versions)
+rospkg = "*"
+tk = "*"  # python3-tk, needed for matplotlib/GUI tools
+
+# =============================================================================
+# PyPI dependencies (installed via uv into the pixi environment)
+# Mirrors the dependencies in pyproject.toml and robotics_utils/pyproject.toml
+# =============================================================================
+[pypi-dependencies]
+# Core spot_skills deps
+numpy = ">=1.20"
+trimesh = "*"
+scipy = ">=1.5"
+pycollada = "*"
+pyglet = "<2"
+rosnumpy = "*"
+bosdyn-client = "==5.0.1"
+bosdyn-choreography-client = "==5.0.1"
+bosdyn-mission = "==5.0.1"
+opencv-python = "*"
+transforms3d = "*"
+
+# Local packages (editable installs)
+# Note: spot-skills-py is excluded here because pixi's uv resolver does not fully
+# support [tool.uv.workspace] sources; install it manually with `pixi run install-local`
+robotics-utils = { path = "src/spot_skills/src/robotics_utils", editable = true, extras = ["vision"] }
+spot-wrapper = { path = "src/spot_ros/spot_wrapper", editable = true }
+
+# Build tools (not in conda-forge, available via PyPI)
+catkin-tools = "*"
+
+# Dev tools
+ruff = "*"
+pytest = "*"
+hypothesis = "*"
+pytest-cov = "*"
+mypy = "*"
+
+# =============================================================================
+# Common tasks
+# =============================================================================
+[tasks]
+# Install local Python packages that require uv workspace resolution
+install-local = "uv pip install -e . -e src/spot_ros/spot_wrapper --system-site-packages"
+
+# Build the catkin workspace
+build = "catkin build"
+
+# Re-source tip: after `pixi run build`, open a new shell and run:
+#   source devel/setup.bash
+# Or chain it in a single shell with:
+#   pixi run build && source devel/setup.bash
+
+# Clean the catkin workspace
+clean = "catkin clean -y"
+
+# Lint / type-check
+lint = "ruff check src/"
+typecheck = "mypy src/"
