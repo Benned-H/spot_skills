@@ -12,7 +12,7 @@ model:
   image_size: 224
 
 # Action mode (must match training)
-delta_actions: true        # true: model predicts delta, false: model predicts absolute pose
+delta_actions: true # true: model predicts delta, false: model predicts absolute pose
 
 # TF frame to track
 joint_name: "hand"
@@ -22,7 +22,7 @@ parent_frame: "body"
 topics:
   image_sub: "/spot/camera/left/image"
   tf_sub: "/tf"
-  action_pub: "/spot/ee_pose"        # geometry_msgs/PoseStamped
+  action_pub: "/spot/ee_pose" # geometry_msgs/PoseStamped
 
 # Max time gap (seconds) between image and TF timestamps to consider them synced
 sync_threshold: 0.2
