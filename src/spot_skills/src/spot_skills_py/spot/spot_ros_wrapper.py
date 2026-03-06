@@ -82,6 +82,7 @@ from spot_skills.srv import (
     ProbeSurfaceRequest,
     ProbeSurfaceResponse,
 )
+from spot_skills_py.behavior_cloning import PolicyReplayBridge
 from spot_skills_py.joint_trajectory import JointTrajectory
 from spot_skills_py.spot.refactored.spot_manipulation import (
     ArmCommandOutcome,
@@ -230,6 +231,20 @@ class SpotROS1Wrapper:
         self._rviz_pub = rospy.Publisher("visualization_marker", Marker, queue_size=1)
 
         self._open_drawer_srv = rospy.Service("spot/open_drawer", Trigger, self.handle_open_drawer)
+
+        # Behavior cloning policy replay via LeRobot
+        self._policy_replay_bridge = PolicyReplayBridge(
+            lerobot_spot_root=str(
+                get_ros_param("~lerobot_spot_root", str, "/docker/spot_skills/lerobot-spot"),
+            ),
+            log_fn=rospy.loginfo,
+            warn_fn=rospy.logwarn,
+        )
+        self._policy_replay_srv = rospy.Service(
+            "spot/policy_replay",
+            Trigger,
+            self.handle_policy_replay,
+        )
 
         self._pose_lookup_srv = rospy.Service("pose_lookup", PoseLookup, self.handle_pose_lookup)
         self._dock_srv = rospy.Service("spot/dock", Trigger, self.handle_dock)
@@ -1632,31 +1647,205 @@ class SpotROS1Wrapper:
             message=f"Successfully resumed pose estimation for '{object_name}'.",
         )
 
-    # def handle_ee_cmd_vel(self, msg: Twist) -> None:
-    #     """Handle a body-frame end-effector velocity command from /spot/ee_cmd_vel."""
-    #     if self._arm_locked:
-    #         return
+    def handle_ee_cmd_vel(self, msg: Twist) -> None:
+        """Handle a body-frame end-effector velocity command from /spot/ee_cmd_vel."""
+        if self._arm_locked:
+            return
 
-    #     if not self._manager.ensure_control(take_by_force=False):
-    #         rospy.logwarn("Ignoring /spot/ee_cmd_vel because SpotManager doesn't control Spot.")
-    #         return
+        if not self._manager.ensure_control(take_by_force=False):
+            rospy.logwarn("Ignoring /spot/ee_cmd_vel because SpotManager doesn't control Spot.")
+            return
 
-    #     with self._robot_rpc_manager.priority() as got_priority:
-    #         if not got_priority:
-    #             rospy.logwarn(
-    #                 "Skipping /spot/ee_cmd_vel command because RPC priority is unavailable.",
-    #             )
-    #             return
+        with self._robot_rpc_manager.priority() as got_priority:
+            if not got_priority:
+                rospy.logwarn(
+                    "Skipping /spot/ee_cmd_vel command because RPC priority is unavailable.",
+                )
+                return
 
-    #         success = self._arm_controller.command_end_effector_body_velocity(
-    #             linear_x_mps=msg.linear.x,
-    #             linear_y_mps=msg.linear.y,
-    #             linear_z_mps=msg.linear.z,
-    #             angular_x_radps=msg.angular.x,
-    #             angular_y_radps=msg.angular.y,
-    #             angular_z_radps=msg.angular.z,
-    #             duration_s=self._ee_velocity_cmd_duration_s,
-    #         )
+            success = self._arm_controller.command_end_effector_body_velocity(
+                linear_x_mps=msg.linear.x,
+                linear_y_mps=msg.linear.y,
+                linear_z_mps=msg.linear.z,
+                angular_x_radps=msg.angular.x,
+                angular_y_radps=msg.angular.y,
+                angular_z_radps=msg.angular.z,
+                duration_s=self._ee_velocity_cmd_duration_s,
+            )
 
-    #     if not success:
-    #         rospy.logwarn("Failed to command /spot/ee_cmd_vel twist.")
+        if not success:
+            rospy.logwarn("Failed to command /spot/ee_cmd_vel twist.")
+
+    def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.5) -> None:
+        """Handle a new goal for the FollowJointTrajectory action server.
+
+        If Spot's arm is unlocked, trajectories sent to this server will be executed.
+
+        Reference: https://tinyurl.com/FollowJointTrajectory
+
+        :param goal: Joint trajectory to be followed
+        :param delay_s: Delay (seconds) to wait after any successful command execution
+        """
+        result = FollowJointTrajectoryResult()
+        result.error_code = -1  # Default error code: INVALID_GOAL
+
+        if not (self._manager_exists and self._arm_controller_exists):
+            result.error_string = "Could not follow trajectory because SpotManager is not set up."
+            rospy.loginfo(f"[{self._arm_action_name}] {result.error_string}")
+            self._arm_action_server.set_aborted(result)
+            return
+
+        # Extract all fields of the received action goal message
+        trajectory = JointTrajectory.from_ros_msg(goal.trajectory)
+
+        # TODO: Could use the joint tolerances to enforce within-bounds trajectory
+        #   execution. Similar logic would allow the action server to publish feedback.
+        # Currently, we're ignoring these variables in the received trajectory:
+        #   path_tolerance, goal_tolerance, goal_time_tolerance
+
+        # Log information about the received trajectory
+        first_rel_time_s = trajectory.points[0].time_from_start_s
+        last_rel_time_s = trajectory.points[-1].time_from_start_s
+        traj_duration_s = last_rel_time_s - first_rel_time_s
+
+        rospy.loginfo(
+            f"[{self._arm_action_name}] Received trajectory of length "
+            f"{len(trajectory.points)}, lasting {traj_duration_s} seconds.",
+        )
+
+        if self._arm_locked:
+            result.error_string = "Could not follow trajectory because Spot's arm remains locked."
+            self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
+            self._arm_action_server.set_aborted(result)
+            return
+
+        if not self._manager.ensure_control(take_by_force=False):
+            result.error_string = "Could not obtain control of Spot."
+            self._arm_action_server.set_aborted(result)
+            return
+
+        with self._robot_rpc_manager.priority() as got_priority:
+            if not got_priority:
+                result.error_string = "Could not obtain RPC priority; other threads still active."
+                self._arm_action_server.set_aborted(result)
+                return
+
+            # Attempt to send the trajectory using the SpotArmController
+            outcome = self._arm_controller.command_trajectory(
+                trajectory,
+                self._arm_action_server,
+            )
+
+            # Update the ROS action server based on the outcome of the trajectory
+            if outcome == ArmCommandOutcome.SUCCESS:
+                rospy.sleep(delay_s)  # Delay after the end of any successful trajectory
+
+                result.error_code = int(outcome)
+                result.error_string = "Success!"
+                self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
+                self._arm_action_server.set_succeeded(result)
+
+            elif outcome == ArmCommandOutcome.INVALID_START:
+                result.error_string = (
+                    "Could not follow trajectory because it did not begin "
+                    "from the current configuration of Spot's arm."
+                )
+
+                self._arm_action_server.set_aborted(result)
+
+            elif outcome == ArmCommandOutcome.ARM_LOCKED:
+                result.error_string = "Could not follow trajectory because Spot's arm is locked."
+                self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
+
+                self._arm_action_server.set_aborted(result)
+
+            elif outcome == ArmCommandOutcome.PREEMPTED:
+                self._arm_action_server.set_preempted()
+
+    def gripper_action_callback(self, goal: GripperCommandGoal, delay_s: float = 0.25) -> None:
+        """Handle a new goal for the GripperCommandAction action server.
+
+        If Spot's arm is unlocked, gripper commands sent to this server will be executed.
+
+        Reference: https://docs.ros.org/en/noetic/api/control_msgs/html/action/GripperCommand.html
+
+        :param goal: Gripper command to be executed
+        :param delay_s: Delay (seconds) to wait after command execution has nominally finished
+        """
+        gripper_command_result = GripperCommandResult()
+
+        if (not self._manager_exists) or (not self._arm_controller_exists) or self._arm_locked:
+            gripper_command_result.reached_goal = False
+            self._gripper_action_server.set_aborted(gripper_command_result)
+            return
+
+        goal_position_rad = goal.command.position  # Ignoring goal.command.max_effort
+
+        outcome = GripperCommandOutcome.FAILURE
+        if self._manager.ensure_control(take_by_force=False):
+            outcome = self._arm_controller.command_gripper(goal_position_rad)
+            rospy.sleep(delay_s)
+
+        if outcome == GripperCommandOutcome.FAILURE:
+            gripper_command_result.reached_goal = False
+            self._gripper_action_server.set_aborted(gripper_command_result)
+        else:
+            gripper_command_result.reached_goal = outcome == GripperCommandOutcome.REACHED_SETPOINT
+            gripper_command_result.stalled = outcome == GripperCommandOutcome.STALLED
+
+            self._gripper_action_server.set_succeeded(gripper_command_result)
+
+    def handle_policy_replay(self, _: TriggerRequest) -> TriggerResponse:
+        """Handle a service request to run LeRobot policy replay.
+
+        :param _: Empty trigger request
+        :return: Response indicating whether policy replay succeeded
+        """
+        if self._policy_replay_bridge.is_running:
+            return TriggerResponse(success=False, message="Policy replay is already running.")
+
+        pretrained_path = str(
+            get_ros_param(
+                "~pretrained_path",
+                str,
+                "models/spot-act/pretrained_model",
+            ),
+        )
+        dataset_path = str(
+            get_ros_param(
+                "~dataset_path",
+                str,
+                "data/yourname/spot-scili-close-door_20260304_222712",
+            ),
+        )
+
+        spot_hostname = get_ros_param("/spot/hostname", str)
+        spot_username = get_ros_param("/spot/username", str)
+        spot_password = get_ros_param("/spot/password", str)
+
+        # Release our lease so the subprocess can take it
+        self._manager.release_control()
+
+        try:
+            self._policy_replay_bridge.start(
+                hostname=spot_hostname,
+                username=spot_username,
+                password=spot_password,
+                pretrained_path=pretrained_path,
+                dataset_path=dataset_path,
+            )
+            result = self._policy_replay_bridge.wait(timeout_s=120.0)
+        except Exception as e:
+            rospy.logerr(f"[policy_replay] Error: {e}")
+            result = {"success": False, "error": str(e)}
+        finally:
+            # Re-take the lease after subprocess exits
+            self._manager.ensure_control(take_by_force=True)
+
+        success = result.get("success", False)
+        message = (
+            result.get("error", "Policy replay completed.")
+            if not success
+            else "Policy replay completed."
+        )
+        return TriggerResponse(success=success, message=message)

@@ -263,6 +263,60 @@ rosservice call /spot/playback_trajectory "yaml_path: 'YAML_FILEPATH'"
 
 - Make sure to use the _absolute path_ to the YAML file (e.g., `/docker/spot_skills/recorded-tfs.yaml`).
 
+### Behavior Cloning Policy Replay (LeRobot)
+
+In this demonstration, a trained [LeRobot](https://github.com/huggingface/lerobot) ACT policy is replayed on the real Spot robot. The policy runs in a Python 3.10+ subprocess via `uv run`, so it works alongside the ROS1 (Python 3.8) environment.
+
+**Prerequisites:**
+
+1. Clone the `lerobot-spot` plugin into the workspace (inside Docker):
+
+   ```bash
+   git clone https://github.com/soujanya957/lerobot-spot.git /docker/spot_skills/lerobot-spot
+   ```
+
+2. Pre-install dependencies (first run downloads ~2 GB of packages; subsequent runs use the cache):
+
+   ```bash
+   LEROBOT_SPOT_ROOT=/docker/spot_skills/lerobot-spot \
+     uv run /docker/spot_skills/src/spot_skills/src/spot_skills_py/behavior_cloning/policy_replay_service.py --help
+   ```
+
+3. Place your pretrained model checkpoint in `models/spot-act/pretrained_model/`.
+
+**Running via ROS service:**
+
+1. Follow the **Docker Demo Setup** above, then launch the Spot wrapper node:
+
+   ```bash
+   roslaunch spot_skills bringup_spot_skills.launch spot_name:=NAME_HERE
+   ```
+
+2. In another Docker terminal (after sourcing `devel/setup.bash`), trigger the policy replay:
+
+   ```bash
+   rosservice call /spot/policy_replay
+   ```
+
+   The service releases control to the LeRobot subprocess, which connects to Spot, runs the policy for up to 30 seconds, then returns control to ROS.
+
+   Optional ROS parameters (set before launching the node):
+   - `~pretrained_path` — path to the pretrained model (default: `<repo_root>/models/spot-act/pretrained_model`)
+   - `~dataset_path` — path to the training dataset
+   - `~lerobot_spot_root` — path to the `lerobot-spot` repo (default: `/docker/spot_skills/lerobot-spot`)
+
+**Running standalone (without ROS):**
+
+```bash
+LEROBOT_SPOT_ROOT=/docker/spot_skills/lerobot-spot \
+  uv run src/spot_skills/src/spot_skills_py/behavior_cloning/policy_replay_service.py \
+    --hostname <SPOT_IP> \
+    --username <USER> \
+    --password <PASS> \
+    --pretrained-path models/spot-act/pretrained_model \
+    --dataset-path /path/to/training/dataset
+```
+
 ## Real-Robot Experiments
 
 This section of the README describes the process for running physical experiments with Spot. Note that
