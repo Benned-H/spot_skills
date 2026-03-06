@@ -83,6 +83,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--fps", type=int, default=10)
     p.add_argument("--episode-time-s", type=float, default=30.0)
     p.add_argument("--task", type=str, default=None)
+    p.add_argument("--force-take-lease", action="store_true",
+                   help="Force-take the lease from another client instead of normal acquire")
     return p.parse_args()
 
 
@@ -130,6 +132,7 @@ def main() -> None:
             image_sources=args.image_sources,
             image_width=args.image_width,
             image_height=args.image_height,
+            force_take_lease=args.force_take_lease,
         )
         robot = SpotRobot(cfg)
         print("Connecting to Spot ...", flush=True)  # noqa: T201

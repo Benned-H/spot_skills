@@ -112,6 +112,7 @@ class PolicyReplayBridge:
             str(image_width),
             "--image-height",
             str(image_height),
+            "--force-take-lease",
         ]
 
         if image_sources:

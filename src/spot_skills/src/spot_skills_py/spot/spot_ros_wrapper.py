@@ -1823,8 +1823,8 @@ class SpotROS1Wrapper:
         spot_username = get_ros_param("/spot/username", str)
         spot_password = get_ros_param("/spot/password", str)
 
-        # Release our lease so the subprocess can take it
-        self._manager.release_control()
+        # Don't release the lease — the subprocess will force-take it.
+        # This avoids a sit-down/stand-up cycle during handoff.
 
         try:
             self._policy_replay_bridge.start(
