@@ -133,16 +133,6 @@ class SpotROS1Wrapper:
         self._arm_action_server.start()
         rospy.loginfo(f"[{self._arm_action_name}] Action server has started.")
 
-        self._gripper_action_name = "gripper_controller/gripper_action"
-        self._gripper_action_server = SimpleActionServer(
-            self._gripper_action_name,
-            GripperCommandAction,
-            execute_cb=self.gripper_action_callback,
-            auto_start=False,
-        )
-        self._gripper_action_server.start()
-        rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
-
         spot_rosparams = ["/spot/hostname", "/spot/username", "/spot/password"]
         spot_rosparam_values = [get_ros_param(par, str) for par in spot_rosparams]
         spot_hostname, spot_username, spot_password = spot_rosparam_values
@@ -173,6 +163,8 @@ class SpotROS1Wrapper:
 
         # Initialize all ROS services provided by the class
         self._grasp_srv = rospy.Service("spot/grasp_object", NameService, self.handle_grasp)
+        self._release_srv = rospy.Service("spot/release_object", PlaceObject)
+
         self._place_srv = rospy.Service("spot/place_object", PlaceObject, self.handle_place_object)
 
         self._hide_object_srv = rospy.Service(
@@ -203,8 +195,7 @@ class SpotROS1Wrapper:
         self._body_in_default_pose = False  # Conservatively assume non-default pose
 
         self._shutdown_service = rospy.Service("spot/shutdown", Trigger, self.handle_shutdown)
-        self._unlock_arm_service = rospy.Service("spot/unlock_arm", Trigger, self.handle_unlock_arm)
-        self._stow_arm_service = rospy.Service("spot/stow_arm", Trigger, self.handle_stow_arm)
+
         self._deploy_arm_service = rospy.Service("spot/deploy_arm", Trigger, self.handle_deploy_arm)
         self._open_door_service = rospy.Service("spot/open_door", OpenDoor, self.handle_open_door)
         self._playback_trajectory_service = rospy.Service(
@@ -905,43 +896,6 @@ class SpotROS1Wrapper:
         rospy.signal_shutdown("Shutting down Spot ROS wrapper...")
 
         return TriggerResponse(success=True, message="Spot has been shut down.")
-
-    def handle_unlock_arm(self, _: TriggerRequest) -> TriggerResponse:
-        """Handle a service request to enable ROS control of Spot's arm.
-
-        :param _: Message representing a request to unlock Spot's arm (unused)
-        :return: Response conveying that Spot's arm has been unlocked
-        """
-        # When unlocking the arm, forcibly take control of Spot if necessary
-        has_control = self._manager.ensure_control(take_by_force=True)
-
-        if has_control:
-            self._arm_locked = False
-            self._arm_controller.unlock_arm()
-            message = "Spot's arm is now unlocked."
-        else:
-            message = "Could not gain control of Spot; leaving Spot's arm locked."
-
-        return TriggerResponse(has_control, message)
-
-    def handle_stow_arm(self, _: TriggerRequest) -> TriggerResponse:
-        """Handle a service request to stow Spot's arm.
-
-        :param _: Message representing a request to stow Spot's arm
-        :return: Response conveying whether Spot's arm has been stowed
-        """
-        if self._arm_locked:
-            return TriggerResponse(
-                success=False,
-                message="Spot's arm was not stowed because Spot's arm remains locked.",
-            )
-
-        arm_stowed = False
-        if self._manager.ensure_control(take_by_force=False):
-            arm_stowed = self._manager.stow_arm()
-
-        message = "Spot's arm has been stowed." if arm_stowed else "Could not stow Spot's arm."
-        return TriggerResponse(success=arm_stowed, message=message)
 
     def handle_deploy_arm(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to deploy Spot's arm.
@@ -1853,36 +1807,3 @@ class SpotROS1Wrapper:
 
             elif outcome == ArmCommandOutcome.PREEMPTED:
                 self._arm_action_server.set_preempted()
-
-    def gripper_action_callback(self, goal: GripperCommandGoal, delay_s: float = 0.25) -> None:
-        """Handle a new goal for the GripperCommandAction action server.
-
-        If Spot's arm is unlocked, gripper commands sent to this server will be executed.
-
-        Reference: https://docs.ros.org/en/noetic/api/control_msgs/html/action/GripperCommand.html
-
-        :param goal: Gripper command to be executed
-        :param delay_s: Delay (seconds) to wait after command execution has nominally finished
-        """
-        gripper_command_result = GripperCommandResult()
-
-        if (not self._manager_exists) or (not self._arm_controller_exists) or self._arm_locked:
-            gripper_command_result.reached_goal = False
-            self._gripper_action_server.set_aborted(gripper_command_result)
-            return
-
-        goal_position_rad = goal.command.position  # Ignoring goal.command.max_effort
-
-        outcome = GripperCommandOutcome.FAILURE
-        if self._manager.ensure_control(take_by_force=False):
-            outcome = self._arm_controller.command_gripper(goal_position_rad)
-            rospy.sleep(delay_s)
-
-        if outcome == GripperCommandOutcome.FAILURE:
-            gripper_command_result.reached_goal = False
-            self._gripper_action_server.set_aborted(gripper_command_result)
-        else:
-            gripper_command_result.reached_goal = outcome == GripperCommandOutcome.REACHED_SETPOINT
-            gripper_command_result.stalled = outcome == GripperCommandOutcome.STALLED
-
-            self._gripper_action_server.set_succeeded(gripper_command_result)

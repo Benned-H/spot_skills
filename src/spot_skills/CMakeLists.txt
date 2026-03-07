@@ -70,6 +70,7 @@ add_service_files(
   CaptureImageObservation.srv
   ComputeMotionPlan.srv
   PlaceObject.srv
+  ReleaseObject.srv
 )
 
 ## Generate actions in the 'action' folder

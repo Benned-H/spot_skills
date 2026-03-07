@@ -52,7 +52,6 @@ from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.skills import Outcome
 from rospy import loginfo as ros_loginfo
 
-from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
 from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
 from spot_skills_py.spot.spot_conversion import NOMINAL_STAND_HEIGHT_M
 from spot_skills_py.spot.spot_image_client import SpotImageClient
@@ -611,41 +610,6 @@ class SpotManager:
         bd_block_arm_command(self.command_client, command_id)
         time.sleep(0.5)
         self.log_info("Done blocking.\n")
-
-    def block_during_gripper_command(
-        self,
-        command_id: int,
-        timeout_s: float = 5.0,
-    ) -> GripperCommandOutcome:
-        """Block until Spot's gripper completes the identified command (or time runs out).
-
-        :param command_id: ID of a robot command for Spot's gripper
-        :param timeout_s: Timeout (seconds) after which the command is considered failed
-        :return: Enum member indicating the outcome of the gripper command
-        """
-        end_time = time.time() + timeout_s
-
-        while time.time() < end_time:
-            response = self.command_client.robot_command_feedback(command_id)
-            if response.feedback.HasField("synchronized_feedback"):
-                sync_fb = response.feedback.synchronized_feedback
-
-                if sync_fb.HasField("gripper_command_feedback"):
-                    gripper_status = sync_fb.gripper_command_feedback.claw_gripper_feedback.status
-
-                    # If gripper has reached its goal, or entered force control mode, success!
-                    if gripper_status == ClawGripperCommand.Feedback.STATUS_AT_GOAL:
-                        return GripperCommandOutcome.REACHED_SETPOINT
-
-                    if gripper_status == ClawGripperCommand.Feedback.STATUS_APPLYING_FORCE:
-                        return GripperCommandOutcome.STALLED
-
-                    if gripper_status == ClawGripperCommand.Feedback.STATUS_UNKNOWN:
-                        return GripperCommandOutcome.FAILURE
-
-            time.sleep(0.25)
-
-        return GripperCommandOutcome.FAILURE
 
     def deploy_arm(self) -> bool:
         """Deploy Spot's arm to "ready" and wait until the arm has deployed.

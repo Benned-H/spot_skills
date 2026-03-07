@@ -1,0 +1,6 @@
+# Command the robot to release an object into the specified parent frame.
+string object_name
+string new_parent_frame
+---
+bool success
+string message
