@@ -8,6 +8,7 @@ from enum import IntEnum
 import rospy
 from actionlib import SimpleActionServer
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
+from bosdyn.client.exceptions import InvalidRequestError
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME
 from bosdyn.client.robot_command import RobotCommandBuilder
 from control_msgs.msg import (
@@ -18,14 +19,19 @@ from control_msgs.msg import (
     GripperCommandGoal,
     GripperCommandResult,
 )
+from geometry_msgs.msg import PoseStamped
 from robotics_utils.parallelism import ResourceManager
+from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import TransformManager
-from robotics_utils.spatial import Pose3D
+from robotics_utils.ros.msg_conversion import pose_from_msg
+from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
+from robotics_utils.spatial import DEFAULT_FRAME, Pose3D
 from robotics_utils.states import ObjectCentricState
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from spot_skills.srv import ReleaseObject, ReleaseObjectRequest, ReleaseObjectResponse
 from spot_skills_py.joint_trajectory import JointTrajectory
+from spot_skills_py.segment_schedule import SegmentSchedule
 from spot_skills_py.spot.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
 from spot_skills_py.spot.spot_conversion import (
     SPOT_GRIPPER_CLOSED_RAD,
@@ -128,6 +134,33 @@ class SpotManipulationInterface:
         self._arm_command_id: int | None = None
         """ID of the latest command sent to Spot's arm."""
 
+        gripper = ROSAngularGripper(
+            limits=GripperAngleLimits(
+                open_rad=SPOT_GRIPPER_OPEN_RAD,
+                closed_rad=SPOT_GRIPPER_CLOSED_RAD,
+            ),
+            grasping_group="gripper",
+            action_name="gripper_controller/gripper_action",
+        )
+        self.manipulator = MoveItManipulator(
+            name="arm",
+            robot_name="Spot",
+            base_frame="body",
+            planning_frame=DEFAULT_FRAME,
+            gripper=gripper,
+        )
+        self.manipulator.planning_scene.set_state(self._env_state)
+
+        self._ee_pose_max_vel_mps = 0.4  # Max EE speed for /spot/ee_pose commands (m/s)
+        self._ee_pose_min_duration_s = 0.5  # Minimum command duration regardless of distance (s)
+        self._ee_velocity_cmd_duration_s = 0.5  # Duration per ee_cmd_vel command (s)
+        self._ee_pose_sub = rospy.Subscriber(
+            "/spot/ee_pose",
+            PoseStamped,
+            self._ee_pose_cb,
+            queue_size=1,
+        )
+
     def _unlock_arm_cb(self, _: TriggerRequest) -> TriggerResponse:
         """Unlock Spot's arm, allowing it to be controlled via ROS.
 
@@ -216,6 +249,13 @@ class SpotManipulationInterface:
             result.reached_goal = outcome == GripperCommandOutcome.REACHED_SETPOINT
             result.stalled = outcome == GripperCommandOutcome.STALLED
             self._gripper_action_srv.set_succeeded(result)
+
+    def _sleep_until(self, local_time_s: float) -> None:
+        """Sleep until just before the given local time (in seconds)."""
+        sleep_for_s = max(0.0, local_time_s - time.time())
+        deadline_s = time.monotonic() + sleep_for_s
+        while (remainder_s := deadline_s - time.monotonic()) > 0:
+            time.sleep(min(remainder_s, 0.01))
 
     def command_gripper(
         self,
@@ -368,6 +408,46 @@ class SpotManipulationInterface:
             self._arm_action_srv.set_aborted(result)
             return
 
+        if not self._manager.ensure_control(take_by_force=False):
+            result.error_string = "Could not obtain control of Spot."
+            self._arm_action_srv.set_aborted(result)
+            return
+
+        with self._robot_rpc_manager.priority() as got_priority:
+            if not got_priority:
+                result.error_string = "Could not obtain RPC priority; other threads still active."
+                self._arm_action_srv.set_aborted(result)
+                return
+
+            # Attempt to send the trajectory using the SpotArmController
+            outcome = self.command_trajectory(trajectory)
+
+            # Update the ROS action server based on the outcome of the trajectory
+            if outcome == ArmCommandOutcome.SUCCESS:
+                rospy.sleep(post_pause_s)  # Delay after the end of any successful trajectory
+
+                result.error_code = int(outcome)
+                result.error_string = "Success!"
+                self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
+                self._arm_action_srv.set_succeeded(result)
+
+            elif outcome == ArmCommandOutcome.INVALID_START:
+                result.error_string = (
+                    "Could not follow trajectory because it did not begin "
+                    "from the current configuration of Spot's arm."
+                )
+
+                self._arm_action_srv.set_aborted(result)
+
+            elif outcome == ArmCommandOutcome.ARM_LOCKED:
+                result.error_string = "Could not follow trajectory because Spot's arm is locked."
+                self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
+
+                self._arm_action_srv.set_aborted(result)
+
+            elif outcome == ArmCommandOutcome.PREEMPTED:
+                self._arm_action_srv.set_preempted()
+
     def command_trajectory(
         self,
         trajectory: JointTrajectory,
@@ -440,3 +520,120 @@ class SpotManipulationInterface:
             self._manager.block_until_arm_arrives(self._arm_command_id)
 
         return ArmCommandOutcome.PREEMPTED if preempted else ArmCommandOutcome.SUCCESS
+
+    def send_segment_command(self, idx: int, schedule: SegmentSchedule, max_attempts: int) -> None:
+        """Command Spot to execute the indexed trajectory segment from the given schedule.
+
+        :param idx: Index into the schedule, corresponding to a joint trajectory segment
+        :param schedule: Schedule specifying segment reference times and robot commands
+        :param max_attempts: Maximum number of times to attempt (re)sending the segment
+        """
+        if self._arm_locked:
+            self._manager.log_info("Cannot send trajectory segment because Spot's arm is locked.")
+            return
+
+        # Validate the trajectory to be sent
+        traj = schedule.commands[
+            idx
+        ].synchronized_command.arm_command.arm_joint_move_command.trajectory
+
+        if not len(traj.points):
+            raise RuntimeError("Segment has no points.")
+        if len(traj.points) > self._max_segment_len:
+            raise RuntimeError(
+                f"Segment contains {len(traj.points)} points; maximum is {self._max_segment_len}.",
+            )
+        if not traj.HasField("reference_time"):
+            raise RuntimeError("Segment must have a reference_time (local time).")
+
+        # Wait to send the segment until close to when it starts (only on the first attempt)
+        max_rtt_s = max(0.0, self._manager.time_sync.max_round_trip_s)
+        cushion_s = max(0.1, 2.0 * max_rtt_s)  # Margin for network jitter
+        eps_s = 0.03  # Additional margin for segment-adjusting overhead
+        send_early_s = schedule.min_lead_s + cushion_s + eps_s
+
+        send_local_s = schedule.compute_send_local_time_s(idx, send_early_s)
+        self._sleep_until(send_local_s)
+
+        # Late guard: If we're too close or late, slide the segment forward
+        delta_s = schedule.slide_segment_if_late(idx, send_early_s)
+        if delta_s > 0:
+            self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the schedule.")
+
+        # Retry loop: Adjust and resend only (no sleep)
+        cumulative_bump_s = 0.0  # Cumulative bump (seconds) to delay each retry
+        for attempt in range(1, max_attempts + 1):
+            try:
+                self._command_id = self._manager.send_robot_command(schedule.commands[idx])
+
+            except InvalidRequestError as err:  # noqa: PERF203
+                attempt_num = f"{attempt}/{max_attempts}"
+                self._manager.log_info(
+                    f"Attempt {attempt_num}: Sending trajectory segment has failed.",
+                )
+
+                if "time point before the current robot time" not in str(err):
+                    raise
+
+                if attempt == max_attempts:
+                    self._manager.log_info("Out of attempts, exiting...")
+                    raise
+
+                # Use previously observed lateness to inform retry (delay by cumulative_bump_s)
+                delta_s = schedule.slide_segment_if_late(idx, send_early_s + cumulative_bump_s)
+                if delta_s > 0:
+                    self._manager.log_info(f"Late by {delta_s:.3f} seconds; shifted the schedule.")
+                    cumulative_bump_s += delta_s + 0.05  # Build on observed lateness
+
+            else:
+                self._manager.log_info("Trajectory segment sent.\n")
+                return
+
+    def _ee_pose_cb(self, msg: PoseStamped) -> None:
+        """Command Spot's end-effector to move to a given pose."""
+        if self._arm_locked:
+            return
+
+        if not self._manager.ensure_control(take_by_force=False):
+            rospy.logwarn("Ignoring /spot/ee_pose because Spot control is unavailable.")
+            return
+
+        if not msg.header.frame_id:
+            rospy.logwarn("Ignoring /spot/ee_pose because PoseStamped.header.frame_id is empty.")
+            return
+
+        target_pose = pose_from_msg(msg)
+        try:
+            target_pose_b_ee = TransformManager.convert_to_frame(
+                target_pose,
+                self.manipulator.base_frame,
+            )
+        except RuntimeError as err:
+            rospy.logwarn(
+                "Ignoring /spot/ee_pose; failed frame conversion into "
+                f"'{self.manipulator.base_frame}': {err}",
+            )
+            return
+
+        try:
+            current_sdk_pose = self._manager.get_hand_pose(ref_frame=BODY_FRAME_NAME)
+            current_pose_b_ee = pose_from_sdk(current_sdk_pose, ref_frame=BODY_FRAME_NAME)
+            diff = target_pose_b_ee.position.to_array() - current_pose_b_ee.position.to_array()
+            distance_m = float(np.linalg.norm(diff))
+            duration_s = max(distance_m / self._ee_pose_max_vel_mps, self._ee_pose_min_duration_s)
+        except Exception as err:
+            rospy.logwarn(f"Skipping /spot/ee_pose; failed to read hand pose: {err}")
+            return
+
+        with self._robot_rpc_manager.priority() as got_priority:
+            if not got_priority:
+                rospy.logwarn("Skipping /spot/ee_pose command because RPC priority is unavailable.")
+                return
+
+            success = self._arm_controller.command_end_effector_pose(
+                target_pose_b_ee=target_pose_b_ee,
+                duration_s=duration_s,
+            )
+
+        if not success:
+            rospy.logwarn("Failed to command /spot/ee_pose target pose.")

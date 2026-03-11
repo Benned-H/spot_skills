@@ -83,10 +83,10 @@ from spot_skills.srv import (
     ProbeSurfaceResponse,
 )
 from spot_skills_py.joint_trajectory import JointTrajectory
-from spot_skills_py.spot.spot_arm_controller import (
+from spot_skills_py.spot.refactored.spot_manipulation import (
     ArmCommandOutcome,
     GripperCommandOutcome,
-    SpotArmController,
+    SpotManipulationInterface,
 )
 from spot_skills_py.spot.spot_conversion import (
     SPOT_GRIPPER_CLOSED_RAD,
@@ -118,7 +118,7 @@ class SpotROS1Wrapper:
         # Initialize Spot's arm as locked before enabling any of the actions!
         self._arm_locked = True  # Begin without ROS control of Spot's arm
         self._manager_exists = False
-        self._arm_controller_exists = False
+        self._arm_interface_exists = False
 
         self._robot_rpc_manager = ResourceManager(grace_period_s=1.0)
 
@@ -133,6 +133,11 @@ class SpotROS1Wrapper:
         self._arm_action_server.start()
         rospy.loginfo(f"[{self._arm_action_name}] Action server has started.")
 
+        # Load the initial environment state from YAML and update the MoveIt planning scene
+        env_yaml_param = get_ros_param("/spot/env_yaml_path", str)
+        rospy.loginfo(f"Loading object-centric state from file: {env_yaml_param}")
+        self._env_state = ObjectCentricState.from_yaml(Path(env_yaml_param))
+
         spot_rosparams = ["/spot/hostname", "/spot/username", "/spot/password"]
         spot_rosparam_values = [get_ros_param(par, str) for par in spot_rosparams]
         spot_hostname, spot_username, spot_password = spot_rosparam_values
@@ -145,8 +150,12 @@ class SpotROS1Wrapper:
         )
         self._manager_exists = True
 
-        self._arm_controller = SpotArmController(self._manager)
-        self._arm_controller_exists = True
+        self._arm_interface = SpotManipulationInterface(
+            manager=self._manager,
+            robot_rpc_manager=self._robot_rpc_manager,
+            env_state=self._env_state,
+        )
+        self._arm_interface_exists = True
 
         gemini_api_key = get_ros_param("~gemini_api_key", str, "NOT SPECIFIED")
         if gemini_api_key == "NOT SPECIFIED":
@@ -275,43 +284,28 @@ class SpotROS1Wrapper:
             self.handle_compute_motion_plan,
         )
 
-        gripper = ROSAngularGripper(
-            limits=GripperAngleLimits(
-                open_rad=SPOT_GRIPPER_OPEN_RAD,
-                closed_rad=SPOT_GRIPPER_CLOSED_RAD,
-            ),
-            grasping_group="gripper",
-            action_name="gripper_controller/gripper_action",
-        )
-        self.manipulator = MoveItManipulator(
-            name="arm",
-            robot_name="Spot",
-            base_frame="body",
-            planning_frame=DEFAULT_FRAME,
-            gripper=gripper,
-        )
-        self._ee_pose_max_vel_mps = 0.4  # Max EE speed for /spot/ee_pose commands (m/s)
-        self._ee_pose_min_duration_s = 0.5  # Minimum command duration regardless of distance (s)
-        self._ee_velocity_cmd_duration_s = 0.5  # Duration per ee_cmd_vel command (s)
-        self._ee_pose_sub = rospy.Subscriber(
-            "/spot/ee_pose",
-            PoseStamped,
-            self.handle_ee_pose,
-            queue_size=1,
-        )
-        self._ee_cmd_vel_sub = rospy.Subscriber(
-            "/spot/ee_cmd_vel",
-            Twist,
-            self.handle_ee_cmd_vel,
-            queue_size=1,
-        )
+        # self._ee_pose_max_vel_mps = 0.4  # Max EE speed for /spot/ee_pose commands (m/s)
+        # self._ee_pose_min_duration_s = 0.5  # Minimum command duration regardless of distance (s)
+        # self._ee_velocity_cmd_duration_s = 0.5  # Duration per ee_cmd_vel command (s)
+        # self._ee_pose_sub = rospy.Subscriber(
+        #     "/spot/ee_pose",
+        #     PoseStamped,
+        #     self.handle_ee_pose,
+        #     queue_size=1,
+        # )
+        # self._ee_cmd_vel_sub = rospy.Subscriber(
+        #     "/spot/ee_cmd_vel",
+        #     Twist,
+        #     self.handle_ee_cmd_vel,
+        #     queue_size=1,
+        # )
 
         traj_config = RelativeTrajectoryConfig(
             min_pose_diff_m=0.02,
             min_pose_diff_deg=5,
             plan_ee_step_m=0.015,
         )
-        self.trajectory_replayer = TrajectoryPlayback(traj_config, self.manipulator)
+        self.trajectory_replayer = TrajectoryPlayback(traj_config, self._arm_interface.manipulator)
 
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
@@ -400,15 +394,9 @@ class SpotROS1Wrapper:
                 resource_manager=self._robot_rpc_manager,
             )
 
-        # Load the initial environment state from YAML and update the MoveIt planning scene
-        env_yaml_param = get_ros_param("/spot/env_yaml_path", str)
-        rospy.loginfo(f"Loading object-centric state from file: {env_yaml_param}")
-        self._env_state = ObjectCentricState.from_yaml(Path(env_yaml_param))
-
         # Begin synchronizing the environment state with TF in a loop
         self._state_thread = CallLoopThread(func=self._broadcast_frames, loop_hz=5.0)
 
-        self.manipulator.planning_scene.set_state(self._env_state)
         self._planning_scene_thread = CallLoopThread(func=self._sync_planning_scene, loop_hz=5.0)
 
         self.stamped_cloud: StampedPointCloud | None = None
@@ -427,7 +415,7 @@ class SpotROS1Wrapper:
             resource_manager=self._robot_rpc_manager,
         )
 
-        self.spot_skills = SpotSkillsProtocol(self.manipulator)
+        self.spot_skills = SpotSkillsProtocol(self._arm_interface.manipulator)
 
     def _broadcast_frames(self) -> None:
         """Broadcast the current known and estimated reference frames to /tf."""
@@ -458,7 +446,7 @@ class SpotROS1Wrapper:
     def _sync_planning_scene(self) -> None:
         """Synchronize the MoveIt planning scene with the stored environment state."""
         with self._planning_scene_lock:
-            if not self.manipulator.planning_scene.set_state(self._env_state):
+            if not self._arm_interface.manipulator.planning_scene.set_state(self._env_state):
                 rospy.logwarn("Failed to sync the MoveIt planning scene with the current state.")
 
     def _update_lidar(self) -> None:
@@ -1644,166 +1632,31 @@ class SpotROS1Wrapper:
             message=f"Successfully resumed pose estimation for '{object_name}'.",
         )
 
-    def handle_ee_pose(self, msg: PoseStamped) -> None:
-        """Handle an end-effector pose command from /spot/ee_pose."""
-        if self._arm_locked:
-            return
+    # def handle_ee_cmd_vel(self, msg: Twist) -> None:
+    #     """Handle a body-frame end-effector velocity command from /spot/ee_cmd_vel."""
+    #     if self._arm_locked:
+    #         return
 
-        if not self._manager.ensure_control(take_by_force=False):
-            rospy.logwarn("Ignoring /spot/ee_pose because Spot control is unavailable.")
-            return
+    #     if not self._manager.ensure_control(take_by_force=False):
+    #         rospy.logwarn("Ignoring /spot/ee_cmd_vel because SpotManager doesn't control Spot.")
+    #         return
 
-        if not msg.header.frame_id:
-            rospy.logwarn("Ignoring /spot/ee_pose because PoseStamped.header.frame_id is empty.")
-            return
+    #     with self._robot_rpc_manager.priority() as got_priority:
+    #         if not got_priority:
+    #             rospy.logwarn(
+    #                 "Skipping /spot/ee_cmd_vel command because RPC priority is unavailable.",
+    #             )
+    #             return
 
-        target_pose = pose_from_msg(msg)
-        try:
-            target_pose_b_ee = TransformManager.convert_to_frame(
-                target_pose,
-                self.manipulator.base_frame,
-            )
-        except RuntimeError as err:
-            rospy.logwarn(
-                "Ignoring /spot/ee_pose; failed frame conversion into "
-                f"'{self.manipulator.base_frame}': {err}",
-            )
-            return
+    #         success = self._arm_controller.command_end_effector_body_velocity(
+    #             linear_x_mps=msg.linear.x,
+    #             linear_y_mps=msg.linear.y,
+    #             linear_z_mps=msg.linear.z,
+    #             angular_x_radps=msg.angular.x,
+    #             angular_y_radps=msg.angular.y,
+    #             angular_z_radps=msg.angular.z,
+    #             duration_s=self._ee_velocity_cmd_duration_s,
+    #         )
 
-        try:
-            current_sdk_pose = self._manager.get_hand_pose(ref_frame=BODY_FRAME_NAME)
-            current_pose_b_ee = pose_from_sdk(current_sdk_pose, ref_frame=BODY_FRAME_NAME)
-            diff = target_pose_b_ee.position.to_array() - current_pose_b_ee.position.to_array()
-            distance_m = float(np.linalg.norm(diff))
-            duration_s = max(distance_m / self._ee_pose_max_vel_mps, self._ee_pose_min_duration_s)
-        except Exception as err:
-            rospy.logwarn(f"Skipping /spot/ee_pose; failed to read hand pose: {err}")
-            return
-
-        with self._robot_rpc_manager.priority() as got_priority:
-            if not got_priority:
-                rospy.logwarn("Skipping /spot/ee_pose command because RPC priority is unavailable.")
-                return
-
-            success = self._arm_controller.command_end_effector_pose(
-                target_pose_b_ee=target_pose_b_ee,
-                duration_s=duration_s,
-            )
-
-        if not success:
-            rospy.logwarn("Failed to command /spot/ee_pose target pose.")
-
-    def handle_ee_cmd_vel(self, msg: Twist) -> None:
-        """Handle a body-frame end-effector velocity command from /spot/ee_cmd_vel."""
-        if self._arm_locked:
-            return
-
-        if not self._manager.ensure_control(take_by_force=False):
-            rospy.logwarn("Ignoring /spot/ee_cmd_vel because SpotManager doesn't control Spot.")
-            return
-
-        with self._robot_rpc_manager.priority() as got_priority:
-            if not got_priority:
-                rospy.logwarn(
-                    "Skipping /spot/ee_cmd_vel command because RPC priority is unavailable.",
-                )
-                return
-
-            success = self._arm_controller.command_end_effector_body_velocity(
-                linear_x_mps=msg.linear.x,
-                linear_y_mps=msg.linear.y,
-                linear_z_mps=msg.linear.z,
-                angular_x_radps=msg.angular.x,
-                angular_y_radps=msg.angular.y,
-                angular_z_radps=msg.angular.z,
-                duration_s=self._ee_velocity_cmd_duration_s,
-            )
-
-        if not success:
-            rospy.logwarn("Failed to command /spot/ee_cmd_vel twist.")
-
-    def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.5) -> None:
-        """Handle a new goal for the FollowJointTrajectory action server.
-
-        If Spot's arm is unlocked, trajectories sent to this server will be executed.
-
-        Reference: https://tinyurl.com/FollowJointTrajectory
-
-        :param goal: Joint trajectory to be followed
-        :param delay_s: Delay (seconds) to wait after any successful command execution
-        """
-        result = FollowJointTrajectoryResult()
-        result.error_code = -1  # Default error code: INVALID_GOAL
-
-        if not (self._manager_exists and self._arm_controller_exists):
-            result.error_string = "Could not follow trajectory because SpotManager is not set up."
-            rospy.loginfo(f"[{self._arm_action_name}] {result.error_string}")
-            self._arm_action_server.set_aborted(result)
-            return
-
-        # Extract all fields of the received action goal message
-        trajectory = JointTrajectory.from_ros_msg(goal.trajectory)
-
-        # TODO: Could use the joint tolerances to enforce within-bounds trajectory
-        #   execution. Similar logic would allow the action server to publish feedback.
-        # Currently, we're ignoring these variables in the received trajectory:
-        #   path_tolerance, goal_tolerance, goal_time_tolerance
-
-        # Log information about the received trajectory
-        first_rel_time_s = trajectory.points[0].time_from_start_s
-        last_rel_time_s = trajectory.points[-1].time_from_start_s
-        traj_duration_s = last_rel_time_s - first_rel_time_s
-
-        rospy.loginfo(
-            f"[{self._arm_action_name}] Received trajectory of length "
-            f"{len(trajectory.points)}, lasting {traj_duration_s} seconds.",
-        )
-
-        if self._arm_locked:
-            result.error_string = "Could not follow trajectory because Spot's arm remains locked."
-            self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
-            self._arm_action_server.set_aborted(result)
-            return
-
-        if not self._manager.ensure_control(take_by_force=False):
-            result.error_string = "Could not obtain control of Spot."
-            self._arm_action_server.set_aborted(result)
-            return
-
-        with self._robot_rpc_manager.priority() as got_priority:
-            if not got_priority:
-                result.error_string = "Could not obtain RPC priority; other threads still active."
-                self._arm_action_server.set_aborted(result)
-                return
-
-            # Attempt to send the trajectory using the SpotArmController
-            outcome = self._arm_controller.command_trajectory(
-                trajectory,
-                self._arm_action_server,
-            )
-
-            # Update the ROS action server based on the outcome of the trajectory
-            if outcome == ArmCommandOutcome.SUCCESS:
-                rospy.sleep(delay_s)  # Delay after the end of any successful trajectory
-
-                result.error_code = int(outcome)
-                result.error_string = "Success!"
-                self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
-                self._arm_action_server.set_succeeded(result)
-
-            elif outcome == ArmCommandOutcome.INVALID_START:
-                result.error_string = (
-                    "Could not follow trajectory because it did not begin "
-                    "from the current configuration of Spot's arm."
-                )
-
-                self._arm_action_server.set_aborted(result)
-
-            elif outcome == ArmCommandOutcome.ARM_LOCKED:
-                result.error_string = "Could not follow trajectory because Spot's arm is locked."
-                self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
-
-                self._arm_action_server.set_aborted(result)
-
-            elif outcome == ArmCommandOutcome.PREEMPTED:
-                self._arm_action_server.set_preempted()
+    #     if not success:
+    #         rospy.logwarn("Failed to command /spot/ee_cmd_vel twist.")
