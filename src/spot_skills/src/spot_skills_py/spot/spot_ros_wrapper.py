@@ -242,7 +242,7 @@ class SpotROS1Wrapper:
         )
         self._policy_replay_srv = rospy.Service(
             "spot/policy_replay",
-            Trigger,
+            NameService,
             self.handle_policy_replay,
         )
 
@@ -835,6 +835,16 @@ class SpotROS1Wrapper:
         timeout_s = request.timeout_s
 
         outcome = self._navigation_server.navigate_to_pose(target_2d, timeout_s)
+        if not outcome.success:
+            return NavigateToPoseResponse(outcome.success, outcome.message)
+
+        # Final pose adjustments for precision
+        for i in range(5):
+            adj = self._navigation_server.go_to_pose(target_2d, timeout_s=0.5)
+            if not adj.success:
+                self._manager.log_warn(f"Final adjustment {i + 1}/5 failed: {adj.message}")
+                break
+
         return NavigateToPoseResponse(outcome.success, outcome.message)
 
     def handle_waypoint(self, request: NameServiceRequest) -> NameServiceResponse:
@@ -1795,29 +1805,19 @@ class SpotROS1Wrapper:
 
             self._gripper_action_server.set_succeeded(gripper_command_result)
 
-    def handle_policy_replay(self, _: TriggerRequest) -> TriggerResponse:
+    def handle_policy_replay(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a service request to run LeRobot policy replay.
 
-        :param _: Empty trigger request
+        :param request: Request with model name (e.g. "spot-scili-close-door")
         :return: Response indicating whether policy replay succeeded
         """
         if self._policy_replay_bridge.is_running:
-            return TriggerResponse(success=False, message="Policy replay is already running.")
+            return NameServiceResponse(success=False, message="Policy replay is already running.")
 
-        pretrained_path = str(
-            get_ros_param(
-                "~pretrained_path",
-                str,
-                "models/spot-act/pretrained_model",
-            ),
+        model_name = request.name or str(
+            get_ros_param("~model_name", str, "spot-scili-close-door"),
         )
-        dataset_path = str(
-            get_ros_param(
-                "~dataset_path",
-                str,
-                "data/yourname/spot-scili-close-door_20260304_222712",
-            ),
-        )
+        dataset_path = "data/yourname/" + model_name
 
         spot_hostname = get_ros_param("/spot/hostname", str)
         spot_username = get_ros_param("/spot/username", str)
@@ -1831,7 +1831,7 @@ class SpotROS1Wrapper:
                 hostname=spot_hostname,
                 username=spot_username,
                 password=spot_password,
-                pretrained_path=pretrained_path,
+                model_name=model_name,
                 dataset_path=dataset_path,
             )
             result = self._policy_replay_bridge.wait(timeout_s=120.0)
@@ -1848,4 +1848,4 @@ class SpotROS1Wrapper:
             if not success
             else "Policy replay completed."
         )
-        return TriggerResponse(success=success, message=message)
+        return NameServiceResponse(success=success, message=message)

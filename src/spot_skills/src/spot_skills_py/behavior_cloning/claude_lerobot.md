@@ -20,20 +20,21 @@ Integrated LeRobot policy replay into `spot_skills_py` using the same `uv run` s
   - Added `handle_policy_replay` method (~line 1897)
 
 ## Model Location
-- Pretrained model copied to: `/home/guest/git/spot_skills/models/spot-act/pretrained_model/` (~198M, gitignored via `models/`)
+- Trained models live under: `lerobot-spot/outputs/train/<model-name>/<policy-type>/checkpoints/last/pretrained_model/`
+- Available models: `spot-open-drawer`, `spot-pick-from-drawer`, `spot-scili-close-door`
 - Default dataset: `/home/guest/git/lerobot-spot/data/yourname/spot-scili-close-door_20260304_222712`
 
 ## Default Paths (in handle_policy_replay)
-- `~pretrained_path`: `<repo_root>/models/spot-act/pretrained_model` (auto-resolved via `Path(__file__).resolve().parents[5]`)
+- `~model_name`: Name of trained model under `outputs/train/` (default: `spot-scili-close-door`). The policy type subdir (e.g. `diffusion`) is auto-detected.
 - `~dataset_path`: `/home/guest/git/lerobot-spot/data/yourname/spot-scili-close-door_20260304_222712`
-- `~lerobot_spot_root`: `/home/guest/git/lerobot-spot`
+- `~lerobot_spot_root`: `/docker/spot_skills/lerobot-spot`
 
 ## Key Dependencies
 - `lerobot_robot_spot` package at `/home/guest/git/lerobot-spot/lerobot_robot_spot/` — its pyproject.toml pulls in `lerobot>=0.4.4`, `bosdyn_client`, `bosdyn_api`
 - PEP 723 dependency: `lerobot_robot_spot @ file:///${LEROBOT_SPOT_ROOT}`
 
 ## Testing
-- **Standalone**: `LEROBOT_SPOT_ROOT=/home/guest/git/lerobot-spot uv run .../policy_replay_service.py --hostname <ip> --username <user> --password <pass> --pretrained-path <path> --dataset-path <path>`
+- **Standalone**: `LEROBOT_SPOT_ROOT=/docker/spot_skills/lerobot-spot uv run .../policy_replay_service.py --hostname <ip> --username <user> --password <pass> --model-name spot-scili-close-door --dataset-path <path>`
 - **ROS**: `rosservice call /spot/policy_replay` (requires spot_wrapper_node running)
 
 ## Reference Pattern

@@ -57,8 +57,9 @@ class PolicyReplayBridge:
         hostname: str,
         username: str,
         password: str,
-        pretrained_path: str,
         dataset_path: str,
+        model_name: str = None,
+        pretrained_path: str = None,
         device: str = "cuda",
         fps: int = 10,
         episode_time_s: float = 30.0,
@@ -72,8 +73,9 @@ class PolicyReplayBridge:
         :param hostname: Spot robot hostname/IP
         :param username: Spot username
         :param password: Spot password
-        :param pretrained_path: Path to pretrained model checkpoint
         :param dataset_path: Path to training dataset
+        :param model_name: Name of trained model under outputs/train/
+        :param pretrained_path: Full path to pretrained model (overrides model_name)
         :param device: Inference device (cuda or cpu)
         :param fps: Control loop frequency
         :param episode_time_s: Episode duration in seconds
@@ -98,8 +100,6 @@ class PolicyReplayBridge:
             username,
             "--password",
             password,
-            "--pretrained-path",
-            str(pretrained_path),
             "--dataset-path",
             str(dataset_path),
             "--device",
@@ -114,6 +114,11 @@ class PolicyReplayBridge:
             str(image_height),
             "--force-take-lease",
         ]
+
+        if pretrained_path:
+            cmd.extend(["--pretrained-path", str(pretrained_path)])
+        elif model_name:
+            cmd.extend(["--model-name", str(model_name)])
 
         if image_sources:
             cmd.extend(["--image-sources", *image_sources])

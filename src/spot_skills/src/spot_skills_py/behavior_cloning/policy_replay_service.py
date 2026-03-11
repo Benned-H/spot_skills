@@ -18,7 +18,7 @@ Communication with the parent process is via JSON lines on stdout.
 Usage (standalone):
     LEROBOT_SPOT_ROOT=/path/to/lerobot-spot uv run policy_replay_service.py \
         --hostname <ip> --username <user> --password <pass> \
-        --pretrained-path <path> --dataset-path <path>
+        --model-name spot-act --dataset-path <path>
 """
 
 from __future__ import annotations
@@ -32,7 +32,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-
 from lerobot.configs.policies import PreTrainedConfig
 from lerobot.datasets.lerobot_dataset import LeRobotDatasetMetadata
 from lerobot.datasets.utils import build_dataset_frame
@@ -42,7 +41,6 @@ from lerobot.policies.utils import make_robot_action
 from lerobot.utils.constants import ACTION, OBS_STR
 from lerobot.utils.control_utils import predict_action
 from lerobot.utils.utils import get_safe_torch_device
-
 from lerobot_robot_spot import SpotRobot, SpotRobotConfig
 
 
@@ -70,26 +68,55 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--image-width", type=int, default=640)
     p.add_argument("--image-height", type=int, default=480)
     p.add_argument(
+        "--model-name",
+        default=None,
+        help="Name of trained model under outputs/train/ (e.g. spot-act)",
+    )
+    p.add_argument(
         "--pretrained-path",
-        required=True,
-        help="Path to pretrained model dir",
+        default=None,
+        help="Full path to pretrained model dir (overrides --model-name)",
     )
     p.add_argument(
         "--dataset-path",
-        required=True,
-        help="Full path to training dataset",
+        default=None,
+        help="Full path to training dataset (auto-derived from --model-name if omitted)",
     )
     p.add_argument("--device", default="cuda", help="Inference device: cuda or cpu")
     p.add_argument("--fps", type=int, default=10)
     p.add_argument("--episode-time-s", type=float, default=30.0)
     p.add_argument("--task", type=str, default=None)
-    p.add_argument("--force-take-lease", action="store_true",
-                   help="Force-take the lease from another client instead of normal acquire")
+    p.add_argument(
+        "--force-take-lease",
+        action="store_true",
+        help="Force-take the lease from another client instead of normal acquire",
+    )
     return p.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+
+    # Resolve pretrained path from --model-name if --pretrained-path not given
+    if args.pretrained_path is None:
+        if args.model_name is None:
+            emit_error("Either --model-name or --pretrained-path must be provided.")
+        model_dir = Path("outputs/train") / args.model_name
+        # Auto-detect the policy type subdirectory (e.g. diffusion, act)
+        subdirs = [d for d in model_dir.iterdir() if d.is_dir()] if model_dir.is_dir() else []
+        if len(subdirs) == 1:
+            policy_dir = subdirs[0]
+        elif len(subdirs) == 0:
+            emit_error(f"No policy subdirectory found in {model_dir}")
+        else:
+            names = [d.name for d in subdirs]
+            emit_error(f"Multiple policy subdirs in {model_dir}: {names}. Use --pretrained-path.")
+        args.pretrained_path = str(policy_dir / "checkpoints" / "last" / "pretrained_model")
+        if args.dataset_path is None:
+            args.dataset_path = str(Path("data/yourname") / args.model_name)
+
+    if args.dataset_path is None:
+        emit_error("--dataset-path is required when using --pretrained-path without --model-name.")
 
     # Flag set by SIGINT handler for graceful shutdown
     stop_requested = False
@@ -189,22 +216,26 @@ def main() -> None:
 
             if step % (args.fps * 5) == 0:
                 elapsed_total = time.perf_counter() - t0
-                emit_json({
-                    "type": "step",
-                    "step": step,
-                    "elapsed_s": round(elapsed_total, 1),
-                    "vx": round(action_dict.get("base.vx", 0), 3),
-                    "arm_x": round(action_dict.get("arm.pose.x", 0), 3),
-                })
+                emit_json(
+                    {
+                        "type": "step",
+                        "step": step,
+                        "elapsed_s": round(elapsed_total, 1),
+                        "vx": round(action_dict.get("base.vx", 0), 3),
+                        "arm_x": round(action_dict.get("arm.pose.x", 0), 3),
+                    }
+                )
 
         total_time = time.perf_counter() - t0
-        emit_json({
-            "type": "completed",
-            "success": True,
-            "total_steps": step,
-            "total_time_s": round(total_time, 1),
-            "stopped_early": stop_requested,
-        })
+        emit_json(
+            {
+                "type": "completed",
+                "success": True,
+                "total_steps": step,
+                "total_time_s": round(total_time, 1),
+                "stopped_early": stop_requested,
+            }
+        )
 
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
