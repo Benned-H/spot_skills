@@ -1,6 +1,5 @@
-# Command the robot to release an object into the specified parent frame.
+# Command the robot to grasp an object.
 string object_name
-string new_parent_frame
 ---
 bool success
 string message

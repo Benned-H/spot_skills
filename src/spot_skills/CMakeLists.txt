@@ -71,6 +71,7 @@ add_service_files(
   ComputeMotionPlan.srv
   PlaceObject.srv
   ReleaseObject.srv
+  GraspObject.srv
 )
 
 ## Generate actions in the 'action' folder
