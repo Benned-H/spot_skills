@@ -24,14 +24,6 @@
     <!-- Load an API key for Gemini Robotics-ER 1.5 from YAML -->
     <arg name="gemini_api_yaml" value="$(find spot_skills)/secrets/gemini_api_key.yaml" />
 
-    <!-- Launch the core nodes MoveIt uses to control a robot (simulated or real) -->
-    <include file="$(dirname)/moveit_core.launch">
-        <!-- Load/override the robot description (URDF) using MoveIt -->
-        <arg name="load_robot_description" value="true"/>
-        <arg name="real_robot" value="$(arg real_robot)"/>
-        <arg name="tamp_controls_robot" value="$(arg tamp_controls_robot)"/>
-    </include>
-
     <!-- If we're running in simulation, launch a fake controller for Spot's gripper -->
     <group unless="$(arg real_robot)">
         <node name="fake_gripper_action_server" pkg="spot_skills" type="fake_gripper_action_server.py" output="screen"/>
@@ -57,4 +49,13 @@
         </node>
 
     </group>
+
+    <!-- Launch MoveIt after the action servers (real or fake) are started, so the
+         MoveItSimpleControllerManager can connect to them during initialization -->
+    <include file="$(dirname)/moveit_core.launch">
+        <!-- Load/override the robot description (URDF) using MoveIt -->
+        <arg name="load_robot_description" value="true"/>
+        <arg name="real_robot" value="$(arg real_robot)"/>
+        <arg name="tamp_controls_robot" value="$(arg tamp_controls_robot)"/>
+    </include>
 </launch>
