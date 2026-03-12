@@ -93,8 +93,8 @@ class SpotDoorOpener:
         detections_visualized = RGBImage(data=detections.convert_for_visualization())
         detections_visualized.to_file("/docker/spot_skills/images/detected_door_handle.jpg")
 
-        cv2.destroyAllWindows()
-        display_in_window(detections, "Detected Door Handle", wait=True)  # DO NOT REMOVE (SAFETY)
+        # cv2.destroyAllWindows()
+        # display_in_window(detections, "Detected Door Handle", wait=True)  # DO NOT REMOVE (SAFETY)
         rospy.loginfo(f"Detected door handle at pixel: {self.handle_xy}")
 
         return self.handle_xy
@@ -154,9 +154,11 @@ class SpotDoorOpener:
         while time.time() < end_time:
             response = self.manager.manip_client.manipulation_api_feedback_command(feedback_request)
             assert response.manipulation_cmd_id == command_id, "Got feedback for wrong command."
+            self.manager.log_info(f"Manipulation state: {response.current_state}")
             if response.current_state == MANIP_STATE_DONE:
                 self.manager.log_info("Walked to door.")
                 return response
+            time.sleep(0.25)
 
         raise Exception("Manipulation command timed out. Try repositioning the robot.")
 
