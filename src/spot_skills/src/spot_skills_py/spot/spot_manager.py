@@ -726,6 +726,7 @@ class SpotManager:
             return False
 
         # Create mobility params with velocity limit if max_speed_mps is specified
+        # IMPORTANT: Start from the default mobility params to preserve obstacle avoidance
         mobility_params = None
         if max_speed_mps is not None:
             # Scale angular velocity proportionally (Spot's max is ~1.5 rad/s at ~1.6 m/s)
@@ -736,7 +737,11 @@ class SpotManager:
                     angular=max_angular_radps,
                 ),
             )
-            mobility_params = MobilityParams(vel_limit=vel_limit)
+            mobility_params = RobotCommandBuilder.mobility_params(
+                body_height=0.0,
+                locomotion_hint=self._mobility_params.locomotion_hint,
+            )
+            mobility_params.vel_limit.CopyFrom(vel_limit)
 
         trajectory_command = self._make_trajectory_command(
             base_pose=pose,

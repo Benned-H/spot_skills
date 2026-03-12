@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import rospy
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import PoseStamped, Twist
 from nav_msgs.msg import Path as PathMsg
 from robotics_utils.kinematics import Waypoints
 from robotics_utils.motion_planning import (
@@ -16,7 +16,7 @@ from robotics_utils.motion_planning import (
     plan_se2_path,
 )
 from robotics_utils.robots import MobileRobot
-from robotics_utils.ros.msg_conversion import path_to_msg
+from robotics_utils.ros.msg_conversion import path_to_msg, pose_to_stamped_msg
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.skills import Outcome
@@ -64,7 +64,7 @@ class SpotNavigationServer(MobileRobot):
         self._robot_footprint = SPOT_FOOTPRINT
 
         # Pure pursuit configuration
-        self._lookahead_distance_m = 2.0  # Look 2 m ahead on the path
+        self._lookahead_steps = 3  # Number of waypoints ahead to target (~0.5m at 0.1m spacing)
         self._min_pursuit_cmd_duration_s = 3.0  # Min. duration (s) of each trajectory command
         self._max_speed_mps = 0.5  # Maximum speed (meters/second) during pure pursuit
 
@@ -88,8 +88,13 @@ class SpotNavigationServer(MobileRobot):
         # Subscribe to a topic providing body-frame velocity commands
         self._cmd_vel_sub = rospy.Subscriber("cmd_vel", Twist, self.handle_cmd_vel, queue_size=1)
 
-        # Publisher to visualize planned paths in RViz
+        # Publishers to visualize planned paths and pursuit targets in RViz
         self._path_pub = rospy.Publisher("/spot/navigation/planned_path", PathMsg, queue_size=1)
+        self._pursuit_target_pub = rospy.Publisher(
+            "/spot/navigation/pursuit_target",
+            PoseStamped,
+            queue_size=1,
+        )
 
         self._CMD_VEL_DURATION_S = 1.0  # Duration (seconds) to execute each velocity command
 
@@ -195,7 +200,7 @@ class SpotNavigationServer(MobileRobot):
 
         # Initialize pure pursuit follower
         pursuit_config = PurePursuitConfig(
-            lookahead_distance_m=self._lookahead_distance_m,
+            lookahead_steps=self._lookahead_steps,
             goal_tolerance_m=self.close_to_goal_m,
         )
         follower = PurePursuitFollower(path=nav_plan, config=pursuit_config)
@@ -228,19 +233,21 @@ class SpotNavigationServer(MobileRobot):
             target_pose, is_complete = follower.get_target_pose(current_in_grid)
 
             if is_complete:
-                rospy.loginfo("Pure pursuit: Reached goal")
-                # Final approach to exact goal pose
+                rospy.loginfo("Pure pursuit: Reached end of path, starting final adjustments")
                 remaining_time_s = timeout_s - elapsed_s
-                return self.go_to_pose(
-                    base_pose=nav_plan[-1],
-                    timeout_s=min(10.0, remaining_time_s),
+                return self._final_adjustments(
+                    goal_pose=nav_plan[-1],
+                    num_passes=5,
+                    timeout_s=min(15.0, remaining_time_s),
                 )
 
             rospy.logdebug(f"Pure pursuit target: {target_pose}.")
 
-            # Send trajectory command to the lookahead target (non-blocking)
-            max_speed_cmd_duration_s = self._lookahead_distance_m / self._max_speed_mps + 1.0
-            cmd_duration_s = max(self._min_pursuit_cmd_duration_s, max_speed_cmd_duration_s)
+            # Publish the pursuit target for RViz visualization
+            self._pursuit_target_pub.publish(pose_to_stamped_msg(target_pose.to_3d()))
+
+            # Send trajectory command to the next target (non-blocking)
+            cmd_duration_s = self._min_pursuit_cmd_duration_s
 
             self._manager.send_trajectory_command(
                 pose=target_pose,
@@ -248,7 +255,7 @@ class SpotNavigationServer(MobileRobot):
                 max_speed_mps=self._max_speed_mps,
             )
 
-            rospy.sleep(0.01)
+            rospy.sleep(0.1)
 
         return Outcome(success=False, message="Path following exceeded maximum iterations")
 
@@ -285,6 +292,45 @@ class SpotNavigationServer(MobileRobot):
             if not got_priority:
                 rospy.logwarn("Executing navigation plan without RPC priority...")
             return self.execute_navigation_plan(nav_plan, timeout_s=timeout_s)
+
+    def _final_adjustments(
+        self,
+        goal_pose: Pose2D,
+        num_passes: int = 5,
+        timeout_s: float = 15.0,
+    ) -> Outcome:
+        """Perform repeated fine adjustments to reach the goal precisely.
+
+        Each pass re-computes the transform from the goal pose to account for
+        localization drift, then sends a fresh trajectory command.
+
+        :param goal_pose: Target base pose (in the planning frame)
+        :param num_passes: Number of adjustment passes to perform
+        :param timeout_s: Total timeout (seconds) for all adjustment passes
+        :return: Boolean success indicator and an outcome message
+        """
+        self._manager.ensure_control(take_by_force=True)
+        if not self._manager.has_control:
+            return Outcome(False, "Could not obtain control of Spot for final adjustments.")
+
+        per_pass_timeout_s = timeout_s / num_passes
+
+        for i in range(num_passes):
+            rospy.loginfo(f"Final adjustment pass {i + 1}/{num_passes}")
+
+            # Re-send trajectory with freshly computed transform each pass
+            success = self._manager.move_to_base_pose(goal_pose, self, per_pass_timeout_s)
+
+            if not success:
+                rospy.logwarn(f"Final adjustment pass {i + 1} did not reach goal, continuing...")
+
+        # Check if we ended up at the goal after all passes
+        final_success = self._manager.move_to_base_pose(goal_pose, self, per_pass_timeout_s)
+        if final_success:
+            message = "Final adjustments complete."
+        else:
+            message = "Final adjustments finished but goal may not be precisely reached."
+        return Outcome(final_success, message)
 
     def go_to_pose(self, base_pose: Pose2D, timeout_s: float) -> Outcome:
         """Move directly to the specified base pose and stop the robot after reaching it.
