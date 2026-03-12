@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import time
 from enum import IntEnum
+from typing import TYPE_CHECKING
 
+import numpy as np
 import rospy
 from actionlib import SimpleActionServer
 from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
@@ -20,26 +22,46 @@ from control_msgs.msg import (
     GripperCommandResult,
 )
 from geometry_msgs.msg import PoseStamped
-from robotics_utils.parallelism import ResourceManager
 from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import TransformManager
-from robotics_utils.ros.msg_conversion import pose_from_msg
+from robotics_utils.ros.msg_conversion import (
+    point_from_vector3_msg,
+    pose_from_msg,
+    pose_to_stamped_msg,
+)
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.spatial import DEFAULT_FRAME, Pose3D
-from robotics_utils.states import ObjectCentricState
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
-from spot_skills.srv import ReleaseObject, ReleaseObjectRequest, ReleaseObjectResponse
+from spot_skills.srv import (
+    GraspObject,
+    GraspObjectRequest,
+    GraspObjectResponse,
+    ProbeSurface,
+    ProbeSurfaceRequest,
+    ProbeSurfaceResponse,
+    ReleaseObject,
+    ReleaseObjectRequest,
+    ReleaseObjectResponse,
+)
 from spot_skills_py.joint_trajectory import JointTrajectory
-from spot_skills_py.segment_schedule import SegmentSchedule
 from spot_skills_py.spot.spot_configuration import MAP_JOINT_NAMES_SPOT_SDK_TO_URDF
 from spot_skills_py.spot.spot_conversion import (
     SPOT_GRIPPER_CLOSED_RAD,
     SPOT_GRIPPER_OPEN_RAD,
+    pose_from_sdk,
     pose_to_sdk,
 )
-from spot_skills_py.spot.spot_manager import SpotManager
+from spot_skills_py.spot.spot_force_controller import SpotForceController
 from spot_skills_py.time_stamp import TimeStamp
+
+if TYPE_CHECKING:
+    from robotics_utils.parallelism import ResourceManager
+    from robotics_utils.spatial import Pose3D
+    from robotics_utils.states import GraspAttachment
+
+    from spot_skills_py.segment_schedule import SegmentSchedule
+    from spot_skills_py.spot.spot_manager import SpotManager
 
 
 class GripperCommandOutcome(IntEnum):
@@ -84,8 +106,8 @@ class SpotManipulationInterface:
         self,
         manager: SpotManager,
         robot_rpc_manager: ResourceManager,
-        env_state: ObjectCentricState,
         max_segment_len: int = 250,
+        base_frame: str = "body",
         gripper_action_name: str = "gripper_controller/gripper_action",
         arm_action_name: str = "arm_controller/follow_joint_trajectory",
     ) -> None:
@@ -93,35 +115,39 @@ class SpotManipulationInterface:
 
         :param manager: Spot-SDK-based interface for Spot
         :param robot_rpc_manager: Manages priority access to Spot's RPC client
-        :param env_state: State of the environment around Spot
         :param max_segment_len: Maximum number of points in sent trajectory segments (default: 250)
+        :param base_frame: Name of the base frame of Spot's arm
         :param gripper_action_name: Name of the gripper command ROS action
         :param arm_action_name: Name of the arm trajectory command ROS action
         """
         self._arm_locked = True
 
         self._manager = manager
+        self.force_controller = SpotForceController(self._manager)
+
         self._robot_rpc_manager = robot_rpc_manager
-        self._env_state = env_state
         self._max_segment_len = max_segment_len
+        self._base_frame = base_frame
         self._arm_action_name = arm_action_name
+        self._gripper_action_name = gripper_action_name
+
+        self._arm_command_id: int | None = None
+        """ID of the latest command sent to Spot's arm."""
 
         # Gripper-related actions and services
         self._gripper_action_srv = SimpleActionServer(
-            name=gripper_action_name,
+            name=self._gripper_action_name,
             ActionSpec=GripperCommandAction,
             execute_cb=self._gripper_action_cb,
             auto_start=False,
         )
         self._gripper_action_srv.start()
-        rospy.loginfo(f"[{gripper_action_name}] Action server has started.")
+        rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
 
+        self._grasp_srv = rospy.Service("spot/grasp_object", GraspObject, self._grasp_cb)
         self._release_srv = rospy.Service("spot/release_object", ReleaseObject, self._release_cb)
 
-        # Arm-related services
-        self._unlock_arm_srv = rospy.Service("spot/unlock_arm", Trigger, self._unlock_arm_cb)
-        self._stow_arm_srv = rospy.Service("spot/stow_arm", Trigger, self._stow_arm_cb)
-
+        # Arm-related actions and services
         self._arm_action_srv = SimpleActionServer(
             name=self._arm_action_name,
             ActionSpec=FollowJointTrajectoryAction,
@@ -129,27 +155,12 @@ class SpotManipulationInterface:
             auto_start=False,
         )
         self._arm_action_srv.start()
-        rospy.loginfo(f"[{arm_action_name}] Action server has started.")
+        rospy.loginfo(f"[{self._arm_action_name}] Action server has started.")
 
-        self._arm_command_id: int | None = None
-        """ID of the latest command sent to Spot's arm."""
-
-        gripper = ROSAngularGripper(
-            limits=GripperAngleLimits(
-                open_rad=SPOT_GRIPPER_OPEN_RAD,
-                closed_rad=SPOT_GRIPPER_CLOSED_RAD,
-            ),
-            grasping_group="gripper",
-            action_name="gripper_controller/gripper_action",
-        )
-        self.manipulator = MoveItManipulator(
-            name="arm",
-            robot_name="Spot",
-            base_frame="body",
-            planning_frame=DEFAULT_FRAME,
-            gripper=gripper,
-        )
-        self.manipulator.planning_scene.set_state(self._env_state)
+        self._unlock_arm_srv = rospy.Service("spot/unlock_arm", Trigger, self._unlock_arm_cb)
+        self._stow_arm_srv = rospy.Service("spot/stow_arm", Trigger, self._stow_arm_cb)
+        self._deploy_arm_srv = rospy.Service("spot/deploy_arm", Trigger, self._deploy_arm_cb)
+        self._probe_srv = rospy.Service("spot/probe_surface", ProbeSurface, self._probe_cb)
 
         self._ee_pose_max_vel_mps = 0.4  # Max EE speed for /spot/ee_pose commands (m/s)
         self._ee_pose_min_duration_s = 0.5  # Minimum command duration regardless of distance (s)
@@ -161,6 +172,19 @@ class SpotManipulationInterface:
             queue_size=1,
         )
 
+        self.gripper = ROSAngularGripper(
+            GripperAngleLimits(open_rad=SPOT_GRIPPER_OPEN_RAD, closed_rad=SPOT_GRIPPER_CLOSED_RAD),
+            grasping_group="gripper",
+            action_name=self._gripper_action_name,
+        )
+        self.manipulator = MoveItManipulator(
+            name="arm",
+            robot_name="spot",
+            base_frame=self._base_frame,
+            planning_frame=DEFAULT_FRAME,
+            gripper=self.gripper,
+        )
+
     def _unlock_arm_cb(self, _: TriggerRequest) -> TriggerResponse:
         """Unlock Spot's arm, allowing it to be controlled via ROS.
 
@@ -168,7 +192,6 @@ class SpotManipulationInterface:
         """
         if self._manager.ensure_control(take_by_force=True):
             self._arm_locked = False
-            # TODO: Unlock arm controller too?
             return TriggerResponse(success=True, message="Successfully unlocked Spot's arm.")
 
         return TriggerResponse(
@@ -192,6 +215,70 @@ class SpotManipulationInterface:
         arm_stowed = self._manager.stow_arm()
         message = "Spot's arm has been stowed." if arm_stowed else "Could not stow Spot's arm."
         return TriggerResponse(success=arm_stowed, message=message)
+
+    def _deploy_arm_cb(self, _: TriggerRequest) -> TriggerResponse:
+        """Attempt to deploy Spot's arm to the "ready" position."""
+        if self._arm_locked:
+            message = "Spot's arm was not deployed because Spot's arm is locked."
+            return TriggerResponse(success=False, message=message)
+
+        deployed = False
+        if self._manager.ensure_control(take_by_force=False):
+            deployed = self._manager.deploy_arm()
+
+        return TriggerResponse(
+            success=deployed,
+            message=(
+                "Spot's arm has been deployed." if deployed else "Could not deploy Spot's arm."
+            ),
+        )
+
+    def _probe_cb(self, request: ProbeSurfaceRequest) -> ProbeSurfaceResponse:
+        """Probe for a surface using Spot's gripper."""
+        if not self._manager.has_control:
+            return ProbeSurfaceResponse(
+                success=False,
+                message="Cannot probe for surface; SpotManager doesn't control Spot.",
+            )
+
+        with self._robot_rpc_manager.priority() as got_priority:
+            if not got_priority:
+                return ProbeSurfaceResponse(
+                    success=False,
+                    message="Could not obtain RPC priority before probing.",
+                )
+
+            plane_result = self.force_controller.probe_surface(
+                direction=point_from_vector3_msg(request.direction),
+                max_distance_m=request.max_distance_m,
+                velocity_mps=request.velocity_mps,
+                force_threshold_n=request.force_threshold_n,
+                force_check_hz=request.force_check_hz,
+                num_probes=request.num_probes,
+                probe_interval_s=request.probe_interval_s,
+            )
+
+            success = plane_result is not None
+            message = (
+                f"Found surface: {plane_result}"
+                if success
+                else "Probed for surface but no surface was found."
+            )
+
+            return ProbeSurfaceResponse(success, message)
+
+    def _grasp_cb(self, request: GraspObjectRequest) -> GraspObjectResponse:
+        """Grasp the named object using Spot's gripper."""
+        outcome = self.manipulator.grasp(object_name=request.object_name)
+        if outcome.output is None:
+            return GraspObjectResponse(
+                success=False,
+                message=f"Pose output from grasping '{request.object_name}' was None.",
+                new_pose=PoseStamped(),
+            )
+
+        grasp_pose_msg = pose_to_stamped_msg(outcome.output.pose_ee_o)
+        return GraspObjectResponse(outcome.success, outcome.message, grasp_pose_msg)
 
     def _release_cb(self, request: ReleaseObjectRequest) -> ReleaseObjectResponse:
         """Release an object held by Spot into the specified frame."""
@@ -222,9 +309,12 @@ class SpotManipulationInterface:
                 success=False,
                 message=f"Failed to look up pose of '{object_name}' w.r.t. '{parent_frame}'.",
             )
-        self._env_state.set_known_object_pose(obj_name=object_name, pose=object_wrt_parent)
 
-        return ReleaseObjectResponse(success=True, message=f"Released object '{object_name}'.")
+        return ReleaseObjectResponse(
+            success=True,
+            message=f"Released object '{object_name}'.",
+            new_pose=pose_to_stamped_msg(object_wrt_parent),
+        )
 
     def _gripper_action_cb(self, goal: GripperCommandGoal, post_pause_s: float = 0.25) -> None:
         """Move Spot's gripper to the commanded angle.
@@ -256,6 +346,11 @@ class SpotManipulationInterface:
         deadline_s = time.monotonic() + sleep_for_s
         while (remainder_s := deadline_s - time.monotonic()) > 0:
             time.sleep(min(remainder_s, 0.01))
+
+    @property
+    def locked(self) -> bool:
+        """Retrieve whether Spot's arm remains locked."""
+        return self._arm_locked
 
     def command_gripper(
         self,
@@ -322,7 +417,7 @@ class SpotManipulationInterface:
 
         :return: True if opening the gripper succeeded, else False
         """
-        outcome = self.command_gripper(target_rad=SPOT_GRIPPER_OPEN_RAD)  # Checks if arm locked
+        outcome = self.command_gripper(target_rad=SPOT_GRIPPER_OPEN_RAD)  # Checks for locked arm
         return outcome == GripperCommandOutcome.REACHED_SETPOINT
 
     def close_gripper(self) -> bool:
@@ -330,7 +425,7 @@ class SpotManipulationInterface:
 
         :return: True if closing the gripper succeeded, else False
         """
-        outcome = self.command_gripper(target_rad=SPOT_GRIPPER_CLOSED_RAD)  # Checks if arm locked
+        outcome = self.command_gripper(target_rad=SPOT_GRIPPER_CLOSED_RAD)  # Checks for locked arm
         return outcome == GripperCommandOutcome.REACHED_SETPOINT
 
     def command_ee_pose(self, pose_b_ee: Pose3D, duration_s: float = 1.0) -> bool:
@@ -419,8 +514,7 @@ class SpotManipulationInterface:
                 self._arm_action_srv.set_aborted(result)
                 return
 
-            # Attempt to send the trajectory using the SpotArmController
-            outcome = self.command_trajectory(trajectory)
+            outcome = self.command_trajectory(trajectory)  # Attempt to send the trajectory
 
             # Update the ROS action server based on the outcome of the trajectory
             if outcome == ArmCommandOutcome.SUCCESS:
@@ -447,6 +541,48 @@ class SpotManipulationInterface:
 
             elif outcome == ArmCommandOutcome.PREEMPTED:
                 self._arm_action_srv.set_preempted()
+
+    def _ee_pose_cb(self, msg: PoseStamped) -> None:
+        """Command Spot's end-effector to move to a given pose."""
+        if self._arm_locked:
+            return
+
+        if not self._manager.has_control:
+            rospy.logwarn("Ignoring /spot/ee_pose because Spot control is unavailable.")
+            return
+
+        if not msg.header.frame_id:
+            rospy.logwarn("Ignoring /spot/ee_pose because PoseStamped frame_id is empty.")
+            return
+
+        target_pose = pose_from_msg(msg)
+        try:
+            target_pose_b_ee = TransformManager.convert_to_frame(target_pose, self._base_frame)
+        except RuntimeError as err:
+            rospy.logwarn(
+                f"Ignoring /spot/ee_pose; failed frame conversion to '{self._base_frame}': {err}",
+            )
+            return
+
+        try:
+            curr_ee_pose_sdk = self._manager.get_hand_pose(ref_frame=BODY_FRAME_NAME)
+            current_pose_b_ee = pose_from_sdk(curr_ee_pose_sdk, ref_frame=BODY_FRAME_NAME)
+            diff = target_pose_b_ee.position.to_array() - current_pose_b_ee.position.to_array()
+            distance_m = float(np.linalg.norm(diff))
+            duration_s = max(distance_m / self._ee_pose_max_vel_mps, self._ee_pose_min_duration_s)
+        except TypeError as err:
+            rospy.logwarn(f"Skipping /spot/ee_pose; failed to read hand pose: {err}")
+            return
+
+        with self._robot_rpc_manager.priority() as got_priority:
+            if not got_priority:
+                rospy.logwarn("Skipping /spot/ee_pose command because RPC priority is unavailable.")
+                return
+
+            success = self.command_ee_pose(pose_b_ee=target_pose_b_ee, duration_s=duration_s)
+
+        if not success:
+            rospy.logwarn("Failed to command /spot/ee_pose target pose.")
 
     def command_trajectory(
         self,
@@ -492,7 +628,7 @@ class SpotManipulationInterface:
             joint_idx = trajectory.joint_names.index(urdf_joint)
             command_rad = command_start_angles_rad[joint_idx]
 
-            if abs(curr_rad - command_rad) < angle_proximity_rad:
+            if abs(curr_rad - command_rad) > angle_proximity_rad:
                 self._manager.log_info(
                     "Commanded trajectory doesn't start at Spot's current arm configuration.",
                 )
@@ -564,7 +700,7 @@ class SpotManipulationInterface:
         cumulative_bump_s = 0.0  # Cumulative bump (seconds) to delay each retry
         for attempt in range(1, max_attempts + 1):
             try:
-                self._command_id = self._manager.send_robot_command(schedule.commands[idx])
+                self._arm_command_id = self._manager.send_robot_command(schedule.commands[idx])
 
             except InvalidRequestError as err:  # noqa: PERF203
                 attempt_num = f"{attempt}/{max_attempts}"
@@ -589,51 +725,85 @@ class SpotManipulationInterface:
                 self._manager.log_info("Trajectory segment sent.\n")
                 return
 
-    def _ee_pose_cb(self, msg: PoseStamped) -> None:
-        """Command Spot's end-effector to move to a given pose."""
-        if self._arm_locked:
-            return
 
-        if not self._manager.ensure_control(take_by_force=False):
-            rospy.logwarn("Ignoring /spot/ee_pose because Spot control is unavailable.")
-            return
+# def handle_place_object(self, request: PlaceObjectRequest) -> PlaceObjectResponse:
+#         """Handle a request to place an object onto a surface."""
+#         failure_message = None
 
-        if not msg.header.frame_id:
-            rospy.logwarn("Ignoring /spot/ee_pose because PoseStamped.header.frame_id is empty.")
-            return
+#         if request.object_name not in self._env_state.object_names:
+#             failure_message = f"Cannot place unknown object: '{request.object_name}'."
+#         elif request.surface_name not in self._env_state.object_names:
+#             failure_message = f"Cannot place onto unknown surface: '{request.surface_name}'."
+#         elif self._curr_grasp is None:
+#             failure_message = "Cannot place; must pick first."
 
-        target_pose = pose_from_msg(msg)
-        try:
-            target_pose_b_ee = TransformManager.convert_to_frame(
-                target_pose,
-                self.manipulator.base_frame,
-            )
-        except RuntimeError as err:
-            rospy.logwarn(
-                "Ignoring /spot/ee_pose; failed frame conversion into "
-                f"'{self.manipulator.base_frame}': {err}",
-            )
-            return
+#         if failure_message:
+#             return PlaceObjectResponse(success=False, message=failure_message)
 
-        try:
-            current_sdk_pose = self._manager.get_hand_pose(ref_frame=BODY_FRAME_NAME)
-            current_pose_b_ee = pose_from_sdk(current_sdk_pose, ref_frame=BODY_FRAME_NAME)
-            diff = target_pose_b_ee.position.to_array() - current_pose_b_ee.position.to_array()
-            distance_m = float(np.linalg.norm(diff))
-            duration_s = max(distance_m / self._ee_pose_max_vel_mps, self._ee_pose_min_duration_s)
-        except Exception as err:
-            rospy.logwarn(f"Skipping /spot/ee_pose; failed to read hand pose: {err}")
-            return
+#         placed_obj = self._env_state.get_object_kinematic_state(request.object_name)
+#         if placed_obj is None:
+#             return PlaceObjectResponse(
+#                 success=False,
+#                 message=f"Unable to retrieve kinematic state of '{request.object_name}'.",
+#             )
 
-        with self._robot_rpc_manager.priority() as got_priority:
-            if not got_priority:
-                rospy.logwarn("Skipping /spot/ee_pose command because RPC priority is unavailable.")
-                return
+#         surface_obj = self._env_state.get_object_kinematic_state(request.surface_name)
+#         if surface_obj is None:
+#             return PlaceObjectResponse(
+#                 success=False,
+#                 message=f"Unable to retrieve kinematic state of '{request.surface_name}'.",
+#             )
 
-            success = self._arm_controller.command_end_effector_pose(
-                target_pose_b_ee=target_pose_b_ee,
-                duration_s=duration_s,
-            )
+#         surface = PlacementSurface.from_object_aabb(surface_obj)
+#         pose_ee_o = self._curr_grasp.pose_ee_o
+#         place_pose_args = PlacePosesArgs(
+#             surface,
+#             placed_obj,
+#             pose_ee_o,
+#             self._arm_interface.manipulator,
+#         )
+#         generator = PlacePosesGenerator(place_pose_args)
 
-        if not success:
-            rospy.logwarn("Failed to command /spot/ee_pose target pose.")
+#         for place_poses in generator:
+#             rospy.loginfo(f"Attempting to motion plan for generator sample {generator.count}...")
+
+#             pre_query = MotionPlanningQuery(ee_target=place_poses.preplace_pose)
+#             place_query = MotionPlanningQuery(ee_target=place_poses.place_pose)
+#             post_query = MotionPlanningQuery(ee_target=place_poses.postplace_pose)
+
+#             with self._planning_scene_lock:
+#                 pre_plan_msg = self._arm_interface.manipulator.planner.compute_motion_plan(
+#                     pre_query,
+#                 )
+#             if pre_plan_msg is None:
+#                 continue
+#             pre_place_success = self._arm_interface.manipulator.execute_trajectory_msg(pre_plan_msg)
+#             if not pre_place_success:
+#                 message = "Failed to execute pre-place trajectory."
+#                 return PlaceObjectResponse(success=False, message=message)
+
+#             with self._planning_scene_lock:
+#                 plan_msg = self._arm_interface.manipulator.planner.compute_motion_plan(place_query)
+#             if plan_msg is None:
+#                 continue
+#             place_success = self._arm_interface.manipulator.execute_trajectory_msg(plan_msg)
+#             if not place_success:
+#                 message = "Failed to execute place trajectory."
+#                 return PlaceObjectResponse(success=False, message=message)
+
+#             with self._planning_scene_lock:
+#                 post_plan_msg = self._arm_interface.manipulator.planner.compute_motion_plan(
+#                     post_query,
+#                 )
+#             if post_plan_msg is None:
+#                 continue
+#             post_place_success = self._arm_interface.manipulator.execute_trajectory_msg(
+#                 post_plan_msg,
+#             )
+#             if not post_place_success:
+#                 message = "Failed to execute post-place trajectory."
+#                 return PlaceObjectResponse(success=False, message=message)
+
+#             return PlaceObjectResponse(success=True, message="Object has been placed.")
+
+#         return PlaceObjectResponse(success=False, message="Unexpectedly exited loop???")

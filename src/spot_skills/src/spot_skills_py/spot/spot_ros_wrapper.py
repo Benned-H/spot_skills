@@ -1,22 +1,13 @@
 """Define a class providing a ROS 1 interface to the Spot robot."""
 
+from __future__ import annotations
+
 import threading
 from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
 import rospy
-from actionlib import SimpleActionServer
-from bosdyn.client.frame_helpers import BODY_FRAME_NAME
-from control_msgs.msg import (
-    FollowJointTrajectoryAction,
-    FollowJointTrajectoryGoal,
-    FollowJointTrajectoryResult,
-    GripperCommandAction,
-    GripperCommandGoal,
-    GripperCommandResult,
-)
-from geometry_msgs.msg import PoseStamped, Twist
 from nav_msgs.msg import OccupancyGrid as OccupancyGridMsg
 from robotics_utils.geometry import Point3D
 from robotics_utils.io import make_unique_path
@@ -24,7 +15,6 @@ from robotics_utils.io.yaml_utils import export_yaml_data
 from robotics_utils.motion_planning import DiscreteGrid2D, MotionPlanningQuery
 from robotics_utils.parallelism import ResourceManager
 from robotics_utils.perception import LaserScan2D, OccupancyGrid2D
-from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import CallLoopThread, TagTracker, TransformManager, get_ros_param
 from robotics_utils.ros.msg_conversion import (
     occupancy_grid_to_msg,
@@ -34,7 +24,6 @@ from robotics_utils.ros.msg_conversion import (
     pose_to_stamped_msg,
     poses_to_marker_msg,
 )
-from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
 from robotics_utils.skills.protocols.spot_skills import SpotSkillsProtocol
 from robotics_utils.spatial import DEFAULT_FRAME, Pose2D, Pose3D, Quaternion
@@ -78,22 +67,8 @@ from spot_skills.srv import (
     PoseLookup,
     PoseLookupRequest,
     PoseLookupResponse,
-    ProbeSurface,
-    ProbeSurfaceRequest,
-    ProbeSurfaceResponse,
 )
 from spot_skills_py.behavior_cloning import PolicyReplayBridge
-from spot_skills_py.joint_trajectory import JointTrajectory
-from spot_skills_py.spot.refactored.spot_manipulation import (
-    ArmCommandOutcome,
-    GripperCommandOutcome,
-    SpotManipulationInterface,
-)
-from spot_skills_py.spot.spot_conversion import (
-    SPOT_GRIPPER_CLOSED_RAD,
-    SPOT_GRIPPER_OPEN_RAD,
-    pose_from_sdk,
-)
 from spot_skills_py.spot.spot_erase import (
     erase_board,
     # estimate_whiteboard_depth,  # COMMENTED OUT: using fixed board_y param instead
@@ -104,6 +79,7 @@ from spot_skills_py.spot.spot_graph_nav import SpotGraphNav
 from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient, SpotRGBCamera
 from spot_skills_py.spot.spot_lidar import StampedPointCloud
 from spot_skills_py.spot.spot_manager import SpotManager
+from spot_skills_py.spot.spot_manipulation import SpotManipulationInterface
 from spot_skills_py.spot.spot_navigation import SpotNavigationServer
 from spot_skills_py.spot.spot_open_door import SpotDoorOpener
 from spot_skills_py.visualize_graphnav import GraphNavRViz
@@ -116,29 +92,9 @@ class SpotROS1Wrapper:
         """Initialize the ROS interface by creating an internal SpotManager."""
         TransformManager.init_node()
 
-        # Initialize Spot's arm as locked before enabling any of the actions!
-        self._arm_locked = True  # Begin without ROS control of Spot's arm
-        self._manager_exists = False
-        self._arm_interface_exists = False
-
         self._robot_rpc_manager = ResourceManager(grace_period_s=1.0)
 
         # Set up all ROS action servers provided by the class (do this early so MoveIt finds them)
-        self._arm_action_name = "arm_controller/follow_joint_trajectory"
-        self._arm_action_server = SimpleActionServer(
-            self._arm_action_name,
-            FollowJointTrajectoryAction,
-            execute_cb=self.arm_action_callback,
-            auto_start=False,
-        )
-        self._arm_action_server.start()
-        rospy.loginfo(f"[{self._arm_action_name}] Action server has started.")
-
-        # Load the initial environment state from YAML and update the MoveIt planning scene
-        env_yaml_param = get_ros_param("/spot/env_yaml_path", str)
-        rospy.loginfo(f"Loading object-centric state from file: {env_yaml_param}")
-        self._env_state = ObjectCentricState.from_yaml(Path(env_yaml_param))
-
         spot_rosparams = ["/spot/hostname", "/spot/username", "/spot/password"]
         spot_rosparam_values = [get_ros_param(par, str) for par in spot_rosparams]
         spot_hostname, spot_username, spot_password = spot_rosparam_values
@@ -149,14 +105,11 @@ class SpotROS1Wrapper:
             username=spot_username,
             password=spot_password,
         )
-        self._manager_exists = True
 
         self._arm_interface = SpotManipulationInterface(
             manager=self._manager,
             robot_rpc_manager=self._robot_rpc_manager,
-            env_state=self._env_state,
         )
-        self._arm_interface_exists = True
 
         gemini_api_key = get_ros_param("~gemini_api_key", str, "NOT SPECIFIED")
         if gemini_api_key == "NOT SPECIFIED":
@@ -169,14 +122,7 @@ class SpotROS1Wrapper:
         if immediate_control:
             self._manager.take_control(force=True)
 
-        self._curr_grasp: GraspAttachment | None = None
-
         # Initialize all ROS services provided by the class
-        self._grasp_srv = rospy.Service("spot/grasp_object", NameService, self.handle_grasp)
-        self._release_srv = rospy.Service("spot/release_object", PlaceObject)
-
-        self._place_srv = rospy.Service("spot/place_object", PlaceObject, self.handle_place_object)
-
         self._hide_object_srv = rospy.Service(
             "spot/moveit/hide_object",
             NameService,
@@ -197,16 +143,11 @@ class SpotROS1Wrapper:
 
         self._stand_service = rospy.Service("spot/stand", Trigger, self.handle_stand)
         self._sit_service = rospy.Service("spot/sit", Trigger, self.handle_sit)
-        self._default_pose_srv = rospy.Service(
-            "spot/default_body_pose",
-            Trigger,
-            self.handle_default_body_pose,
-        )
-        self._body_in_default_pose = False  # Conservatively assume non-default pose
+        self._flatten_srv = rospy.Service("spot/flatten_body_pose", Trigger, self._flatten_body_cb)
+        self._flat_body_tolerance_rad = 0.05
 
         self._shutdown_service = rospy.Service("spot/shutdown", Trigger, self.handle_shutdown)
 
-        self._deploy_arm_service = rospy.Service("spot/deploy_arm", Trigger, self.handle_deploy_arm)
         self._open_door_service = rospy.Service("spot/open_door", OpenDoor, self.handle_open_door)
         self._playback_trajectory_service = rospy.Service(
             "spot/playback_trajectory",
@@ -214,7 +155,7 @@ class SpotROS1Wrapper:
             self.handle_playback_trajectory,
         )
         self._erase_service = rospy.Service("spot/erase_board", Trigger, self.handle_erase_board)
-        self._probe_service = rospy.Service("spot/probe_surface", ProbeSurface, self.handle_probe)
+
         self._take_control_srv = rospy.Service(
             "spot/take_control",
             Trigger,
@@ -299,22 +240,6 @@ class SpotROS1Wrapper:
             self.handle_compute_motion_plan,
         )
 
-        # self._ee_pose_max_vel_mps = 0.4  # Max EE speed for /spot/ee_pose commands (m/s)
-        # self._ee_pose_min_duration_s = 0.5  # Minimum command duration regardless of distance (s)
-        # self._ee_velocity_cmd_duration_s = 0.5  # Duration per ee_cmd_vel command (s)
-        # self._ee_pose_sub = rospy.Subscriber(
-        #     "/spot/ee_pose",
-        #     PoseStamped,
-        #     self.handle_ee_pose,
-        #     queue_size=1,
-        # )
-        # self._ee_cmd_vel_sub = rospy.Subscriber(
-        #     "/spot/ee_cmd_vel",
-        #     Twist,
-        #     self.handle_ee_cmd_vel,
-        #     queue_size=1,
-        # )
-
         traj_config = RelativeTrajectoryConfig(
             min_pose_diff_m=0.02,
             min_pose_diff_deg=5,
@@ -332,11 +257,16 @@ class SpotROS1Wrapper:
             GetRGBImages,
             self.handle_get_rgb_images,
         )
-        self._capoture_image_obs_srv = rospy.Service(
+        self._capture_image_obs_srv = rospy.Service(
             "spot/capture_image_observation",
             CaptureImageObservation,
             self.handle_capture_image_observation,
         )
+
+        # Load the initial environment state from YAML and update the MoveIt planning scene
+        env_yaml_param = get_ros_param("/spot/env_yaml_path", str)
+        rospy.loginfo(f"Loading object-centric state from file: {env_yaml_param}")
+        self._env_state = ObjectCentricState.from_yaml(Path(env_yaml_param))
 
         # Create occupancy grid before navigation server so it can be passed in
         # Check if the occupancy grid map should be loaded from file
@@ -411,7 +341,6 @@ class SpotROS1Wrapper:
 
         # Begin synchronizing the environment state with TF in a loop
         self._state_thread = CallLoopThread(func=self._broadcast_frames, loop_hz=5.0)
-
         self._planning_scene_thread = CallLoopThread(func=self._sync_planning_scene, loop_hz=5.0)
 
         self.stamped_cloud: StampedPointCloud | None = None
@@ -429,6 +358,9 @@ class SpotROS1Wrapper:
             name="Occupancy Grid",
             resource_manager=self._robot_rpc_manager,
         )
+
+        # Update the MoveIt planning scene to align with the loaded environment model
+        self._arm_interface.manipulator.planning_scene.set_state(self._env_state)
 
         self.spot_skills = SpotSkillsProtocol(self._arm_interface.manipulator)
 
@@ -549,101 +481,6 @@ class SpotROS1Wrapper:
         except Exception as exc:
             self._manager.log_info(f"Exception during occupancy grid update: {exc}")
 
-    def handle_grasp(self, request: NameServiceRequest) -> NameServiceResponse:
-        """Handle a request to grasp the named object."""
-        object_name = request.name
-
-        if object_name not in self._env_state.object_names:
-            return NameServiceResponse(
-                success=False,
-                message=f"Cannot grasp unknown object: '{object_name}'.",
-            )
-
-        outcome = self.manipulator.grasp(object_name=object_name)
-        if outcome.output is None:
-            return NameServiceResponse(
-                success=False,
-                message=f"Pose output from grasping '{object_name}' was None.",
-            )
-        self._curr_grasp = outcome.output
-
-        # Update the object's pose as now dependent on Spot's end-effector
-        pose_ee_o = outcome.output.pose_ee_o
-        self._env_state.set_known_object_pose(obj_name=object_name, pose=pose_ee_o)
-
-        return NameServiceResponse(success=outcome.success, message=outcome.message)
-
-    def handle_place_object(self, request: PlaceObjectRequest) -> PlaceObjectResponse:
-        """Handle a request to place an object onto a surface."""
-        failure_message = None
-
-        if request.object_name not in self._env_state.object_names:
-            failure_message = f"Cannot place unknown object: '{request.object_name}'."
-        elif request.surface_name not in self._env_state.object_names:
-            failure_message = f"Cannot place onto unknown surface: '{request.surface_name}'."
-        elif self._curr_grasp is None:
-            failure_message = "Cannot place; must pick first."
-
-        if failure_message:
-            return PlaceObjectResponse(success=False, message=failure_message)
-
-        placed_obj = self._env_state.get_object_kinematic_state(request.object_name)
-        if placed_obj is None:
-            return PlaceObjectResponse(
-                success=False,
-                message=f"Unable to retrieve kinematic state of '{request.object_name}'.",
-            )
-
-        surface_obj = self._env_state.get_object_kinematic_state(request.surface_name)
-        if surface_obj is None:
-            return PlaceObjectResponse(
-                success=False,
-                message=f"Unable to retrieve kinematic state of '{request.surface_name}'.",
-            )
-
-        surface = PlacementSurface.from_object_aabb(surface_obj)
-        pose_ee_o = self._curr_grasp.pose_ee_o
-        place_pose_args = PlacePosesArgs(surface, placed_obj, pose_ee_o, self.manipulator)
-        generator = PlacePosesGenerator(place_pose_args)
-
-        for place_poses in generator:
-            rospy.loginfo(f"Attempting to motion plan for generator sample {generator.count}...")
-
-            pre_query = MotionPlanningQuery(ee_target=place_poses.preplace_pose)
-            place_query = MotionPlanningQuery(ee_target=place_poses.place_pose)
-            post_query = MotionPlanningQuery(ee_target=place_poses.postplace_pose)
-
-            with self._planning_scene_lock:
-                pre_plan_msg = self.manipulator.planner.compute_motion_plan(pre_query)
-            if pre_plan_msg is None:
-                continue
-            pre_place_success = self.manipulator.execute_trajectory_msg(pre_plan_msg)
-            if not pre_place_success:
-                message = "Failed to execute pre-place trajectory."
-                return PlaceObjectResponse(success=False, message=message)
-
-            with self._planning_scene_lock:
-                plan_msg = self.manipulator.planner.compute_motion_plan(place_query)
-            if plan_msg is None:
-                continue
-            place_success = self.manipulator.execute_trajectory_msg(plan_msg)
-            if not place_success:
-                message = "Failed to execute place trajectory."
-                return PlaceObjectResponse(success=False, message=message)
-
-            with self._planning_scene_lock:
-                post_plan_msg = self.manipulator.planner.compute_motion_plan(post_query)
-            if post_plan_msg is None:
-                continue
-            post_place_success = self.manipulator.execute_trajectory_msg(post_plan_msg)
-            if not post_place_success:
-                message = "Failed to execute post-place trajectory."
-                return PlaceObjectResponse(success=False, message=message)
-
-            return PlaceObjectResponse(success=True, message="Object has been placed.")
-
-        return PlaceObjectResponse(success=False, message="Unexpectedly exited loop???")
-
     def handle_hide_object(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a request to hide an object in the MoveIt planning scene."""
         self._env_state.hide_object(obj_name=request.name)
@@ -681,12 +518,28 @@ class SpotROS1Wrapper:
         response = ComputeMotionPlanResponse()
         response.success = False
 
+        # Ensure Spot is in a flat body pose before planning any arm motion.
+        try:
+            body_is_flat = self._manager.is_body_flat(tolerance_rad=self._flat_body_tolerance_rad)
+        except (RuntimeError, TypeError) as exc:
+            response.message = f"Failed to verify body tilt before planning: {exc}"
+            return response
+
+        if not body_is_flat:
+            flatten_outcome = self._flatten_body_cb(TriggerRequest())
+            if not flatten_outcome.success:
+                response.message = (
+                    "Cannot motion plan because Spot's body didn't reach a flat pose:"
+                    f"{flatten_outcome.message}"
+                )
+                return response
+
         with self._planning_scene_lock:
             for obj_name in request.ignored_objects:  # Hide ignored objects before planning
                 self._env_state.hide_object(obj_name=obj_name)
 
             # Sync the planning scene with the updated state (objects now hidden)
-            self.manipulator.planning_scene.set_state(self._env_state)
+            self._arm_interface.manipulator.planning_scene.set_state(self._env_state)
 
             target_pose = pose_from_msg(request.target_pose)
             query = MotionPlanningQuery(
@@ -695,13 +548,13 @@ class SpotROS1Wrapper:
             )
             rospy.loginfo(f"[compute_motion_plan] Planning with query: {query}")
 
-            plan_msg = self.manipulator.planner.compute_motion_plan(query)
+            plan_msg = self._arm_interface.manipulator.planner.compute_motion_plan(query)
 
             for obj_name in request.ignored_objects:  # Unhide hidden objects after planning
                 self._env_state.unhide_object(obj_name=obj_name)
 
             # Sync again to restore the planning scene
-            self.manipulator.planning_scene.set_state(self._env_state)
+            self._arm_interface.manipulator.planning_scene.set_state(self._env_state)
 
         if plan_msg is None:
             response.message = "Motion planning failed: no valid plan found."
@@ -727,7 +580,7 @@ class SpotROS1Wrapper:
 
         rospy.loginfo(f"Handling request to reset state per YAML file: {yaml_path}")
 
-        if not self.manipulator.planning_scene.detach_all_objects():
+        if not self._arm_interface.manipulator.planning_scene.detach_all():
             return NameServiceResponse(
                 success=False,
                 message="Unable to detach all objects in the MoveIt planning scene.",
@@ -746,7 +599,6 @@ class SpotROS1Wrapper:
         """
         stood_up = False
         if self._manager.ensure_control(take_by_force=False):
-            self._body_in_default_pose = False
             stood_up = self._manager.stand_up(20)
 
         message = "Spot is now standing." if stood_up else "Could not make Spot stand."
@@ -761,34 +613,67 @@ class SpotROS1Wrapper:
         """
         sit_success = False
         if self._manager.ensure_control(take_by_force=False):
-            self._body_in_default_pose = False
             sit_success = self._manager.sit_down(20)
 
         message = "Spot is now sitting." if sit_success else "Spot could not sit."
 
         return TriggerResponse(sit_success, message)
 
-    def handle_default_body_pose(self, _: TriggerRequest) -> TriggerResponse:
-        """Handle a service request to bring Spot's body to its default pose.
+    def _flatten_body_cb(self, _: TriggerRequest) -> TriggerResponse:
+        """Flatten Spot's body roll/pitch if it is currently tilted."""
+        if not self._manager.ensure_control(take_by_force=False):
+            return TriggerResponse(
+                success=False,
+                message="Could not flatten body pose because SpotManager lacks control.",
+            )
 
-        :param _: ROS message requesting that Spot's body move to its default pose
-        :return: Response conveying whether Spot successfully moved to the pose
-        """
-        if self._body_in_default_pose:
-            return TriggerResponse(success=True, message="Body was already in the default pose.")
+        try:
+            roll_rad, pitch_rad = self._manager.get_body_tilt_rad()
+        except TypeError as exc:
+            return TriggerResponse(
+                success=False,
+                message=f"Failed to read current body tilt: {exc}",
+            )
 
-        robot_command = self._manager.build_hold_body_pose_command()
+        if self._manager.is_body_flat(tolerance_rad=self._flat_body_tolerance_rad):
+            return TriggerResponse(
+                success=True,
+                message=(
+                    f"Body already flat (roll={roll_rad:.3f} rad, pitch={pitch_rad:.3f} rad)."
+                ),
+            )
+
+        robot_command = self._manager.build_flat_body_pose_command()
         command_id = self._manager.send_robot_command(robot_command)
         if command_id is None:
-            return TriggerResponse(success=False, message="Robot command ID was None.")
+            return TriggerResponse(success=False, message="Failed to send flatten body command.")
 
-        success = self._manager.block_until_standing(command_id)
-        if success:
-            self._body_in_default_pose = True
-            rospy.sleep(3)  # Wait 3 seconds to allow transforms to account for Spot's base pose
+        if not self._manager.block_until_standing(command_id):
+            return TriggerResponse(success=False, message="Timed out while flattening body pose.")
 
-        message = "Reached default body pose." if success else "Failed to reach default body pose."
-        return TriggerResponse(success=success, message=message)
+        rospy.sleep(1.0)  # Let Spot settle, then re-check to report verified flatness
+
+        try:
+            roll_rad, pitch_rad = self._manager.get_body_tilt_rad()
+        except RuntimeError as exc:
+            return TriggerResponse(
+                success=False,
+                message=f"Body flatten command completed but tilt verification failed: {exc}",
+            )
+
+        if self._manager.is_body_flat(self._flat_body_tolerance_rad):
+            return TriggerResponse(
+                success=True,
+                message=(f"Body flattened (roll={roll_rad:.3f} rad, pitch={pitch_rad:.3f} rad)."),
+            )
+
+        return TriggerResponse(
+            success=False,
+            message=(
+                "Flatten command completed but body remains tilted "
+                f"(roll={roll_rad:.3f} rad, pitch={pitch_rad:.3f} rad)."
+            ),
+        )
 
     def handle_dock(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to dock Spot at its default dock.
@@ -796,8 +681,6 @@ class SpotROS1Wrapper:
         :param _: ROS message requesting that Spot be docked (unused)
         :return: Response conveying whether Spot successfully docked
         """
-        self._body_in_default_pose = False
-
         dock_id = get_ros_param("spot/dock_id", int, default_value=520)
         success = self._manager.dock(dock_id)
         message = "Spot successfully docked." if success else "Spot failed to dock."
@@ -809,8 +692,6 @@ class SpotROS1Wrapper:
         :param _: ROS message requesting that Spot be undocked
         :return: Response conveying whether Spot successfully undocked
         """
-        self._body_in_default_pose = False
-
         outcome = self._manager.undock()
         return TriggerResponse(outcome.success, outcome.message)
 
@@ -827,9 +708,6 @@ class SpotROS1Wrapper:
             )
 
         self._manager.log_info("Handling 'NavigateToPose' request...")
-
-        # Assume that navigating may leave Spot's body with non-default control settings
-        self._body_in_default_pose = False
 
         target_2d = pose_from_msg(request.target_base_pose).to_2d()
         timeout_s = request.timeout_s
@@ -871,9 +749,6 @@ class SpotROS1Wrapper:
             f"Handling 'NavigateToWaypoint' request for waypoint '{request.name}'...",
         )
 
-        # Assume that navigating may leave Spot's body with non-default control settings
-        self._body_in_default_pose = False
-
         target_pose = self._navigation_server.waypoints[request.name]
         self._manager.log_info(f"Waypoint '{request.name}' has target pose: {target_pose}.")
 
@@ -909,28 +784,6 @@ class SpotROS1Wrapper:
         rospy.signal_shutdown("Shutting down Spot ROS wrapper...")
 
         return TriggerResponse(success=True, message="Spot has been shut down.")
-
-    def handle_deploy_arm(self, _: TriggerRequest) -> TriggerResponse:
-        """Handle a service request to deploy Spot's arm.
-
-        :param _: Message representing a request to deploy Spot's arm
-        :return: Response conveying whether Spot's arm has been deployed
-        """
-        if self._arm_locked:
-            message = "Spot's arm was not deployed because Spot's arm remains locked."
-            return TriggerResponse(success=False, message=message)
-
-        deployed = False
-        if self._manager.ensure_control(take_by_force=False):
-            self._body_in_default_pose = False  # Assume that Spot's body may adjust for the arm
-            deployed = self._manager.deploy_arm()
-
-        return TriggerResponse(
-            success=deployed,
-            message=(
-                "Spot's arm has been deployed." if deployed else "Could not deploy Spot's arm."
-            ),
-        )
 
     def handle_start_mapping(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to start mapping using GraphNav.
@@ -1187,7 +1040,7 @@ class SpotROS1Wrapper:
         :param request: ROS message representing a request to open a door
         :return: Response conveying whether Spot was able to open the door
         """
-        if self._arm_locked:
+        if self._arm_interface.locked:
             message = "Could not open door because Spot's arm remains locked."
             return OpenDoorResponse(success=False, message=message)
 
@@ -1202,11 +1055,8 @@ class SpotROS1Wrapper:
                     message="Could not obtain RPC priority; background threads still active.",
                 )
 
-            # Assume that opening a door may leave Spot's body in a non-default pose
-            self._body_in_default_pose = False
-
             # Call the operations needed for door-opening, step-by-step
-            self.manipulator.gripper.open()
+            self._arm_interface.gripper.open()
             door_image = self._door_opener.capture_door_handle_image(request.body_pitch_rad)
 
             if self._door_opener.detect_handle_xy(door_image) is None:
@@ -1246,7 +1096,7 @@ class SpotROS1Wrapper:
                 message=f"Cannot play back trajectory from nonexistent file: {yaml_path}",
             )
 
-        if self._arm_locked:
+        if self._arm_interface.locked:
             message = f"Cannot replay trajectory from {yaml_path} because Spot's arm is locked."
             return PlaybackTrajectoryResponse(success=False, message=message)
 
@@ -1286,7 +1136,7 @@ class SpotROS1Wrapper:
         :param _: Message representing a request to erase a board
         :return: Response conveying whether the whiteboard was erased
         """
-        if self._arm_locked:
+        if self._arm_interface.locked:
             return TriggerResponse(
                 success=False,
                 message="Could not erase whiteboard because Spot's arm remains locked.",
@@ -1298,9 +1148,6 @@ class SpotROS1Wrapper:
         with self._robot_rpc_manager.priority() as got_priority:
             if not got_priority:
                 return TriggerResponse(success=False, message="Could not obtain RPC priority.")
-
-            # Assume that erasing may tilt Spot's body when compensating for force control
-            self._body_in_default_pose = False
 
             # Update the LiDAR displayed in RViz to clarify what's going on
             lidar_was_paused = self._lidar_paused
@@ -1468,56 +1315,12 @@ class SpotROS1Wrapper:
 
             return TriggerResponse(success=True, message="Erased the whiteboard.")
 
-    def handle_probe(self, request: ProbeSurfaceRequest) -> ProbeSurfaceResponse:
-        """Handle a service request to probe for a surface using Spot's gripper.
-
-        :param request: Message configuring the surface probe attempt
-        :return: Response with a Boolean success indicator and outcome message
-        """
-        if not self._manager.has_control:
-            return ProbeSurfaceResponse(
-                success=False,
-                message="Cannot probe for surface; SpotManager doesn't control Spot.",
-            )
-
-        with self._robot_rpc_manager.priority() as got_priority:
-            if not got_priority:
-                return ProbeSurfaceResponse(
-                    success=False,
-                    message="Could not obtain RPC priority before probing.",
-                )
-
-            # Assume that force-controlled probing may tilt Spot's body to compensate forces
-            self._body_in_default_pose = False
-
-            plane_result = self._arm_controller.force_controller.probe_surface(
-                direction=point_from_vector3_msg(request.direction),
-                max_distance_m=request.max_distance_m,
-                velocity_mps=request.velocity_mps,
-                force_threshold_n=request.force_threshold_n,
-                force_check_hz=request.force_check_hz,
-                num_probes=request.num_probes,
-                probe_interval_s=request.probe_interval_s,
-            )
-
-            success = plane_result is not None
-            message = (
-                f"Found surface: {plane_result}"
-                if success
-                else "Probed for surface but no surface was found."
-            )
-
-            return ProbeSurfaceResponse(success, message)
-
     def handle_take_control(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to forcibly take control of Spot.
 
         :param _: Message representing a request to take control of Spot
         :return: Response conveying whether control was successfully taken
         """
-        # Conservatively assume that Spot's body was left in an arbitrary non-default pose
-        self._body_in_default_pose = False
-
         has_control = self._manager.ensure_control(take_by_force=True)
         message = (
             "SpotManager now controls Spot."
@@ -1656,154 +1459,6 @@ class SpotROS1Wrapper:
             success=True,
             message=f"Successfully resumed pose estimation for '{object_name}'.",
         )
-
-    def handle_ee_cmd_vel(self, msg: Twist) -> None:
-        """Handle a body-frame end-effector velocity command from /spot/ee_cmd_vel."""
-        if self._arm_locked:
-            return
-
-        if not self._manager.ensure_control(take_by_force=False):
-            rospy.logwarn("Ignoring /spot/ee_cmd_vel because SpotManager doesn't control Spot.")
-            return
-
-        with self._robot_rpc_manager.priority() as got_priority:
-            if not got_priority:
-                rospy.logwarn(
-                    "Skipping /spot/ee_cmd_vel command because RPC priority is unavailable.",
-                )
-                return
-
-            success = self._arm_controller.command_end_effector_body_velocity(
-                linear_x_mps=msg.linear.x,
-                linear_y_mps=msg.linear.y,
-                linear_z_mps=msg.linear.z,
-                angular_x_radps=msg.angular.x,
-                angular_y_radps=msg.angular.y,
-                angular_z_radps=msg.angular.z,
-                duration_s=self._ee_velocity_cmd_duration_s,
-            )
-
-        if not success:
-            rospy.logwarn("Failed to command /spot/ee_cmd_vel twist.")
-
-    def arm_action_callback(self, goal: FollowJointTrajectoryGoal, delay_s: float = 0.5) -> None:
-        """Handle a new goal for the FollowJointTrajectory action server.
-
-        If Spot's arm is unlocked, trajectories sent to this server will be executed.
-
-        Reference: https://tinyurl.com/FollowJointTrajectory
-
-        :param goal: Joint trajectory to be followed
-        :param delay_s: Delay (seconds) to wait after any successful command execution
-        """
-        result = FollowJointTrajectoryResult()
-        result.error_code = -1  # Default error code: INVALID_GOAL
-
-        if not (self._manager_exists and self._arm_controller_exists):
-            result.error_string = "Could not follow trajectory because SpotManager is not set up."
-            rospy.loginfo(f"[{self._arm_action_name}] {result.error_string}")
-            self._arm_action_server.set_aborted(result)
-            return
-
-        # Extract all fields of the received action goal message
-        trajectory = JointTrajectory.from_ros_msg(goal.trajectory)
-
-        # TODO: Could use the joint tolerances to enforce within-bounds trajectory
-        #   execution. Similar logic would allow the action server to publish feedback.
-        # Currently, we're ignoring these variables in the received trajectory:
-        #   path_tolerance, goal_tolerance, goal_time_tolerance
-
-        # Log information about the received trajectory
-        first_rel_time_s = trajectory.points[0].time_from_start_s
-        last_rel_time_s = trajectory.points[-1].time_from_start_s
-        traj_duration_s = last_rel_time_s - first_rel_time_s
-
-        rospy.loginfo(
-            f"[{self._arm_action_name}] Received trajectory of length "
-            f"{len(trajectory.points)}, lasting {traj_duration_s} seconds.",
-        )
-
-        if self._arm_locked:
-            result.error_string = "Could not follow trajectory because Spot's arm remains locked."
-            self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
-            self._arm_action_server.set_aborted(result)
-            return
-
-        if not self._manager.ensure_control(take_by_force=False):
-            result.error_string = "Could not obtain control of Spot."
-            self._arm_action_server.set_aborted(result)
-            return
-
-        with self._robot_rpc_manager.priority() as got_priority:
-            if not got_priority:
-                result.error_string = "Could not obtain RPC priority; other threads still active."
-                self._arm_action_server.set_aborted(result)
-                return
-
-            # Attempt to send the trajectory using the SpotArmController
-            outcome = self._arm_controller.command_trajectory(
-                trajectory,
-                self._arm_action_server,
-            )
-
-            # Update the ROS action server based on the outcome of the trajectory
-            if outcome == ArmCommandOutcome.SUCCESS:
-                rospy.sleep(delay_s)  # Delay after the end of any successful trajectory
-
-                result.error_code = int(outcome)
-                result.error_string = "Success!"
-                self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
-                self._arm_action_server.set_succeeded(result)
-
-            elif outcome == ArmCommandOutcome.INVALID_START:
-                result.error_string = (
-                    "Could not follow trajectory because it did not begin "
-                    "from the current configuration of Spot's arm."
-                )
-
-                self._arm_action_server.set_aborted(result)
-
-            elif outcome == ArmCommandOutcome.ARM_LOCKED:
-                result.error_string = "Could not follow trajectory because Spot's arm is locked."
-                self._manager.log_info(f"[{self._arm_action_name}] {result.error_string}")
-
-                self._arm_action_server.set_aborted(result)
-
-            elif outcome == ArmCommandOutcome.PREEMPTED:
-                self._arm_action_server.set_preempted()
-
-    def gripper_action_callback(self, goal: GripperCommandGoal, delay_s: float = 0.25) -> None:
-        """Handle a new goal for the GripperCommandAction action server.
-
-        If Spot's arm is unlocked, gripper commands sent to this server will be executed.
-
-        Reference: https://docs.ros.org/en/noetic/api/control_msgs/html/action/GripperCommand.html
-
-        :param goal: Gripper command to be executed
-        :param delay_s: Delay (seconds) to wait after command execution has nominally finished
-        """
-        gripper_command_result = GripperCommandResult()
-
-        if (not self._manager_exists) or (not self._arm_controller_exists) or self._arm_locked:
-            gripper_command_result.reached_goal = False
-            self._gripper_action_server.set_aborted(gripper_command_result)
-            return
-
-        goal_position_rad = goal.command.position  # Ignoring goal.command.max_effort
-
-        outcome = GripperCommandOutcome.FAILURE
-        if self._manager.ensure_control(take_by_force=False):
-            outcome = self._arm_controller.command_gripper(goal_position_rad)
-            rospy.sleep(delay_s)
-
-        if outcome == GripperCommandOutcome.FAILURE:
-            gripper_command_result.reached_goal = False
-            self._gripper_action_server.set_aborted(gripper_command_result)
-        else:
-            gripper_command_result.reached_goal = outcome == GripperCommandOutcome.REACHED_SETPOINT
-            gripper_command_result.stalled = outcome == GripperCommandOutcome.STALLED
-
-            self._gripper_action_server.set_succeeded(gripper_command_result)
 
     def handle_policy_replay(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a service request to run LeRobot policy replay.
