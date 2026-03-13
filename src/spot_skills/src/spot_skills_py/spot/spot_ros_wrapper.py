@@ -26,7 +26,7 @@ from robotics_utils.ros.msg_conversion import (
 )
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
 from robotics_utils.skills.protocols.spot_skills import SpotSkillsProtocol
-from robotics_utils.spatial import DEFAULT_FRAME, Pose2D, Pose3D, Quaternion
+from robotics_utils.spatial import DEFAULT_FRAME, Pose3D, Quaternion
 from robotics_utils.states import GraspAttachment, ObjectCentricState, PlacementSurface
 from robotics_utils.tamp.generators.place_poses import PlacePosesArgs, PlacePosesGenerator
 from robotics_utils.vision.fiducials import FiducialMarker, FiducialSystem
@@ -69,12 +69,8 @@ from spot_skills.srv import (
     PoseLookupResponse,
 )
 from spot_skills_py.behavior_cloning import PolicyReplayBridge
-from spot_skills_py.spot.spot_erase import (
-    erase_board,
-    # estimate_whiteboard_depth,  # COMMENTED OUT: using fixed board_y param instead
-    generate_zigzag_erase_pattern,
-    group_points_into_swaths,
-)
+from spot_skills_py.spot.spot_erase import erase_board, generate_zigzag_erase_pattern
+from spot_skills_py.spot.spot_estimate_board_depth import estimate_panel_distance
 from spot_skills_py.spot.spot_graph_nav import SpotGraphNav
 from spot_skills_py.spot.spot_image_client import ImageFormat, SpotImageClient, SpotRGBCamera
 from spot_skills_py.spot.spot_lidar import StampedPointCloud
@@ -161,6 +157,16 @@ class SpotROS1Wrapper:
         self._rviz_pub = rospy.Publisher("visualization_marker", Marker, queue_size=1)
 
         self._open_drawer_srv = rospy.Service("spot/open_drawer", Trigger, self.handle_open_drawer)
+        self._pick_object_srv = rospy.Service(
+            "spot/pick_object",
+            NameService,
+            self.handle_pick_object,
+        )
+        self._pick_from_drawer_srv = rospy.Service(
+            "spot/pick_from_drawer",
+            NameService,
+            self.handle_pick_from_drawer,
+        )
 
         # Behavior cloning policy replay via LeRobot
         self._policy_replay_bridge = PolicyReplayBridge(
@@ -1012,6 +1018,26 @@ class SpotROS1Wrapper:
         response.message = str(yaml_path)
         return response
 
+    def handle_pick_object(self, request: NameServiceRequest) -> NameServiceResponse:
+        """Handle a request to pick the named object using Spot's gripper.
+
+        :param request: ROS request containing the object name to pick
+        :return: Response conveying whether Spot successfully picked the object
+        """
+        outcome = self.spot_skills.pick(object_name=request.name)
+        return NameServiceResponse(success=outcome.success, message=outcome.message)
+
+    def handle_pick_from_drawer(self, request: NameServiceRequest) -> NameServiceResponse:
+        """Handle a request to pick the named object from a drawer.
+
+        Navigates to the drawer, runs pose estimation, and picks the object.
+
+        :param request: ROS request containing the object name to pick
+        :return: Response conveying whether Spot successfully picked the object
+        """
+        outcome = self.spot_skills.pick_from_drawer(object_name=request.name)
+        return NameServiceResponse(success=outcome.success, message=outcome.message)
+
     def handle_open_drawer(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a request to have Spot open a draw using trajectory playback."""
         outcome = self.spot_skills.open_drawer()
@@ -1108,13 +1134,11 @@ class SpotROS1Wrapper:
     def handle_erase_board(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a service request to erase a whiteboard.
 
-        All coordinates are in map/odom frame to make the erase trajectory
-        deterministic regardless of Spot's exact pose after navigation.
+        All coordinates are in the body frame. The robot stays in place and
+        erases whatever is directly in front of it.
 
-        Assumes:
-        - Spot navigates to the erase waypoint facing map +y (yaw ≈ π/2)
-        - Board surface is at a fixed map y coordinate (configured via ROS param)
-        - Erase region is defined in map x (left/right) and map z (up/down)
+        Uses the frontleft depth camera to estimate the board distance (body +x),
+        then generates a zigzag erase pattern in body y (left/right) and z (up/down).
 
         :param _: Message representing a request to erase a board
         :return: Response conveying whether the whiteboard was erased
@@ -1132,169 +1156,71 @@ class SpotROS1Wrapper:
             if not got_priority:
                 return TriggerResponse(success=False, message="Could not obtain RPC priority.")
 
-            # Update the LiDAR displayed in RViz to clarify what's going on
-            lidar_was_paused = self._lidar_paused
-            self._lidar_paused = False
-            self._update_lidar()
-            self._lidar_paused = lidar_was_paused
-
-            # # COMMENTED OUT: LiDAR-based depth estimation (replaced with fixed board_y param)
-            # # Estimate the whiteboard depth using RANSAC plane fitting on LiDAR data
-            # whiteboard_estimate = estimate_whiteboard_depth(self._manager.lidar_interface)
-            # if whiteboard_estimate is None:
-            #     return TriggerResponse(
-            #         success=False,
-            #         message="Failed to estimate whiteboard depth from LiDAR.",
-            #     )
-            # estimated_depth_m = whiteboard_estimate.depth_m
-            # rospy.loginfo(f"Estimated whiteboard depth: {estimated_depth_m:.3f} m.")
-            # erase_at_depth_m = estimated_depth_m + 0.05
-
-            # === ERASE PARAMETERS (ABSOLUTE map-frame coordinates) ===
-            # Get map→odom transform to convert fixed map coords to odom for execution
-            map_to_odom = TransformManager.lookup_transform("map", "odom")
-            if map_to_odom is None:
+            # Estimate board distance via 3D reprojection of the frontleft depth image
+            depth_results = self._manager.image_client.get_depth_images_with_poses(
+                ["frontleft"],
+                ref_frame="body",
+            )
+            if "frontleft" not in depth_results:
                 return TriggerResponse(
                     success=False,
-                    message="Could not look up map->odom transform.",
+                    message="Could not capture depth image from frontleft camera.",
                 )
 
-            # Extract the 2D offset: odom = map + offset
-            odom_offset_x = map_to_odom.position.x
-            odom_offset_y = map_to_odom.position.y
+            depth_image, intrinsics, cam_pose_in_body = depth_results["frontleft"]
+            board_x_m = estimate_panel_distance(depth_image, intrinsics, cam_pose_in_body)
+            if board_x_m is None:
+                return TriggerResponse(
+                    success=False,
+                    message="No valid depth points in front of robot for board estimate.",
+                )
 
-            rospy.loginfo(
-                f"Map->odom offset: x={odom_offset_x:.3f}, y={odom_offset_y:.3f}",
-            )
+            rospy.loginfo(f"Estimated board distance (body +x): {board_x_m:.3f} m")
 
-            # Board surface y-coordinate in MAP frame (absolute, tune this manually)
-            board_y_map = get_ros_param("spot/erase_board_y", float, -3.4)
-
-            # Erase region in MAP frame (absolute coordinates)
-            erase_x_min_map = get_ros_param("spot/erase_x_min", float, 6.3)
-            erase_x_max_map = get_ros_param("spot/erase_x_max", float, 6.8)
-            z_min = get_ros_param("spot/erase_z_min", float, 0.5)
-            z_max = get_ros_param("spot/erase_z_max", float, 0.75)
-            x_spacing_m = get_ros_param("spot/erase_x_spacing", float, 0.1)
-            reachable_half_width_m = get_ros_param("spot/erase_reachable_half_width", float, 0.1)
-
-            # Convert map coords to odom coords for execution
-            board_y_odom = board_y_map + odom_offset_y
-            erase_x_min_odom = erase_x_min_map + odom_offset_x
-            erase_x_max_odom = erase_x_max_map + odom_offset_x
-
-            rospy.loginfo(
-                f"Erase region (map): x=[{erase_x_min_map}, {erase_x_max_map}], "
-                f"y={board_y_map}, z=[{z_min}, {z_max}]",
-            )
-            rospy.loginfo(
-                f"Erase region (odom): x=[{erase_x_min_odom:.3f}, {erase_x_max_odom:.3f}], "
-                f"y={board_y_odom:.3f}",
-            )
-
-            # Generate zig-zag erase pattern (x, z) in ODOM frame
-            erase_xz_points = generate_zigzag_erase_pattern(
-                x_min=erase_x_min_odom,
-                x_max=erase_x_max_odom,
-                z_min=z_min,
-                z_max=z_max,
-                x_spacing_m=x_spacing_m,
-            )
-
-            # Group points into swaths based on arm reachability
-            swaths = group_points_into_swaths(erase_xz_points, reachable_half_width_m)
-            rospy.loginfo(f"Erase pattern divided into {len(swaths)} swaths.")
-
-            # Erase parameters (force and timing)
+            # === ERASE PARAMETERS (body-frame relative) ===
+            z_min = get_ros_param("spot/erase_z_min", float, 0.2)
+            z_max = get_ros_param("spot/erase_z_max", float, 0.5)
+            y_half_width_m = get_ros_param("spot/erase_y_half_width", float, 0.25)
+            y_spacing_m = get_ros_param("spot/erase_y_spacing", float, 0.1)
             force_n = get_ros_param("spot/erase_force_n", float, 10.0)
             segment_time_s = get_ros_param("spot/erase_segment_time_s", float, 3.0)
 
-            # Gripper orientation: pointing in odom +y direction (toward board)
-            # This is yaw = π/2 in odom frame
-            gripper_quat = Quaternion(
-                x=0.0,
-                y=0.0,
-                z=np.sqrt(2) / 2,  # sin(π/4)
-                w=np.sqrt(2) / 2,  # cos(π/4)
+            rospy.loginfo(
+                f"Erase region (body): x={board_x_m:.3f}, "
+                f"y=[{-y_half_width_m}, {y_half_width_m}], z=[{z_min}, {z_max}]",
             )
 
-            # Get initial robot pose for yaw reference and return-to-start
-            initial_pose_3d = TransformManager.lookup_transform("body", "odom")
-            initial_pose_odom = initial_pose_3d.to_2d() if initial_pose_3d else None
-            robot_yaw = initial_pose_odom.yaw_rad if initial_pose_odom else np.pi / 2
+            # Generate zig-zag erase pattern in body frame (y = left/right, z = up/down)
+            erase_yz_points = generate_zigzag_erase_pattern(
+                x_min=-y_half_width_m,
+                x_max=y_half_width_m,
+                z_min=z_min,
+                z_max=z_max,
+                x_spacing_m=y_spacing_m,
+            )
 
-            for swath_idx, (target_robot_x_odom, swath_xz_points) in enumerate(swaths):
-                rospy.loginfo(
-                    f"Swath {swath_idx + 1}/{len(swaths)}: "
-                    f"{len(swath_xz_points)} points, target_x_odom={target_robot_x_odom:.3f} m.",
+            # Gripper orientation: identity quaternion (pointing forward in body frame)
+            gripper_quat = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
+
+            # Create erase poses in body frame
+            # generate_zigzag_erase_pattern returns (x, z) tuples — here x maps to body y
+            erase_poses = [
+                Pose3D(Point3D(x=board_x_m, y=y, z=z), gripper_quat, "body")
+                for y, z in erase_yz_points
+            ]
+
+            # Visualize in RViz
+            marker_msg = poses_to_marker_msg(erase_poses)
+            self._rviz_pub.publish(marker_msg)
+
+            # Erase (robot stays in place)
+            if len(erase_poses) >= 2:
+                erase_board(
+                    self._manager,
+                    erase_poses,
+                    force_n=force_n,
+                    segment_time_s=segment_time_s,
                 )
-
-                # Sidestep: move robot to target_robot_x in odom frame
-                current_pose_3d = TransformManager.lookup_transform("body", "odom")
-                if current_pose_3d is None:
-                    rospy.logwarn("Could not look up body->odom transform for sidestep.")
-                    continue
-
-                current_pose = current_pose_3d.to_2d()
-                sidestep_distance = target_robot_x_odom - current_pose.x
-
-                if abs(sidestep_distance) > 0.01:  # Only sidestep if needed (> 1cm)
-                    rospy.loginfo(
-                        f"Sidestepping: {current_pose.x:.3f} -> {target_robot_x_odom:.3f} m (odom)",
-                    )
-
-                    # Target pose: new x, same y and yaw
-                    target_pose = Pose2D(
-                        target_robot_x_odom,
-                        current_pose.y,
-                        robot_yaw,
-                        ref_frame="odom",
-                    )
-
-                    # Use trajectory command (more robust with network latency)
-                    sidestep_duration_s = abs(sidestep_distance) / 0.15 + 1.0  # ~0.15 m/s
-                    self._manager.send_trajectory_command(
-                        target_pose,
-                        sidestep_duration_s,
-                        max_speed_mps=0.2,
-                    )
-                    rospy.sleep(sidestep_duration_s + 0.5)  # Wait for motion to complete
-
-                # Create erase poses in odom frame
-                swath_poses_odom = [
-                    Pose3D(Point3D(x=odom_x, y=board_y_odom, z=z), gripper_quat, "odom")
-                    for odom_x, z in swath_xz_points
-                ]
-
-                # Visualize this swath in RViz
-                marker_msg = poses_to_marker_msg(swath_poses_odom)
-                self._rviz_pub.publish(marker_msg)
-
-                # Erase this swath
-                if len(swath_poses_odom) >= 2:
-                    erase_board(
-                        self._manager,
-                        swath_poses_odom,
-                        force_n=force_n,
-                        segment_time_s=segment_time_s,
-                    )
-
-            # Return to starting position
-            if initial_pose_odom is not None:
-                current_pose_3d = TransformManager.lookup_transform("body", "odom")
-                if current_pose_3d:
-                    current_x = current_pose_3d.to_2d().x
-                    if abs(current_x - initial_pose_odom.x) > 0.01:
-                        rospy.loginfo(
-                            f"Returning to start x: {current_x:.3f} -> {initial_pose_odom.x:.3f}",
-                        )
-                        return_duration_s = abs(current_x - initial_pose_odom.x) / 0.15 + 1.0
-                        self._manager.send_trajectory_command(
-                            initial_pose_odom,
-                            return_duration_s,
-                            max_speed_mps=0.2,
-                        )
-                        rospy.sleep(return_duration_s + 0.5)
 
             return TriggerResponse(success=True, message="Erased the whiteboard.")
 
@@ -1381,6 +1307,12 @@ class SpotROS1Wrapper:
             )
 
         final_estimated_pose = self.tag_tracker.get_estimated_pose(object_name)
+        if final_estimated_pose is None:
+            # Fall back to the last known TF transform for this object
+            final_estimated_pose = TransformManager.lookup_transform(
+                object_name,
+                self._env_state.kinematic_tree.root_frame,
+            )
         if final_estimated_pose is None:
             return NameServiceResponse(
                 success=False,

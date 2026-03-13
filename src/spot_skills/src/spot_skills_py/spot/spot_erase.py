@@ -17,12 +17,7 @@ from bosdyn.api import (
     trajectory_pb2,
 )
 from bosdyn.api.spot import robot_command_pb2 as spot_command_pb2
-from bosdyn.client.frame_helpers import (
-    BODY_FRAME_NAME,
-    # GRAV_ALIGNED_BODY_FRAME_NAME,  # COMMENTED OUT: not needed for map-frame approach
-    ODOM_FRAME_NAME,
-    # get_a_tform_b,  # COMMENTED OUT: not needed for map-frame approach
-)
+from bosdyn.client.frame_helpers import BODY_FRAME_NAME
 from bosdyn.client.robot_command import block_until_arm_arrives
 from bosdyn.util import seconds_to_duration
 from robotics_utils.perception import PlaneEstimate, PointCloud
@@ -131,13 +126,19 @@ def erase_board(
 ) -> None:
     """Use the given Spot manager to erase a whiteboard along the given trajectory.
 
-    The trajectory poses must already be expressed in the odom frame (`ODOM_FRAME_NAME`).
-    Force is applied in odom +y direction (toward the board, which is at higher y).
-    Standoff is in odom -y direction (away from the board).
+    All poses are in the body frame. The robot stays in place and erases
+    whatever is directly in front of it.
+
+    - +x = forward (toward the board)
+    - +y = left, -y = right (sweep direction)
+    - +z = up
+
+    Force is applied in body +x direction (pressing into the board).
+    Standoff is in body -x direction (pulling back from the board).
 
     :param manager: SpotManager instance with an authenticated robot
-    :param erase_traj_poses: List of Pose3D waypoints in ODOM frame
-    :param force_n: Force (Newtons) to apply in odom +y direction (toward whiteboard)
+    :param erase_traj_poses: List of Pose3D waypoints in body frame
+    :param force_n: Force (Newtons) to apply in body +x direction (toward whiteboard)
     :param segment_time_s: Time (seconds) to move between consecutive waypoints
     :param standoff_distance_m: Distance (meters) behind first pose to deploy arm (for safety)
     :param standoff_wait_s: Time (seconds) to wait at standoff pose before starting
@@ -146,7 +147,7 @@ def erase_board(
     assert len(erase_traj_poses) >= 2, "Need at least 2 poses for a trajectory."
 
     manager.log_info("Now starting erase_board()...")
-    manager.log_info(f"Force: {force_n} N (odom +y), segment time: {segment_time_s} s")
+    manager.log_info(f"Force: {force_n} N (body +x), segment time: {segment_time_s} s")
 
     # Make Spot stand and enable Spot to adjust its body height to assist manipulation
     body_control = spot_command_pb2.BodyControlParams(
@@ -158,25 +159,14 @@ def erase_board(
 
     manager.stand_up(10, control_params=body_control)
 
-    # # COMMENTED OUT: body-frame based direction calculation
-    # # Get current robot state to compute directions in odom frame
-    # robot_state = manager.get_robot_state()
-    # odom_t_flat_body = get_a_tform_b(
-    #     robot_state.kinematic_state.transforms_snapshot,
-    #     ODOM_FRAME_NAME,
-    #     GRAV_ALIGNED_BODY_FRAME_NAME,
-    # )
-    # # Compute "back" direction (negative body x-axis in odom frame)
-    # body_x_in_odom = odom_t_flat_body.rotation.transform_point(x=1.0, y=0.0, z=0.0)
-
-    # Convert Pose3D list to SDK SE3Pose objects (poses are already in odom frame)
+    # Convert Pose3D list to SDK SE3Pose objects (poses are in body frame)
     hand_poses = [pose_to_sdk(pose) for pose in erase_traj_poses]
 
-    # Create standoff pose: first pose shifted back in odom -y direction (away from board)
+    # Create standoff pose: first pose shifted back in body -x direction (away from board)
     first_pose = hand_poses[0]
     standoff_pose = first_pose.__class__(
-        x=first_pose.x,
-        y=first_pose.y - standoff_distance_m,  # Shift in odom -y (away from board)
+        x=first_pose.x - standoff_distance_m,  # Shift in body -x (away from board)
+        y=first_pose.y,
         z=first_pose.z,
         rot=first_pose.rotation,
     )
@@ -195,7 +185,7 @@ def erase_board(
     )
     arm_cartesian_command = arm_command_pb2.ArmCartesianCommand.Request(
         pose_trajectory_in_task=standoff_traj,
-        root_frame_name=ODOM_FRAME_NAME,
+        root_frame_name=BODY_FRAME_NAME,
         x_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
         y_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
         z_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
@@ -248,8 +238,8 @@ def erase_board(
         for i in range(len(hand_poses) - 1)
     ]
 
-    # Force in odom +y direction (toward the board, which is at higher y in map/odom frame)
-    force = geometry_pb2.Vec3(x=0.0, y=force_n, z=0.0)
+    # Force in body +x direction (toward the board, which is in front of the robot)
+    force = geometry_pb2.Vec3(x=force_n, y=0.0, z=0.0)
     torque = geometry_pb2.Vec3(x=0, y=0, z=0)
     wrench = geometry_pb2.Wrench(force=force, torque=torque)
 
@@ -275,7 +265,7 @@ def erase_board(
     )
     arm_cartesian_command = arm_command_pb2.ArmCartesianCommand.Request(
         pose_trajectory_in_task=approach_traj,
-        root_frame_name=ODOM_FRAME_NAME,
+        root_frame_name=BODY_FRAME_NAME,
         wrench_trajectory_in_task=wrench_trajectory,
         x_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_FORCE,
         y_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
@@ -303,7 +293,7 @@ def erase_board(
 
         arm_cartesian_command = arm_command_pb2.ArmCartesianCommand.Request(
             pose_trajectory_in_task=hand_traj,
-            root_frame_name=ODOM_FRAME_NAME,
+            root_frame_name=BODY_FRAME_NAME,
             wrench_trajectory_in_task=wrench_trajectory,
             x_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_FORCE,
             y_axis=arm_command_pb2.ArmCartesianCommand.Request.AXIS_MODE_POSITION,
