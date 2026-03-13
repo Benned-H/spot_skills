@@ -19,6 +19,7 @@ from bosdyn.api.manipulation_api_pb2 import (
 )
 from bosdyn.api.spot import door_pb2
 from bosdyn.client import frame_helpers
+from bosdyn.client.robot_command import RobotCommandBuilder, block_for_trajectory_cmd
 from robotics_utils.geometry import Point3D
 from robotics_utils.ros import TransformManager
 from robotics_utils.vision import PixelXY, RGBImage
@@ -333,6 +334,41 @@ class SpotDoorOpener:
         if success is None:
             self.manager.log_info(f"Door opening timed out after {timeout_s} total seconds.")
             success = False
+
+        # Back up 1.5m directly (without turning) to clear the doorway
+        backward_distance_m = 2.5
+        self.manager.log_info(f"Backing up {backward_distance_m:.2f} m (no turn)...")
+
+        robot_state = self.manager.get_robot_state()
+        transforms = robot_state.kinematic_state.transforms_snapshot
+        odom_tform_body = frame_helpers.get_a_tform_b(
+            transforms,
+            frame_helpers.ODOM_FRAME_NAME,
+            frame_helpers.BODY_FRAME_NAME,
+        )
+
+        current_heading = odom_tform_body.rot.to_yaw()
+        goal_x = odom_tform_body.x - backward_distance_m * np.cos(current_heading)
+        goal_y = odom_tform_body.y - backward_distance_m * np.sin(current_heading)
+
+        trajectory_cmd = RobotCommandBuilder.synchro_se2_trajectory_point_command(
+            goal_x=goal_x,
+            goal_y=goal_y,
+            goal_heading=current_heading,
+            frame_name=frame_helpers.ODOM_FRAME_NAME,
+            params=self.manager._mobility_params,
+        )
+
+        backup_timeout_s = 10.0
+        command_id = self.manager.send_robot_command(trajectory_cmd, duration_s=backup_timeout_s)
+        if command_id is not None:
+            block_for_trajectory_cmd(
+                self.manager.command_client,
+                command_id,
+                timeout_sec=backup_timeout_s,
+            )
+        else:
+            self.manager.log_info("Failed to send backward trajectory command.")
 
         # Regardless of the outcome, make sure to freeze the robot
         self.manager.stop_robot(stow_arm=True)

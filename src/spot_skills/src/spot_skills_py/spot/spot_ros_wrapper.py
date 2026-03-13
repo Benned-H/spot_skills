@@ -720,7 +720,7 @@ class SpotROS1Wrapper:
         for i in range(5):
             adj = self._navigation_server.go_to_pose(target_2d, timeout_s=0.5)
             if not adj.success:
-                self._manager.log_warn(f"Final adjustment {i + 1}/5 failed: {adj.message}")
+                rospy.logwarn(f"Final adjustment {i + 1}/5 failed: {adj.message}")
                 break
 
         return NavigateToPoseResponse(outcome.success, outcome.message)

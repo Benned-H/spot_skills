@@ -110,7 +110,13 @@ def main() -> None:
             emit_error(f"No policy subdirectory found in {model_dir}")
         else:
             names = [d.name for d in subdirs]
-            emit_error(f"Multiple policy subdirs in {model_dir}: {names}. Use --pretrained-path.")
+            act_dirs = [d for d in subdirs if d.name == "act"]
+            if act_dirs:
+                policy_dir = act_dirs[0]
+            else:
+                emit_error(
+                    f"Multiple policy subdirs in {model_dir}: {names}. Use --pretrained-path.",
+                )
         args.pretrained_path = str(policy_dir / "checkpoints" / "last" / "pretrained_model")
         if args.dataset_path is None:
             args.dataset_path = str(Path("data/yourname") / args.model_name)
@@ -166,7 +172,34 @@ def main() -> None:
         robot.connect()
         print(f"Connected: {robot.is_connected}", flush=True)  # noqa: T201
 
-        emit_json({"type": "started", "fps": args.fps, "episode_time_s": args.episode_time_s})
+        # ── Reset arm to stowed pose with gripper closed ──────────────────────
+        POSE_KEYS = (
+            "arm.pose.x", "arm.pose.y", "arm.pose.z",
+            "arm.pose.qw", "arm.pose.qx", "arm.pose.qy", "arm.pose.qz",
+        )
+        startup_obs = robot.get_observation()
+        stowed_arm_pose = {k: float(startup_obs.get(k, 0.0)) for k in POSE_KEYS}
+        print(f"Stowed arm pose: {stowed_arm_pose}", flush=True)  # noqa: T201
+
+        print("Holding stowed pose with gripper closed ...", flush=True)  # noqa: T201
+        reset_action = {
+            "base.vx": 0.0, "base.vy": 0.0, "base.vyaw": 0.0,
+            **stowed_arm_pose,
+            "arm.gripper_open_percentage": 0.0,
+        }
+        for _ in range(int(args.fps)):
+            robot.send_action(reset_action)
+            time.sleep(1.0 / float(args.fps))
+
+        emit_json(
+            {
+                "type": "started",
+                "fps": args.fps,
+                "episode_time_s": args.episode_time_s,
+                "chunk_size": policy_cfg.chunk_size,
+                "n_action_steps": policy_cfg.n_action_steps,
+            },
+        )
 
         # ── Control loop ──────────────────────────────────────────────────────
         loop_dt = 1.0 / float(args.fps)
@@ -223,7 +256,7 @@ def main() -> None:
                         "elapsed_s": round(elapsed_total, 1),
                         "vx": round(action_dict.get("base.vx", 0), 3),
                         "arm_x": round(action_dict.get("arm.pose.x", 0), 3),
-                    }
+                    },
                 )
 
         total_time = time.perf_counter() - t0
@@ -234,7 +267,7 @@ def main() -> None:
                 "total_steps": step,
                 "total_time_s": round(total_time, 1),
                 "stopped_early": stop_requested,
-            }
+            },
         )
 
     except Exception as e:

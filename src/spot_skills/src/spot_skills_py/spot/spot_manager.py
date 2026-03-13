@@ -130,10 +130,10 @@ class SpotManager:
             self.resync_and_log()
 
         # Define thresholds for 'close enough' during locomotion
-        self.goal_reached_m = 0.2
+        self.goal_reached_m = 0.05
         """Distance (meters) within which Spot is considered to have reached a goal base pose."""
 
-        self.goal_yaw_tolerance_rad = 0.3
+        self.goal_yaw_tolerance_rad = 0.1
         """Angle (abs. radians) within which Spot's yaw is considered 'close enough' to a goal."""
 
         self.lease_wallet = self._robot.lease_wallet
