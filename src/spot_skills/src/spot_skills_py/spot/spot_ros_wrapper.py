@@ -123,17 +123,6 @@ class SpotROS1Wrapper:
             self._manager.take_control(force=True)
 
         # Initialize all ROS services provided by the class
-        self._hide_object_srv = rospy.Service(
-            "spot/moveit/hide_object",
-            NameService,
-            self.handle_hide_object,
-        )
-        self._unhide_object_srv = rospy.Service(
-            "spot/moveit/unhide_object",
-            NameService,
-            self.handle_unhide_object,
-        )
-
         self._reset_srv = rospy.Service("spot/reset_state", NameService, self.handle_reset_state)
         self._open_container_srv = rospy.Service(
             "spot/set_container_open",
@@ -240,13 +229,6 @@ class SpotROS1Wrapper:
             self.handle_compute_motion_plan,
         )
 
-        traj_config = RelativeTrajectoryConfig(
-            min_pose_diff_m=0.02,
-            min_pose_diff_deg=5,
-            plan_ee_step_m=0.015,
-        )
-        self.trajectory_replayer = TrajectoryPlayback(traj_config, self._arm_interface.manipulator)
-
         self._get_rgbd_pairs_service = rospy.Service(
             "spot/get_rgbd_pairs",
             GetRGBDPairs,
@@ -339,6 +321,11 @@ class SpotROS1Wrapper:
                 resource_manager=self._robot_rpc_manager,
             )
 
+        # Intialize the manipulator and gripper objects
+        self._arm_interface.initialize_manipulator_gripper()
+        if self._arm_interface.manipulator is None:
+            raise RuntimeError("Expected MoveItManipulator to exist.")
+
         # Begin synchronizing the environment state with TF in a loop
         self._state_thread = CallLoopThread(func=self._broadcast_frames, loop_hz=5.0)
         self._planning_scene_thread = CallLoopThread(func=self._sync_planning_scene, loop_hz=5.0)
@@ -358,6 +345,13 @@ class SpotROS1Wrapper:
             name="Occupancy Grid",
             resource_manager=self._robot_rpc_manager,
         )
+
+        traj_config = RelativeTrajectoryConfig(
+            min_pose_diff_m=0.02,
+            min_pose_diff_deg=5,
+            plan_ee_step_m=0.015,
+        )
+        self.trajectory_replayer = TrajectoryPlayback(traj_config, self._arm_interface.manipulator)
 
         # Update the MoveIt planning scene to align with the loaded environment model
         self._arm_interface.manipulator.planning_scene.set_state(self._env_state)
@@ -393,6 +387,10 @@ class SpotROS1Wrapper:
     def _sync_planning_scene(self) -> None:
         """Synchronize the MoveIt planning scene with the stored environment state."""
         with self._planning_scene_lock:
+            if self._arm_interface.manipulator is None:
+                rospy.logerr("MoveItManipulator is not initialized!")
+                return
+
             if not self._arm_interface.manipulator.planning_scene.set_state(self._env_state):
                 rospy.logwarn("Failed to sync the MoveIt planning scene with the current state.")
 
@@ -481,28 +479,6 @@ class SpotROS1Wrapper:
         except Exception as exc:
             self._manager.log_info(f"Exception during occupancy grid update: {exc}")
 
-    def handle_hide_object(self, request: NameServiceRequest) -> NameServiceResponse:
-        """Handle a request to hide an object in the MoveIt planning scene."""
-        self._env_state.hide_object(obj_name=request.name)
-        success = request.name in self._env_state.hidden_object_names
-        message = (
-            f"Successfully hid object '{request.name}'."
-            if success
-            else f"Unable to hide object '{request.name}'."
-        )
-        return NameServiceResponse(success=success, message=message)
-
-    def handle_unhide_object(self, request: NameServiceRequest) -> NameServiceResponse:
-        """Handle a request to unhide an object in the MoveIt planning scene."""
-        self._env_state.unhide_object(obj_name=request.name)
-        success = request.name not in self._env_state.hidden_object_names
-        message = (
-            f"Successfully unhid object '{request.name}'."
-            if success
-            else f"Unable to unhide object '{request.name}'."
-        )
-        return NameServiceResponse(success=success, message=message)
-
     def handle_compute_motion_plan(
         self,
         request: ComputeMotionPlanRequest,
@@ -517,6 +493,10 @@ class SpotROS1Wrapper:
         """
         response = ComputeMotionPlanResponse()
         response.success = False
+
+        if self._arm_interface.manipulator is None:
+            response.message = "Motion planning failed: MoveItManipulator was None."
+            return response
 
         # Ensure Spot is in a flat body pose before planning any arm motion.
         try:
@@ -576,6 +556,9 @@ class SpotROS1Wrapper:
         :param request: Service request containing a path to a YAML file
         :return: Response conveying whether the reset succeeded and why
         """
+        if self._arm_interface.manipulator is None:
+            return NameServiceResponse(success=False, message="MoveItManipulator was None.")
+
         yaml_path = Path(request.name)
 
         rospy.loginfo(f"Handling request to reset state per YAML file: {yaml_path}")
@@ -1040,7 +1023,7 @@ class SpotROS1Wrapper:
         :param request: ROS message representing a request to open a door
         :return: Response conveying whether Spot was able to open the door
         """
-        if self._arm_interface.locked:
+        if self._arm_interface.locked or self._arm_interface.gripper is None:
             message = "Could not open door because Spot's arm remains locked."
             return OpenDoorResponse(success=False, message=message)
 

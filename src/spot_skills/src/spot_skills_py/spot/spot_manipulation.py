@@ -58,7 +58,6 @@ from spot_skills_py.time_stamp import TimeStamp
 if TYPE_CHECKING:
     from robotics_utils.parallelism import ResourceManager
     from robotics_utils.spatial import Pose3D
-    from robotics_utils.states import GraspAttachment
 
     from spot_skills_py.segment_schedule import SegmentSchedule
     from spot_skills_py.spot.spot_manager import SpotManager
@@ -134,7 +133,7 @@ class SpotManipulationInterface:
         self._arm_command_id: int | None = None
         """ID of the latest command sent to Spot's arm."""
 
-        # Gripper-related actions and services
+        # Initialize actions before all services
         self._gripper_action_srv = SimpleActionServer(
             name=self._gripper_action_name,
             ActionSpec=GripperCommandAction,
@@ -144,10 +143,6 @@ class SpotManipulationInterface:
         self._gripper_action_srv.start()
         rospy.loginfo(f"[{self._gripper_action_name}] Action server has started.")
 
-        self._grasp_srv = rospy.Service("spot/grasp_object", GraspObject, self._grasp_cb)
-        self._release_srv = rospy.Service("spot/release_object", ReleaseObject, self._release_cb)
-
-        # Arm-related actions and services
         self._arm_action_srv = SimpleActionServer(
             name=self._arm_action_name,
             ActionSpec=FollowJointTrajectoryAction,
@@ -156,6 +151,9 @@ class SpotManipulationInterface:
         )
         self._arm_action_srv.start()
         rospy.loginfo(f"[{self._arm_action_name}] Action server has started.")
+
+        self._grasp_srv = rospy.Service("spot/grasp_object", GraspObject, self._grasp_cb)
+        self._release_srv = rospy.Service("spot/release_object", ReleaseObject, self._release_cb)
 
         self._unlock_arm_srv = rospy.Service("spot/unlock_arm", Trigger, self._unlock_arm_cb)
         self._stow_arm_srv = rospy.Service("spot/stow_arm", Trigger, self._stow_arm_cb)
@@ -172,6 +170,11 @@ class SpotManipulationInterface:
             queue_size=1,
         )
 
+        self.gripper: ROSAngularGripper | None = None
+        self.manipulator: MoveItManipulator | None = None
+
+    def initialize_manipulator_gripper(self) -> None:
+        """Initialize the stored manipulator and gripper objects."""
         self.gripper = ROSAngularGripper(
             GripperAngleLimits(open_rad=SPOT_GRIPPER_OPEN_RAD, closed_rad=SPOT_GRIPPER_CLOSED_RAD),
             grasping_group="gripper",
@@ -269,6 +272,13 @@ class SpotManipulationInterface:
 
     def _grasp_cb(self, request: GraspObjectRequest) -> GraspObjectResponse:
         """Grasp the named object using Spot's gripper."""
+        if self.manipulator is None:
+            return GraspObjectResponse(
+                success=False,
+                message="Cannot grasp; MoveItManipulator was None.",
+                new_pose=PoseStamped(),
+            )
+
         outcome = self.manipulator.grasp(object_name=request.object_name)
         if outcome.output is None:
             return GraspObjectResponse(
