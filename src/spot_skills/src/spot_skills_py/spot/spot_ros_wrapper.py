@@ -27,8 +27,7 @@ from robotics_utils.ros.msg_conversion import (
 from robotics_utils.ros.trajectory_playback import RelativeTrajectoryConfig, TrajectoryPlayback
 from robotics_utils.skills.protocols.spot_skills import SpotSkillsProtocol
 from robotics_utils.spatial import DEFAULT_FRAME, Pose3D, Quaternion
-from robotics_utils.states import GraspAttachment, ObjectCentricState, PlacementSurface
-from robotics_utils.tamp.generators.place_poses import PlacePosesArgs, PlacePosesGenerator
+from robotics_utils.states import GraspAttachment, ObjectCentricState
 from robotics_utils.vision.fiducials import FiducialMarker, FiducialSystem
 from sensor_msgs.msg import PointCloud2
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
@@ -166,6 +165,11 @@ class SpotROS1Wrapper:
             "spot/pick_from_drawer",
             NameService,
             self.handle_pick_from_drawer,
+        )
+        self._place_object_srv = rospy.Service(
+            "spot/place_object",
+            PlaceObject,
+            self.handle_place_object,
         )
 
         # Behavior cloning policy replay via LeRobot
@@ -1037,6 +1041,14 @@ class SpotROS1Wrapper:
         """
         outcome = self.spot_skills.pick_from_drawer(object_name=request.name)
         return NameServiceResponse(success=outcome.success, message=outcome.message)
+
+    def handle_place_object(self, request: PlaceObjectRequest) -> PlaceObjectResponse:
+        """Handle a request to place a grasped object onto a named surface."""
+        outcome = self.spot_skills.place(
+            object_name=request.object_name,
+            surface_name=request.surface_name,
+        )
+        return PlaceObjectResponse(success=outcome.success, message=outcome.message)
 
     def handle_open_drawer(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a request to have Spot open a draw using trajectory playback."""
