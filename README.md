@@ -104,10 +104,6 @@ uv pip install -e src/spot_ros/spot_wrapper
 catkin config --cmake-args -DPYTHON_EXECUTABLE=$(which python)
 catkin build --force-cmake
 source devel/setup.bash
-
-# Temporary stopgap for missing deps
-apt-get update
-apt-get install python3-tk
 ```
 
 If a demo requires a second or third terminal tab to be opened into Docker, move to the same directory and source the following:

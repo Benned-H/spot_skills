@@ -170,6 +170,11 @@ class SpotManipulationInterface:
             queue_size=1,
         )
 
+        self.gripper: ROSAngularGripper | None = None
+        self.manipulator: MoveItManipulator | None = None
+
+    def initialize_manipulator_gripper(self) -> None:
+        """Initialize the stored manipulator and gripper objects."""
         self.gripper = ROSAngularGripper(
             GripperAngleLimits(open_rad=SPOT_GRIPPER_OPEN_RAD, closed_rad=SPOT_GRIPPER_CLOSED_RAD),
             grasping_group="gripper",
@@ -267,6 +272,13 @@ class SpotManipulationInterface:
 
     def _grasp_cb(self, request: GraspObjectRequest) -> GraspObjectResponse:
         """Grasp the named object using Spot's gripper."""
+        if self.manipulator is None:
+            return GraspObjectResponse(
+                success=False,
+                message="Cannot grasp; MoveItManipulator was None.",
+                new_pose=PoseStamped(),
+            )
+
         outcome = self.manipulator.grasp(object_name=request.object_name)
         if outcome.output is None:
             return GraspObjectResponse(
