@@ -295,35 +295,37 @@ class SpotManipulationInterface:
         object_name = request.object_name
         parent_frame = request.new_parent_frame
 
+        if self.manipulator is None:
+            return ReleaseObjectResponse(
+                success=False,
+                message="Cannot release; MoveItManipulator was None.",
+                new_pose=PoseStamped(),
+            )
         if self._arm_locked:
             return ReleaseObjectResponse(
                 success=False,
                 message=f"Spot's arm is locked; could not release '{object_name}'.",
+                new_pose=PoseStamped(),
             )
         if not self._manager.has_control:
             return ReleaseObjectResponse(
                 success=False,
                 message=f"SpotManager doesn't control Spot; could not release '{object_name}'.",
+                new_pose=PoseStamped(),
             )
 
-        # Otherwise, release the object by 1) opening Spot's gripper and 2) updating its frame
-        if not self.open_gripper():
-            return ReleaseObjectResponse(success=False, message="Failed to open Spot's gripper.")
-
-        object_wrt_parent = TransformManager.lookup_transform(
-            child_frame=object_name,
-            parent_frame=parent_frame,
-        )
-        if object_wrt_parent is None:
+        outcome = self.manipulator.release(object_name=object_name, placed_frame=parent_frame)
+        if not outcome.success or outcome.output is None:
             return ReleaseObjectResponse(
                 success=False,
-                message=f"Failed to look up pose of '{object_name}' w.r.t. '{parent_frame}'.",
+                message=outcome.message,
+                new_pose=PoseStamped(),
             )
 
         return ReleaseObjectResponse(
             success=True,
-            message=f"Released object '{object_name}'.",
-            new_pose=pose_to_stamped_msg(object_wrt_parent),
+            message=outcome.message,
+            new_pose=pose_to_stamped_msg(outcome.output),
         )
 
     def _gripper_action_cb(self, goal: GripperCommandGoal, post_pause_s: float = 0.25) -> None:
@@ -734,86 +736,3 @@ class SpotManipulationInterface:
             else:
                 self._manager.log_info("Trajectory segment sent.\n")
                 return
-
-
-# def handle_place_object(self, request: PlaceObjectRequest) -> PlaceObjectResponse:
-#         """Handle a request to place an object onto a surface."""
-#         failure_message = None
-
-#         if request.object_name not in self._env_state.object_names:
-#             failure_message = f"Cannot place unknown object: '{request.object_name}'."
-#         elif request.surface_name not in self._env_state.object_names:
-#             failure_message = f"Cannot place onto unknown surface: '{request.surface_name}'."
-#         elif self._curr_grasp is None:
-#             failure_message = "Cannot place; must pick first."
-
-#         if failure_message:
-#             return PlaceObjectResponse(success=False, message=failure_message)
-
-#         placed_obj = self._env_state.get_object_kinematic_state(request.object_name)
-#         if placed_obj is None:
-#             return PlaceObjectResponse(
-#                 success=False,
-#                 message=f"Unable to retrieve kinematic state of '{request.object_name}'.",
-#             )
-
-#         surface_obj = self._env_state.get_object_kinematic_state(request.surface_name)
-#         if surface_obj is None:
-#             return PlaceObjectResponse(
-#                 success=False,
-#                 message=f"Unable to retrieve kinematic state of '{request.surface_name}'.",
-#             )
-
-#         surface = PlacementSurface.from_object_aabb(surface_obj)
-#         pose_ee_o = self._curr_grasp.pose_ee_o
-#         place_pose_args = PlacePosesArgs(
-#             surface,
-#             placed_obj,
-#             pose_ee_o,
-#             self._arm_interface.manipulator,
-#         )
-#         generator = PlacePosesGenerator(place_pose_args)
-
-#         for place_poses in generator:
-#             rospy.loginfo(f"Attempting to motion plan for generator sample {generator.count}...")
-
-#             pre_query = MotionPlanningQuery(ee_target=place_poses.preplace_pose)
-#             place_query = MotionPlanningQuery(ee_target=place_poses.place_pose)
-#             post_query = MotionPlanningQuery(ee_target=place_poses.postplace_pose)
-
-#             with self._planning_scene_lock:
-#                 pre_plan_msg = self._arm_interface.manipulator.planner.compute_motion_plan(
-#                     pre_query,
-#                 )
-#             if pre_plan_msg is None:
-#                 continue
-#             pre_place_success = self._arm_interface.manipulator.execute_trajectory_msg(pre_plan_msg)
-#             if not pre_place_success:
-#                 message = "Failed to execute pre-place trajectory."
-#                 return PlaceObjectResponse(success=False, message=message)
-
-#             with self._planning_scene_lock:
-#                 plan_msg = self._arm_interface.manipulator.planner.compute_motion_plan(place_query)
-#             if plan_msg is None:
-#                 continue
-#             place_success = self._arm_interface.manipulator.execute_trajectory_msg(plan_msg)
-#             if not place_success:
-#                 message = "Failed to execute place trajectory."
-#                 return PlaceObjectResponse(success=False, message=message)
-
-#             with self._planning_scene_lock:
-#                 post_plan_msg = self._arm_interface.manipulator.planner.compute_motion_plan(
-#                     post_query,
-#                 )
-#             if post_plan_msg is None:
-#                 continue
-#             post_place_success = self._arm_interface.manipulator.execute_trajectory_msg(
-#                 post_plan_msg,
-#             )
-#             if not post_place_success:
-#                 message = "Failed to execute post-place trajectory."
-#                 return PlaceObjectResponse(success=False, message=message)
-
-#             return PlaceObjectResponse(success=True, message="Object has been placed.")
-
-#         return PlaceObjectResponse(success=False, message="Unexpectedly exited loop???")
