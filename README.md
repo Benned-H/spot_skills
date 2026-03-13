@@ -72,6 +72,15 @@ _Troubleshooting_:
 
 1. If the launch script isn't working, check that you've successfully pulled all submodules. Use:
    - `git submodule update --init --recursive`
+2. If `rviz` crashes in the NVIDIA container with `Unable to create a suitable GLXContext`, make sure you:
+   - Ran `xhost +local:docker` on the host before launching Docker
+   - Launched the GPU-enabled service: `docker compose up nvidia-spot-tamp-v1 --detach`
+   - Rebuilt and recreated the NVIDIA container after Docker config changes:
+
+```bash
+docker compose build nvidia-spot-tamp-v1
+docker compose up nvidia-spot-tamp-v1 --force-recreate --detach
+```
 
 ## Example Demonstrations
 
@@ -86,11 +95,14 @@ stated, you need to move to the top-level `spot_skills` folder, build the worksp
 ```bash
 # In Docker
 uv venv --clear --system-site-packages --python 3.8
-uv pip install -e .
-uv pip install -e src/spot_ros/spot_wrapper
 source .venv/bin/activate
 
-catkin build
+uv pip install -e .
+uv pip install -e src/spot_ros/spot_wrapper
+
+# Ensure ROS Python nodes use the venv's interpreter
+catkin config --cmake-args -DPYTHON_EXECUTABLE=$(which python)
+catkin build --force-cmake
 source devel/setup.bash
 
 # Temporary stopgap for missing deps
@@ -150,9 +162,11 @@ control the simulated Spot's arm.
 roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=NAME_HERE
 ```
 
-6. In the second Docker terminal tab, source `devel/setup.bash`, and then run:
+6. In the second Docker terminal tab, source `.venv/bin/activate` and `devel/setup.bash`, and then run:
 
 ```bash
+source .venv/bin/activate
+source devel/setup.bash
 rosrun spot_skills spot_moveit_demo.py
 ```
 

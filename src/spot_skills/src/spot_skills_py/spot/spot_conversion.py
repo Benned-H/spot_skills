@@ -66,7 +66,7 @@ def pose_to_sdk(pose: Pose3D) -> SE3Pose:
 
 
 _FRONT_BACK_PADDING_M = 0.05  # Extra clearance for conservative planning
-_SIDE_PADDING_M = 0.1  # Try to discourage corner-cutting
+_SIDE_PADDING_M = 0  # Don't bother discouraging corner-cutting
 
 SPOT_FOOTPRINT = RectangularFootprint(
     max_x_m=0.63 + _FRONT_BACK_PADDING_M,
