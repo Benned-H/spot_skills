@@ -14,6 +14,8 @@ import threading
 from pathlib import Path
 from typing import IO, Any, Callable, Dict, List, Optional
 
+from robotics_utils.ros import trigger_service
+
 POLICY_REPLAY_SCRIPT = Path(__file__).parent / "policy_replay_service.py"
 
 DEFAULT_LEROBOT_SPOT_ROOT = Path("/docker/spot_skills/lerobot-spot")
@@ -45,6 +47,7 @@ class PolicyReplayBridge:
         self._stdout_thread = None  # type: Optional[threading.Thread]
         self._stderr_thread = None  # type: Optional[threading.Thread]
         self._status_messages = []  # type: List[Dict[str, Any]]
+        self._take_control_requested = False
         self._lock = threading.Lock()
 
     @property
@@ -62,7 +65,7 @@ class PolicyReplayBridge:
         pretrained_path: str = None,
         device: str = "cuda",
         fps: int = 10,
-        episode_time_s: float = 30.0,
+        episode_time_s: float = 15.0,
         image_sources: Optional[List[str]] = None,
         image_width: int = 640,
         image_height: int = 480,
@@ -130,6 +133,7 @@ class PolicyReplayBridge:
         env["LEROBOT_SPOT_ROOT"] = str(Path(self._lerobot_spot_root).resolve())
 
         self._status_messages = []
+        self._take_control_requested = False
         self._process = subprocess.Popen(
             cmd,
             cwd=str(Path(self._lerobot_spot_root).resolve()),
@@ -169,11 +173,48 @@ class PolicyReplayBridge:
                     with self._lock:
                         self._status_messages.append(msg)
                     log_fn("[policy_replay] " + stripped)
+                    if msg.get("type") in {"completed", "error"}:
+                        self._request_take_control(f"terminal status '{msg['type']}'")
                     continue
                 except json.JSONDecodeError:
                     pass
             log_fn("[policy_replay] " + stripped)
+
+            # Fallback for legacy non-JSON completion lines.
+            if "completed" in stripped and "success" in stripped:
+                self._request_take_control("completion log line")
+
         pipe.close()
+
+    def _request_take_control(self, reason: str) -> None:
+        """Ask the wrapper to reclaim the Spot lease exactly once per replay."""
+        with self._lock:
+            if self._take_control_requested:
+                return
+            self._take_control_requested = True
+
+        try:
+            trigger_service("spot/take_control")
+            trigger_service("spot/unlock_arm")
+            outcome = trigger_service("spot/stow_arm")
+        except Exception as exc:  # pragma: no cover - best-effort reclaim during shutdown
+            self._warn(
+                f"[policy_replay] Failed to request SpotROSWrapper control handoff after "
+                f"{reason}: {exc}",
+            )
+            return
+
+        if outcome.success:
+            self._log(
+                f"[policy_replay] Requested SpotROSWrapper control handoff after {reason}: "
+                f"{outcome.message}",
+            )
+            return
+
+        self._warn(
+            f"[policy_replay] SpotROSWrapper could not take control after {reason}: "
+            f"{outcome.message}",
+        )
 
     def stop(self) -> None:
         """Stop the running policy replay by sending SIGINT for graceful shutdown."""

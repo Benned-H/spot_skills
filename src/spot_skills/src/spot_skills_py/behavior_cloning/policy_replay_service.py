@@ -24,6 +24,7 @@ Usage (standalone):
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import signal
 import sys
@@ -84,7 +85,7 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--device", default="cuda", help="Inference device: cuda or cpu")
     p.add_argument("--fps", type=int, default=10)
-    p.add_argument("--episode-time-s", type=float, default=30.0)
+    p.add_argument("--episode-time-s", type=float, default=10.0)
     p.add_argument("--task", type=str, default=None)
     p.add_argument(
         "--force-take-lease",
@@ -174,8 +175,13 @@ def main() -> None:
 
         # ── Reset arm to stowed pose with gripper closed ──────────────────────
         POSE_KEYS = (
-            "arm.pose.x", "arm.pose.y", "arm.pose.z",
-            "arm.pose.qw", "arm.pose.qx", "arm.pose.qy", "arm.pose.qz",
+            "arm.pose.x",
+            "arm.pose.y",
+            "arm.pose.z",
+            "arm.pose.qw",
+            "arm.pose.qx",
+            "arm.pose.qy",
+            "arm.pose.qz",
         )
         startup_obs = robot.get_observation()
         stowed_arm_pose = {k: float(startup_obs.get(k, 0.0)) for k in POSE_KEYS}
@@ -183,7 +189,9 @@ def main() -> None:
 
         print("Holding stowed pose with gripper closed ...", flush=True)  # noqa: T201
         reset_action = {
-            "base.vx": 0.0, "base.vy": 0.0, "base.vyaw": 0.0,
+            "base.vx": 0.0,
+            "base.vy": 0.0,
+            "base.vyaw": 0.0,
             **stowed_arm_pose,
             "arm.gripper_open_percentage": 0.0,
         }
@@ -283,7 +291,7 @@ def main() -> None:
     finally:
         # Send zero-velocity stop and disconnect
         print("Sending zero-velocity command and disconnecting ...", flush=True)  # noqa: T201
-        try:
+        with contextlib.suppress(Exception):
             obs = robot.get_observation()
             stop_action = {
                 "base.vx": 0.0,
@@ -292,12 +300,10 @@ def main() -> None:
                 **{k: float(obs[k]) for k in obs if k.startswith("arm.pose.")},
             }
             robot.send_action(stop_action)
-        except Exception:
-            pass
-        try:
+
+        with contextlib.suppress(Exception):
             robot.disconnect_keep_powered()
-        except Exception:
-            pass
+
         print("Done.", flush=True)  # noqa: T201
 
 

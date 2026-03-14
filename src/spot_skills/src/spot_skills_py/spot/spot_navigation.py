@@ -20,7 +20,7 @@ from robotics_utils.ros.msg_conversion import path_to_msg, pose_to_stamped_msg
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.skills import Outcome
-from robotics_utils.spatial import DEFAULT_FRAME, Pose2D
+from robotics_utils.spatial import DEFAULT_FRAME, Pose2D, euclidean_distance_2d_m
 
 from spot_skills.srv import (
     NameService,
@@ -237,7 +237,6 @@ class SpotNavigationServer(MobileRobot):
                 remaining_time_s = timeout_s - elapsed_s
                 return self._final_adjustments(
                     goal_pose=nav_plan[-1],
-                    num_passes=5,
                     timeout_s=min(15.0, remaining_time_s),
                 )
 
@@ -268,6 +267,10 @@ class SpotNavigationServer(MobileRobot):
         :param timeout_s: Duration (seconds) after which navigation times out (default: 120 s)
         :return: Boolean success indicator and an outcome message
         """
+        # If the goal pose is in the current body frame, first convert it to the map frame
+        if goal_pose.ref_frame == "body":
+            goal_pose = TransformManager.convert_to_frame(goal_pose, DEFAULT_FRAME)
+
         # Get current pose for path planning
         try:
             current_pose = self.current_base_pose
@@ -279,13 +282,14 @@ class SpotNavigationServer(MobileRobot):
         nav_plan = self.compute_navigation_plan(current_pose, goal_pose)
 
         if nav_plan is None:
-            return Outcome(success=False, message=f"Unable to plan a path to pose: {goal_pose}")
+            if euclidean_distance_2d_m(current_pose, goal_pose, change_frames=True) < 1.5:
+                rospy.logwarn("Path planning failed; attempting direct navigation as fallback")
+                with self._resource_manager.priority() as got_priority:
+                    if not got_priority:
+                        rospy.logwarn(f"Navigating to pose {goal_pose} without RPC priority...")
+                    return self.go_to_pose(base_pose=goal_pose, timeout_s=5.0)
 
-            # rospy.logwarn("Path planning failed; attempting direct navigation as fallback")
-            # with self._resource_manager.priority() as got_priority:
-            #     if not got_priority:
-            #         rospy.logwarn(f"Navigating to pose {goal_pose} without RPC priority...")
-            #     return self.go_to_pose(base_pose=goal_pose, timeout_s=timeout_s)
+            return Outcome(success=False, message=f"Unable to plan a path to pose: {goal_pose}")
 
         # Execute the planned path using pure pursuit
         with self._resource_manager.priority() as got_priority:
@@ -296,7 +300,7 @@ class SpotNavigationServer(MobileRobot):
     def _final_adjustments(
         self,
         goal_pose: Pose2D,
-        num_passes: int = 5,
+        num_passes: int = 2,
         timeout_s: float = 15.0,
     ) -> Outcome:
         """Perform repeated fine adjustments to reach the goal precisely.
@@ -321,8 +325,10 @@ class SpotNavigationServer(MobileRobot):
             # Re-send trajectory with freshly computed transform each pass
             success = self._manager.move_to_base_pose(goal_pose, self, per_pass_timeout_s)
 
-            if not success:
-                rospy.logwarn(f"Final adjustment pass {i + 1} did not reach goal, continuing...")
+            if success:
+                break
+
+            rospy.logwarn(f"Final adjustment pass {i + 1} did not reach goal, continuing...")
 
         # Check if we ended up at the goal after all passes
         final_success = self._manager.move_to_base_pose(goal_pose, self, per_pass_timeout_s)
