@@ -336,7 +336,7 @@ class SpotDoorOpener:
             success = False
 
         # Back up 1.5m directly (without turning) to clear the doorway
-        backward_distance_m = 2.5
+        backward_distance_m = 2
         self.manager.log_info(f"Backing up {backward_distance_m:.2f} m (no turn)...")
 
         robot_state = self.manager.get_robot_state()

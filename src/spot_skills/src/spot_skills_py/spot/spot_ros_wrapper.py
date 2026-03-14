@@ -166,10 +166,20 @@ class SpotROS1Wrapper:
             NameService,
             self.handle_pick_from_drawer,
         )
+        self._pick_from_filing_cabinet_srv = rospy.Service(
+            "spot/pick_from_filing_cabinet",
+            NameService,
+            self.handle_pick_from_filing_cabinet,
+        )
         self._place_object_srv = rospy.Service(
             "spot/place_object",
             PlaceObject,
             self.handle_place_object,
+        )
+        self._place_on_cabinet_srv = rospy.Service(
+            "spot/place_on_cabinet",
+            NameService,
+            self.handle_place_on_cabinet,
         )
 
         # Behavior cloning policy replay via LeRobot
@@ -264,6 +274,7 @@ class SpotROS1Wrapper:
         # Check if the occupancy grid map should be loaded from file
         occ_grid_yaml = get_ros_param("/spot/navigation/occ_grid_yaml", str, default_value="")
         if occ_grid_yaml:
+            rospy.loginfo(f"[INIT] Loading occupancy grid from file: {occ_grid_yaml}...")
             self.occupancy_grid = OccupancyGrid2D.from_file(yaml_path=Path(occ_grid_yaml))
 
             # If we've loaded the occupancy grid from file, "lock in" its values by default
@@ -525,26 +536,19 @@ class SpotROS1Wrapper:
                 return response
 
         with self._planning_scene_lock:
-            for obj_name in request.ignored_objects:  # Hide ignored objects before planning
-                self._env_state.hide_object(obj_name=obj_name)
-
-            # Sync the planning scene with the updated state (objects now hidden)
+            # Sync the planning scene with the current state
             self._arm_interface.manipulator.planning_scene.set_state(self._env_state)
 
             target_pose = pose_from_msg(request.target_pose)
             query = MotionPlanningQuery(
                 ee_target=target_pose,
+                ignored_objects=set(request.ignored_objects),
                 ignore_all_collisions=request.ignore_all_collisions,
             )
             rospy.loginfo(f"[compute_motion_plan] Planning with query: {query}")
 
+            # ACM-based ignoring handles collision exceptions for ignored_objects
             plan_msg = self._arm_interface.manipulator.planner.compute_motion_plan(query)
-
-            for obj_name in request.ignored_objects:  # Unhide hidden objects after planning
-                self._env_state.unhide_object(obj_name=obj_name)
-
-            # Sync again to restore the planning scene
-            self._arm_interface.manipulator.planning_scene.set_state(self._env_state)
 
         if plan_msg is None:
             response.message = "Motion planning failed: no valid plan found."
@@ -1042,6 +1046,20 @@ class SpotROS1Wrapper:
         outcome = self.spot_skills.pick_from_drawer(object_name=request.name)
         return NameServiceResponse(success=outcome.success, message=outcome.message)
 
+    def handle_pick_from_filing_cabinet(
+        self,
+        request: NameServiceRequest,
+    ) -> NameServiceResponse:
+        """Handle a request to pick the named object from a filing cabinet.
+
+        Runs pose estimation for the object and picks it.
+
+        :param request: ROS request containing the object name to pick
+        :return: Response conveying whether Spot successfully picked the object
+        """
+        outcome = self.spot_skills.pick_from_filing_cabinet(object_name=request.name)
+        return NameServiceResponse(success=outcome.success, message=outcome.message)
+
     def handle_place_object(self, request: PlaceObjectRequest) -> PlaceObjectResponse:
         """Handle a request to place a grasped object onto a named surface."""
         outcome = self.spot_skills.place(
@@ -1049,6 +1067,11 @@ class SpotROS1Wrapper:
             surface_name=request.surface_name,
         )
         return PlaceObjectResponse(success=outcome.success, message=outcome.message)
+
+    def handle_place_on_cabinet(self, request: NameServiceRequest) -> NameServiceResponse:
+        """Handle a request to place a grasped object on the cabinet."""
+        outcome = self.spot_skills.place_on_cabinet(object_name=request.name)
+        return NameServiceResponse(success=outcome.success, message=outcome.message)
 
     def handle_open_drawer(self, _: TriggerRequest) -> TriggerResponse:
         """Handle a request to have Spot open a draw using trajectory playback."""
