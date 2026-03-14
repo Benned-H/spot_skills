@@ -13,3 +13,6 @@
 [submodule "src/spot_skills/src/robotics_utils"]
 	path = src/spot_skills/src/robotics_utils
 	url = git@github.com:Benned-H/robotics_utils.git
+[submodule "lerobot-spot"]
+	path = lerobot-spot
+	url = git@github.com:waymao/lerobot-spot.git
