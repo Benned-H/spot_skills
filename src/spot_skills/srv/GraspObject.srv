@@ -1,0 +1,6 @@
+# Command the robot to grasp an object.
+string object_name
+---
+bool success
+string message
+geometry_msgs/PoseStamped new_pose  # It's the caller's job to update the state

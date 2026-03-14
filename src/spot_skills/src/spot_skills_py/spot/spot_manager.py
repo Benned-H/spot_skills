@@ -11,7 +11,6 @@ from bosdyn.api.basic_command_pb2 import StandCommand
 from bosdyn.api.docking.docking_pb2 import DockState
 from bosdyn.api.estop_pb2 import ESTOP_LEVEL_NONE
 from bosdyn.api.geometry_pb2 import SE2Velocity, SE2VelocityLimit, Vec2
-from bosdyn.api.gripper_command_pb2 import ClawGripperCommand
 from bosdyn.api.spot.robot_command_pb2 import BodyControlParams, MobilityParams
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.docking import DockingClient, blocking_dock_robot, blocking_undock
@@ -52,7 +51,6 @@ from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.skills import Outcome
 from rospy import loginfo as ros_loginfo
 
-from spot_skills_py.spot.spot_arm_controller import GripperCommandOutcome
 from spot_skills_py.spot.spot_configuration import SPOT_SDK_ARM_JOINT_NAMES
 from spot_skills_py.spot.spot_conversion import NOMINAL_STAND_HEIGHT_M
 from spot_skills_py.spot.spot_image_client import SpotImageClient
@@ -132,10 +130,10 @@ class SpotManager:
             self.resync_and_log()
 
         # Define thresholds for 'close enough' during locomotion
-        self.goal_reached_m = 0.2
+        self.goal_reached_m = 0.05
         """Distance (meters) within which Spot is considered to have reached a goal base pose."""
 
-        self.goal_yaw_tolerance_rad = 0.3
+        self.goal_yaw_tolerance_rad = 0.1
         """Angle (abs. radians) within which Spot's yaw is considered 'close enough' to a goal."""
 
         self.lease_wallet = self._robot.lease_wallet
@@ -440,14 +438,19 @@ class SpotManager:
         return self._state_client.get_robot_state()
 
     def get_hand_pose(self, *, ref_frame: str = ODOM_FRAME_NAME) -> SE3Pose:
-        """Query and return the pose of Spot's hand in the specified Spot SDK frame."""
+        """Query and return the pose of Spot's hand in the specified Spot SDK frame.
+
+        :raises TypeError: If the found pose has an unexpected type
+        """
         robot_state = self.get_robot_state()
         pose = get_a_tform_b(
             robot_state.kinematic_state.transforms_snapshot,
             ref_frame,
             HAND_FRAME_NAME,
         )
-        assert isinstance(pose, SE3Pose)
+        if not isinstance(pose, SE3Pose):
+            raise TypeError(f"Unexpected pose type from Spot SDK: {pose} (type {type(pose)}).")
+
         return pose
 
     def send_robot_command(
@@ -551,6 +554,42 @@ class SpotManager:
 
         return False
 
+    def get_grav_aligned_body_pose(self) -> SE3Pose:
+        """Return Spot's body pose in the gravity-aligned body frame."""
+        transforms = self.get_robot_state().kinematic_state.transforms_snapshot
+        grav_t_body = get_a_tform_b(transforms, GRAV_ALIGNED_BODY_FRAME_NAME, BODY_FRAME_NAME)
+        if not isinstance(grav_t_body, SE3Pose):
+            raise TypeError("Unable to retrieve gravity-aligned body transform for Spot.")
+
+        return grav_t_body
+
+    def get_body_tilt_rad(self) -> tuple[float, float]:
+        """Return Spot's current body (roll, pitch) in radians."""
+        grav_t_body = self.get_grav_aligned_body_pose()
+        quat = grav_t_body.rot
+        return quat.to_roll(), quat.to_pitch()
+
+    def is_body_flat(self, tolerance_rad: float = 0.05) -> bool:
+        """Check whether Spot's current body tilt is within the given tolerance (in radians)."""
+        roll_rad, pitch_rad = self.get_body_tilt_rad()
+        return max(abs(roll_rad), abs(pitch_rad)) <= abs(tolerance_rad)
+
+    def build_flat_body_pose_command(self) -> RobotCommand:
+        """Build a stand command that flattens Spot's body roll/pitch and resets its body height.
+
+        This command preserves Spot's current body yaw in the gravity-aligned body frame.
+        """
+        grav_t_body = self.get_grav_aligned_body_pose()
+
+        quat = grav_t_body.rot
+        flat_orientation = EulerZXY(yaw=quat.to_yaw(), roll=0.0, pitch=0.0)
+
+        return RobotCommandBuilder.synchro_stand_command(
+            params=self._no_body_assist_params,
+            body_height=NOMINAL_STAND_HEIGHT_M,
+            footprint_R_body=flat_orientation,
+        )
+
     def build_hold_body_pose_command(self) -> RobotCommand:
         """Build a stand command that holds Spot's current body pose.
 
@@ -559,12 +598,7 @@ class SpotManager:
 
         :return: A RobotCommand that holds the current body pose without body assist
         """
-        robot_state = self.get_robot_state()
-        transforms = robot_state.kinematic_state.transforms_snapshot
-
-        footprint_t_body = get_a_tform_b(transforms, GRAV_ALIGNED_BODY_FRAME_NAME, BODY_FRAME_NAME)
-        if not footprint_t_body:
-            raise RuntimeError("Unable to retrieve footprint-to-body transform from Spot.")
+        footprint_t_body = self.get_grav_aligned_body_pose()
 
         # For some reason, body height is specified relative to a "nominal stand height"
         body_height_offset_m = footprint_t_body.z - NOMINAL_STAND_HEIGHT_M
@@ -611,41 +645,6 @@ class SpotManager:
         bd_block_arm_command(self.command_client, command_id)
         time.sleep(0.5)
         self.log_info("Done blocking.\n")
-
-    def block_during_gripper_command(
-        self,
-        command_id: int,
-        timeout_s: float = 5.0,
-    ) -> GripperCommandOutcome:
-        """Block until Spot's gripper completes the identified command (or time runs out).
-
-        :param command_id: ID of a robot command for Spot's gripper
-        :param timeout_s: Timeout (seconds) after which the command is considered failed
-        :return: Enum member indicating the outcome of the gripper command
-        """
-        end_time = time.time() + timeout_s
-
-        while time.time() < end_time:
-            response = self.command_client.robot_command_feedback(command_id)
-            if response.feedback.HasField("synchronized_feedback"):
-                sync_fb = response.feedback.synchronized_feedback
-
-                if sync_fb.HasField("gripper_command_feedback"):
-                    gripper_status = sync_fb.gripper_command_feedback.claw_gripper_feedback.status
-
-                    # If gripper has reached its goal, or entered force control mode, success!
-                    if gripper_status == ClawGripperCommand.Feedback.STATUS_AT_GOAL:
-                        return GripperCommandOutcome.REACHED_SETPOINT
-
-                    if gripper_status == ClawGripperCommand.Feedback.STATUS_APPLYING_FORCE:
-                        return GripperCommandOutcome.STALLED
-
-                    if gripper_status == ClawGripperCommand.Feedback.STATUS_UNKNOWN:
-                        return GripperCommandOutcome.FAILURE
-
-            time.sleep(0.25)
-
-        return GripperCommandOutcome.FAILURE
 
     def deploy_arm(self) -> bool:
         """Deploy Spot's arm to "ready" and wait until the arm has deployed.
@@ -727,6 +726,7 @@ class SpotManager:
             return False
 
         # Create mobility params with velocity limit if max_speed_mps is specified
+        # IMPORTANT: Start from the default mobility params to preserve obstacle avoidance
         mobility_params = None
         if max_speed_mps is not None:
             # Scale angular velocity proportionally (Spot's max is ~1.5 rad/s at ~1.6 m/s)
@@ -737,7 +737,11 @@ class SpotManager:
                     angular=max_angular_radps,
                 ),
             )
-            mobility_params = MobilityParams(vel_limit=vel_limit)
+            mobility_params = RobotCommandBuilder.mobility_params(
+                body_height=0.0,
+                locomotion_hint=self._mobility_params.locomotion_hint,
+            )
+            mobility_params.vel_limit.CopyFrom(vel_limit)
 
         trajectory_command = self._make_trajectory_command(
             base_pose=pose,

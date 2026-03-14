@@ -18,7 +18,7 @@ markers:
   # marker_45:
   #   size_cm: 7.6
 
-  marker_500: # Attached on top of the eraser
+  marker_501: # Attached on top of the eraser
     size_cm: 3.6
     relative_frames: # Eraser frame is "behind" (+z) and roll 180° to flip the y- and z-axes
       eraser1: [0, 0, 0.035, 3.14159, 0, 0]

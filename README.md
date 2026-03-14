@@ -72,6 +72,15 @@ _Troubleshooting_:
 
 1. If the launch script isn't working, check that you've successfully pulled all submodules. Use:
    - `git submodule update --init --recursive`
+2. If `rviz` crashes in the NVIDIA container with `Unable to create a suitable GLXContext`, make sure you:
+   - Ran `xhost +local:docker` on the host before launching Docker
+   - Launched the GPU-enabled service: `docker compose up nvidia-spot-tamp-v1 --detach`
+   - Rebuilt and recreated the NVIDIA container after Docker config changes:
+
+```bash
+docker compose build nvidia-spot-tamp-v1
+docker compose up nvidia-spot-tamp-v1 --force-recreate --detach
+```
 
 ## Example Demonstrations
 
@@ -86,16 +95,15 @@ stated, you need to move to the top-level `spot_skills` folder, build the worksp
 ```bash
 # In Docker
 uv venv --clear --system-site-packages --python 3.8
-uv pip install -e .
-uv pip install -e src/spot_ros/spot_wrapper
 source .venv/bin/activate
 
-catkin build
-source devel/setup.bash
+uv pip install -e .
+uv pip install -e src/spot_ros/spot_wrapper
 
-# Temporary stopgap for missing deps
-apt-get update
-apt-get install python3-tk
+# Ensure ROS Python nodes use the venv's interpreter
+catkin config --cmake-args -DPYTHON_EXECUTABLE=$(which python)
+catkin build --force-cmake
+source devel/setup.bash
 ```
 
 If a demo requires a second or third terminal tab to be opened into Docker, move to the same directory and source the following:
@@ -109,30 +117,7 @@ source devel/setup.bash
 
 ### Long Trajectory Using Spot SDK (Real-World)
 
-In this real-world demonstration, Spot will use its arm to follow a 20-second trajectory. To run the demo, perform the following steps:
-
-1. Use the tablet to teleoperate Spot to an open area free of obstacles.
-   Make sure there's space in front of Spot for Spot's arm to fully extend.
-
-2. Use the tablet to make Spot sit, which may be hidden under the _Stand_ menu. Then,
-   release tablet control of Spot by entering the _Power Button_ menu (top of the
-   screen), then tapping _Advanced_, and selecting **Release Control**.
-   - _Check_: Are Spot's front lights now flashing rainbow?
-
-3. On your computer, make sure you've followed the **Docker Demo Setup** instructions above.
-
-4. To begin the demo, run the following command, with `NAME_HERE` replaced by the name of the Spot you're using (e.g., `spot_name:=barker`):
-
-```bash
-roslaunch spot_skills spot_sdk_demo.launch spot_name:=NAME_HERE
-```
-
-Spot should power on, stand up, deploy its arm, and begin executing the trajectory.
-Once the trajectory is complete, Spot should stow its arm, sit down, power off, and the demo driver will end by saying:
-
-```
-[INFO] [...]: Finished running the long joint trajectory.
-```
+**DEPRECATED** ([described here](docs/long-trajectory-demo.md))
 
 ### Control Spot's Arm using MoveIt
 
@@ -173,9 +158,11 @@ control the simulated Spot's arm.
 roslaunch spot_skills moveit_spot_demo.launch real_robot:=true spot_name:=NAME_HERE
 ```
 
-6. In the second Docker terminal tab, source `devel/setup.bash`, and then run:
+6. In the second Docker terminal tab, source `.venv/bin/activate` and `devel/setup.bash`, and then run:
 
 ```bash
+source .venv/bin/activate
+source devel/setup.bash
 rosrun spot_skills spot_moveit_demo.py
 ```
 
@@ -262,6 +249,60 @@ rosservice call /spot/playback_trajectory "yaml_path: 'YAML_FILEPATH'"
 ```
 
 - Make sure to use the _absolute path_ to the YAML file (e.g., `/docker/spot_skills/recorded-tfs.yaml`).
+
+### Behavior Cloning Policy Replay (LeRobot)
+
+In this demonstration, a trained [LeRobot](https://github.com/huggingface/lerobot) ACT policy is replayed on the real Spot robot. The policy runs in a Python 3.10+ subprocess via `uv run`, so it works alongside the ROS1 (Python 3.8) environment.
+
+**Prerequisites:**
+
+1. Clone the `lerobot-spot` plugin into the workspace (inside Docker):
+
+   ```bash
+   git clone https://github.com/soujanya957/lerobot-spot.git /docker/spot_skills/lerobot-spot
+   ```
+
+2. Pre-install dependencies (first run downloads ~2 GB of packages; subsequent runs use the cache):
+
+   ```bash
+   LEROBOT_SPOT_ROOT=/docker/spot_skills/lerobot-spot \
+     uv run /docker/spot_skills/src/spot_skills/src/spot_skills_py/behavior_cloning/policy_replay_service.py --help
+   ```
+
+3. Place your pretrained model checkpoint in `models/spot-act/pretrained_model/`.
+
+**Running via ROS service:**
+
+1. Follow the **Docker Demo Setup** above, then launch the Spot wrapper node:
+
+   ```bash
+   roslaunch spot_skills bringup_spot_skills.launch spot_name:=NAME_HERE
+   ```
+
+2. In another Docker terminal (after sourcing `devel/setup.bash`), trigger the policy replay:
+
+   ```bash
+   rosservice call /spot/policy_replay
+   ```
+
+   The service releases control to the LeRobot subprocess, which connects to Spot, runs the policy for up to 30 seconds, then returns control to ROS.
+
+   Optional ROS parameters (set before launching the node):
+   - `~pretrained_path` — path to the pretrained model (default: `<repo_root>/models/spot-act/pretrained_model`)
+   - `~dataset_path` — path to the training dataset
+   - `~lerobot_spot_root` — path to the `lerobot-spot` repo (default: `/docker/spot_skills/lerobot-spot`)
+
+**Running standalone (without ROS):**
+
+```bash
+LEROBOT_SPOT_ROOT=/docker/spot_skills/lerobot-spot \
+  uv run src/spot_skills/src/spot_skills_py/behavior_cloning/policy_replay_service.py \
+    --hostname <SPOT_IP> \
+    --username <USER> \
+    --password <PASS> \
+    --pretrained-path models/spot-act/pretrained_model \
+    --dataset-path /path/to/training/dataset
+```
 
 ## Real-Robot Experiments
 
