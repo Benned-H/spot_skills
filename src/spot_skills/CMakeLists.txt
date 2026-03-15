@@ -181,6 +181,7 @@ catkin_install_python(PROGRAMS
   scripts/arm_long_trajectory_demo.py
   scripts/pose_sampling_demo.py
   scripts/spot_wrapper_node.py
+  scripts/run_real_world_experiment.py
   scripts/spot_moveit_demo.py
   scripts/ee_control_demo.py
   scripts/fake_gripper_action_server.py

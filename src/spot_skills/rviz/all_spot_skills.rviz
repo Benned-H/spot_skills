@@ -45,6 +45,8 @@ Visualization Manager:
       Frame Timeout: 900
       Frames:
         All Enabled: true
+        approach_filing_cabinet:
+          Value: true
         arm0.link_wr1:
           Value: true
         arm_link_el0:
@@ -71,23 +73,31 @@ Visualization Manager:
           Value: true
         black_dresser:
           Value: true
+        board1:
+          Value: true
         body:
           Value: true
+        close_door:
+          Value: true
         dock:
+          Value: true
+        dock_520:
+          Value: true
+        door1:
           Value: true
         erase:
           Value: true
         eraser1:
           Value: true
+        facing_filing_cabinet:
+          Value: true
         feet_center:
           Value: true
         fiducial_1:
           Value: true
-        fiducial_2:
+        filing_cabinet:
           Value: true
         filtered_fiducial_1:
-          Value: true
-        filtered_fiducial_2:
           Value: true
         flat_body:
           Value: true
@@ -125,6 +135,8 @@ Visualization Manager:
           Value: true
         head:
           Value: true
+        into_office:
+          Value: true
         left:
           Value: true
         left_fisheye:
@@ -133,13 +145,13 @@ Visualization Manager:
           Value: true
         map:
           Value: true
+        obstruction_near_cabinet:
+          Value: true
         odom:
           Value: true
         open_door:
           Value: true
         open_drawer:
-          Value: true
-        pick_from_drawer:
           Value: true
         rear_left_foot:
           Value: true
@@ -181,18 +193,32 @@ Visualization Manager:
       Show Names: true
       Tree:
         map:
+          approach_filing_cabinet:
+            {}
           black_dresser:
-            open_drawer:
-              {}
-            pick_from_drawer:
-              {}
+            {}
+          board1:
+            {}
+          close_door:
+            {}
           dock:
+            {}
+          door1:
             {}
           erase:
             {}
           eraser1:
             {}
+          facing_filing_cabinet:
+            {}
+          filing_cabinet:
+            obstruction_near_cabinet:
+              {}
+          into_office:
+            {}
           open_door:
+            {}
+          open_drawer:
             {}
           seed:
             {}
@@ -273,13 +299,11 @@ Visualization Manager:
                     {}
               sensor:
                 {}
+            dock_520:
+              {}
             fiducial_1:
               {}
-            fiducial_2:
-              {}
             filtered_fiducial_1:
-              {}
-            filtered_fiducial_2:
               {}
       Update Interval: 0
       Value: true
@@ -316,7 +340,7 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.009999999776482582
       Style: Flat Squares
-      Topic: /spot/lidar_cloud
+      Topic: /spot/lidar/points
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -687,9 +711,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.2197975069284439
+      Pitch: 0.7197970747947693
       Target Frame: body
-      Yaw: 1.6368657350540161
+      Yaw: 1.6618657112121582
     Saved: ~
 Window Geometry:
   Displays:

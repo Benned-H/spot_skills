@@ -65,7 +65,7 @@ class PolicyReplayBridge:
         pretrained_path: str = None,
         device: str = "cuda",
         fps: int = 10,
-        episode_time_s: float = 15.0,
+        episode_time_s: float = 20.0,
         image_sources: Optional[List[str]] = None,
         image_width: int = 640,
         image_height: int = 480,
@@ -187,16 +187,20 @@ class PolicyReplayBridge:
         pipe.close()
 
     def _request_take_control(self, reason: str) -> None:
-        """Ask the wrapper to reclaim the Spot lease exactly once per replay."""
+        """Ask the wrapper to reclaim the Spot lease exactly once per replay.
+
+        Only the lease handoff is performed here, while the subprocess may still
+        be executing its finally-block cleanup.  Arm unlock and stow are handled
+        synchronously by the service handler after wait() returns, so they
+        cannot race with the next policy-replay call.
+        """
         with self._lock:
             if self._take_control_requested:
                 return
             self._take_control_requested = True
 
         try:
-            trigger_service("spot/take_control")
-            trigger_service("spot/unlock_arm")
-            outcome = trigger_service("spot/stow_arm")
+            outcome = trigger_service("spot/take_control")
         except Exception as exc:  # pragma: no cover - best-effort reclaim during shutdown
             self._warn(
                 f"[policy_replay] Failed to request SpotROSWrapper control handoff after "

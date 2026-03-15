@@ -156,11 +156,11 @@ class SpotROS1Wrapper:
         self._rviz_pub = rospy.Publisher("visualization_marker", Marker, queue_size=1)
 
         self._open_drawer_srv = rospy.Service("spot/open_drawer", Trigger, self.handle_open_drawer)
-        self._pick_object_srv = rospy.Service(
-            "spot/pick_object",
-            NameService,
-            self.handle_pick_object,
-        )
+        # self._pick_object_srv = rospy.Service(
+        #     "spot/pick_object",
+        #     NameService,
+        #     self.handle_pick_object,
+        # )
         self._pick_from_drawer_srv = rospy.Service(
             "spot/pick_from_drawer",
             NameService,
@@ -1026,14 +1026,14 @@ class SpotROS1Wrapper:
         response.message = str(yaml_path)
         return response
 
-    def handle_pick_object(self, request: NameServiceRequest) -> NameServiceResponse:
-        """Handle a request to pick the named object using Spot's gripper.
+    # def handle_pick_object(self, request: NameServiceRequest) -> NameServiceResponse:
+    #     """Handle a request to pick the named object using Spot's gripper.
 
-        :param request: ROS request containing the object name to pick
-        :return: Response conveying whether Spot successfully picked the object
-        """
-        outcome = self.spot_skills.pick(object_name=request.name)
-        return NameServiceResponse(success=outcome.success, message=outcome.message)
+    #     :param request: ROS request containing the object name to pick
+    #     :return: Response conveying whether Spot successfully picked the object
+    #     """
+    #     outcome = self.spot_skills.pick(object_name=request.name)
+    #     return NameServiceResponse(success=outcome.success, message=outcome.message)
 
     def handle_pick_from_drawer(self, request: NameServiceRequest) -> NameServiceResponse:
         """Handle a request to pick the named object from a drawer.
@@ -1444,8 +1444,18 @@ class SpotROS1Wrapper:
             rospy.logerr(f"[policy_replay] Error: {e}")
             result = {"success": False, "error": str(e)}
         finally:
-            # Re-take the lease after subprocess exits
+            # Re-take the lease after subprocess exits.
             self._manager.ensure_control(take_by_force=True)
+            # Unlock and stow the arm synchronously before returning so that the
+            # next call always starts with the robot in a clean resting state.
+            # (Previously this ran on a background thread and could race with the
+            # next invocation, causing blocking_stand() to time out.)
+            self._arm_interface._arm_locked = False
+            if self._manager.has_arm():
+                try:
+                    self._manager.stow_arm()
+                except Exception as stow_err:
+                    rospy.logwarn(f"[policy_replay] Could not stow arm during cleanup: {stow_err}")
 
         success = result.get("success", False)
         message = (

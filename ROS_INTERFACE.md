@@ -247,93 +247,52 @@
 | `spot/stand`        | Navigation, manipulation                                            | Not always enforced in code, but the robot must be standing to walk or use the arm.                                                                                                              |
 | `spot/stow_arm`     | Navigation (recommended)                                            | Not enforced, but navigating with an unstowed arm risks collisions.                                                                                                                              |
 
-### Example Task Plan
+### Real-World Experiment Sequence
 
 The sequence below executes a multi-step task: navigate to a door, open it, go to a drawer, open it, pick up an eraser1, place it in a cabinet, close the door, retrieve the eraser1, and erase a board.
+
+If you want to run this as a single executable instead of individual `rosservice call`s, use `src/spot_skills/scripts/run_real_world_experiment.py`.
 
 ```bash
 # Take control and undock
 rosservice call /spot/take_control "{}"
 rosservice call /spot/unlock_arm "{}"
-# rosservice call /spot/undock "{}"
+rosservice call /spot/undock "{}"
 
 # Go to the drawer, then open it
-rosservice call /spot/navigation/to_waypoint "name: 'pre_drawer'"
 rosservice call /spot/navigation/to_waypoint "name: 'open_drawer'"
 rosservice call /spot/open_drawer "{}"
 
-# Go to the door, then open it
-# TODO: rosservice call /spot/stow_arm "{}"
+# Go to the door and open it
 rosservice call /spot/navigation/to_waypoint "name: 'open_door'"
-
-# ── 1. GoTo(open_door) ────────────────────────────────────
-# Preconditions: robot standing. Stow arm for safe navigation.
-rosservice call /spot/stow_arm "{}"
-rosservice call /spot/navigation/to_waypoint "name: 'open_door'"
-
-# ── 2. Open(door) ─────────────────────────────────────────
-# Preconditions: arm MUST be unlocked (handler checks locked state).
-# Robot should be facing the door with the handle visible.
-rosservice call /spot/unlock_arm "{}"
 rosservice call /spot/open_door "{body_pitch_rad: -0.1, is_pull: false, hinge_on_left: true, door_offset_m: 1.25, ray_search_dist_m: 0.25}"
 
-# ── 3. GoTo(Drawer) ───────────────────────────────────────
-# Stow arm before navigating to avoid collisions.
-rosservice call /spot/stow_arm "{}"
+# Go back to the dresser (two waypoints needed) and then pick the eraser
 rosservice call /spot/navigation/to_waypoint "name: 'open_drawer'"
-
-# ── 5. PickFromDrawer(eraser1) ─────────────────────────────
-# pick_from_drawer runs pose estimation for the object and drawer,
-# then executes the full pick sequence (pre-grasp → grasp → lift → stow).
-# Use pick_object instead if pose estimation is not needed.
+rosservice call /spot/navigation/to_waypoint "name: 'pick_from_drawer'"
 rosservice call /spot/pick_from_drawer "name: 'eraser1'"
 
-# ── 6. GoTo(cabinet_in_office) ────────────────────────────
-# Stow arm (with object in gripper) for safe navigation.
-rosservice call /spot/stow_arm "{}"
+# Head into the office area, then to the filing cabinet
+rosservice call /spot/navigation/to_waypoint "name: 'open_drawer'"
 rosservice call /spot/navigation/to_waypoint "name: 'into_office'"
 rosservice call /spot/navigation/to_waypoint "name: 'approach_filing_cabinet'"
 rosservice call /spot/navigation/to_waypoint "name: 'facing_filing_cabinet'"
 
-# ── 7. Place(eraser1, Cabinet) ─────────────────────────────
-# Preconditions: arm MUST be unlocked, robot MUST have control.
-# Handler opens gripper and computes the object's new pose
-# relative to the specified parent frame.
-rosservice call /spot/unlock_arm "{}"
-rosservice call /spot/release_object "object_name: 'eraser1' new_parent_frame: 'Cabinet'"
+# Place the eraser onto the filing cabinet, then back away
+rosservice call /spot/place_on_cabinet "name: 'eraser1'"
+rosservice call /spot/navigation/to_waypoint "name: 'approach_filing_cabinet'"
 
-# ── 8. GoTo(close_door_waypoint) ──────────────────────────
-rosservice call /spot/stow_arm "{}"
-rosservice call /spot/navigation/to_waypoint "name: 'close_door'"
-
-# ── 9. Close(door) ────────────────────────────────────────
-# There is no dedicated "close door" service. Use open_door
-# with is_pull=true to pull the door closed from the other side.
-# Adjust hinge_on_left based on your door geometry.
-rosservice call /spot/unlock_arm "{}"
+# Head over and close the door
 rosservice call /spot/navigation/to_waypoint "name: 'close_door'"
 rosservice call /spot/policy_replay "name: 'spot-close-door2-combined'"
-rosservice call /spot/stow_arm "{}"
 
-# ── 10. GoTo(cabinet) ─────────────────────────────────────
-rosservice call /spot/stow_arm "{}"
-rosservice call /spot/navigation/to_waypoint "name: 'cabinet'"
+# Pick the eraser from the top of the filing cabinet
+rosservice call /spot/navigation/to_waypoint "name: 'approach_filing_cabinet'"
+rosservice call /spot/navigation/to_waypoint "name: 'facing_filing_cabinet'"
+rosservice call /spot/pick_from_filing_cabinet "name: 'eraser1'"
 
-# ── 11. Pick(eraser1) ──────────────────────────────────────
-rosservice call /spot/pick_object "name: 'eraser1'"
-
-# ── 12. Erase(Board) ──────────────────────────────────────
-# Preconditions: arm MUST be unlocked, robot MUST have control,
-# RPC priority must be obtainable.
-# Robot must already be at the erase waypoint facing the board.
-# Erase region is configured via ROS params:
-#   spot/erase_board_y, spot/erase_x_min, spot/erase_x_max,
-#   spot/erase_z_min, spot/erase_z_max, spot/erase_x_spacing,
-#   spot/erase_reachable_half_width, spot/erase_force_n,
-#   spot/erase_segment_time_s
-rosservice call /spot/unlock_arm "{}"
-# If coming from filing cabinet:
-#   rosservice call /spot/navigation/to_waypoint "name: 'approach_filing_cabinet'"
+# Go to the board and erase it
+rosservice call /spot/navigation/to_waypoint "name: 'approach_filing_cabinet'"
 rosservice call /spot/navigation/to_waypoint "name: 'erase'"
 rosservice call /spot/erase_board "{}"
 ```

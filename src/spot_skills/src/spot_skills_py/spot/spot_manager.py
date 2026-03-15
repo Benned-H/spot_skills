@@ -130,7 +130,7 @@ class SpotManager:
             self.resync_and_log()
 
         # Define thresholds for 'close enough' during locomotion
-        self.goal_reached_m = 0.05
+        self.goal_reached_m = 0.1
         """Distance (meters) within which Spot is considered to have reached a goal base pose."""
 
         self.goal_yaw_tolerance_rad = 0.1
