@@ -127,7 +127,7 @@ class ExperimentRunner:
         stop_index = len(self._steps) - 1
 
         if self._config.start_at_step is not None:
-            start_index = self._find_step_index(self._config.start_at_step)
+            start_index = self._find_start_step_index(self._config.start_at_step)
 
         if self._config.stop_after_step is not None:
             stop_index = self._find_step_index(self._config.stop_after_step)
@@ -148,6 +148,21 @@ class ExperimentRunner:
 
         available_steps = ", ".join(step.key for step in self._steps)
         raise ValueError(f"Unknown step '{step_key}'. Available steps: {available_steps}")
+
+    def _find_start_step_index(self, step_selector: str) -> int:
+        """Look up the start step by key or zero-based integer index."""
+        try:
+            step_index = int(step_selector)
+        except ValueError:
+            return self._find_step_index(step_selector)
+
+        if 0 <= step_index < len(self._steps):
+            return step_index
+
+        max_index = len(self._steps) - 1
+        raise ValueError(
+            f"Start step index {step_index} is out of range. Valid indices: 0-{max_index}",
+        )
 
     def _execute_step(self, step: ExperimentStep) -> StepResult:
         """Call the ROS service associated with a single experiment step."""
@@ -354,6 +369,11 @@ class ExperimentRunner:
                 "open_drawer",
             ),
             self._trigger_step("open_drawer", "Open the drawer", "/spot/open_drawer"),
+            self._trigger_step(
+                "stow_after_open_drawer",
+                "Stow Spot's arm after opening the drawer",
+                "/spot/stow_arm",
+            ),
             self._waypoint_step("goto_door", "Navigate to the door waypoint", "open_door"),
             ExperimentStep(
                 key="open_door",
@@ -384,6 +404,11 @@ class ExperimentRunner:
                 "/spot/pick_from_drawer",
                 lambda config: config.object_name,
             ),
+            self._trigger_step(
+                "stow_after_pick_from_drawer",
+                "Stow Spot's arm after picking the eraser from the drawer",
+                "/spot/stow_arm",
+            ),
             self._waypoint_step(
                 "leave_drawer",
                 "Navigate back out from the drawer",
@@ -411,6 +436,11 @@ class ExperimentRunner:
                 "/spot/place_on_cabinet",
                 lambda config: config.object_name,
             ),
+            self._trigger_step(
+                "stow_after_place",
+                "Stow Spot's arm after placing the eraser on the cabinet",
+                "/spot/stow_arm",
+            ),
             self._waypoint_step(
                 "back_from_cabinet",
                 "Navigate back away from the filing cabinet",
@@ -427,6 +457,11 @@ class ExperimentRunner:
                 "/spot/policy_replay",
                 lambda config: config.close_door_policy,
             ),
+            self._trigger_step(
+                "stow_after_close_door",
+                "Stow Spot's arm after closing the door",
+                "/spot/stow_arm",
+            ),
             self._waypoint_step(
                 "return_to_cabinet",
                 "Navigate back to the filing cabinet approach waypoint",
@@ -438,10 +473,15 @@ class ExperimentRunner:
                 "facing_filing_cabinet",
             ),
             self._name_step(
-                "pick_from_filing_cabinet",
+                "pick_from_cabinet",
                 "Pick the eraser back up from the filing cabinet",
                 "/spot/pick_from_filing_cabinet",
                 lambda config: config.object_name,
+            ),
+            self._trigger_step(
+                "stow_after_pick_from_cabinet",
+                "Stow Spot's arm after picking the eraser from the cabinet",
+                "/spot/stow_arm",
             ),
             self._waypoint_step(
                 "leave_cabinet",
@@ -561,7 +601,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--start-at-step",
-        help="Start execution at the named step key instead of from the beginning.",
+        help="Start execution at the named step key or zero-based step index.",
     )
     parser.add_argument(
         "--stop-after-step",
